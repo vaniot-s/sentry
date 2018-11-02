@@ -773,6 +773,10 @@ class EventManager(object):
             'platform': platform,
         }
 
+        # TODO should this be set in the Event constructor or a
+        # Event.create_event type class method?
+        data['node_id'] = '{}:{}'.format(project.id, event_id)[:40]
+
         event = Event(
             project_id=project.id,
             event_id=event_id,
