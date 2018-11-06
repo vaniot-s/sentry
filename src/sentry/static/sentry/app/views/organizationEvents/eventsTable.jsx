@@ -2,6 +2,7 @@ import {withRouter, Link} from 'react-router';
 import PropTypes from 'prop-types';
 import React from 'react';
 import styled from 'react-emotion';
+import {isEqual} from 'lodash';
 
 import {t} from 'app/locale';
 import {PanelBody, Panel, PanelHeader} from 'app/components/panels';
@@ -13,7 +14,7 @@ import SentryTypes from 'app/sentryTypes';
 import overflowEllipsis from 'app/styles/overflowEllipsis';
 import space from 'app/styles/space';
 
-class EventsTable extends React.PureComponent {
+class EventsTable extends React.Component {
   static propTypes = {
     events: PropTypes.array,
     organization: SentryTypes.Organization,
@@ -24,6 +25,17 @@ class EventsTable extends React.PureComponent {
     this.projectsMap = new Map(
       props.organization.projects.map(project => [project.id, project])
     );
+  }
+
+  shouldComponentUpdate(nextProps) {
+    if (
+      isEqual(this.props.events, nextProps.events) &&
+      isEqual(this.props.organization, nextProps.organization)
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   getEventTitle(event) {
