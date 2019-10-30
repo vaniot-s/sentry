@@ -1,5 +1,5 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import AdminSettings from 'app/views/admin/adminSettings';
@@ -116,7 +116,7 @@ describe('AdminSettings', function() {
     });
 
     it('renders', function() {
-      let wrapper = shallow(<AdminSettings params={{}} />, {
+      const wrapper = shallow(<AdminSettings params={{}} />, {
         context: {
           router: TestStubs.router(),
         },

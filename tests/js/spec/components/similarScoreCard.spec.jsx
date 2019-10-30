@@ -1,25 +1,19 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 import SimilarScoreCard from 'app/components/similarScoreCard';
 
 describe('SimilarScoreCard', function() {
-  let sandbox;
+  beforeEach(function() {});
 
-  beforeEach(function() {
-    sandbox = sinon.sandbox.create();
-  });
-
-  afterEach(function() {
-    sandbox.restore();
-  });
+  afterEach(function() {});
 
   it('renders', function() {
-    let wrapper = shallow(<SimilarScoreCard />);
+    const wrapper = shallow(<SimilarScoreCard />);
     expect(wrapper).toMatchSnapshot();
   });
 
   it('renders with score list', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <SimilarScoreCard
         scoreList={[
           ['exception,message,character-shingles', null],

@@ -1,15 +1,8 @@
-"""
-sentry.templatetags.sentry_plugins
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-:copyright: (c) 2010-2014 by the Sentry Team, see AUTHORS for more details.
-:license: BSD, see LICENSE for more details.
-"""
 from __future__ import absolute_import
 
 from django import template
 
-from sentry.plugins import Annotation, plugins
+from sentry.plugins.base import Annotation, plugins
 from sentry.utils.safe import safe_execute
 
 register = template.Library()
@@ -21,12 +14,7 @@ def get_actions(group, request):
 
     action_list = []
     for plugin in plugins.for_project(project, version=1):
-        results = safe_execute(
-            plugin.actions,
-            request,
-            group,
-            action_list,
-            _with_transaction=False)
+        results = safe_execute(plugin.actions, request, group, action_list, _with_transaction=False)
 
         if not results:
             continue

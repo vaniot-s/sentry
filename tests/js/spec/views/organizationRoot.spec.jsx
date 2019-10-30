@@ -1,5 +1,5 @@
 import React from 'react';
-import {mount} from 'enzyme';
+import {mount} from 'sentry-test/enzyme';
 
 import {OrganizationRoot} from 'app/views/organizationRoot';
 import {setActiveProject} from 'app/actionCreators/projects';
@@ -21,7 +21,7 @@ describe('OrganizationRoot', function() {
   });
 
   it('calls `setLastRoute` when unmounted', function() {
-    let wrapper = mount(
+    const wrapper = mount(
       <OrganizationRoot location={{pathname: '/org-slug/dashboard/'}}>
         {null}
       </OrganizationRoot>
@@ -33,7 +33,7 @@ describe('OrganizationRoot', function() {
   });
 
   it('calls `setLastRoute` when unmounted with query string', function() {
-    let wrapper = mount(
+    const wrapper = mount(
       <OrganizationRoot location={{pathname: '/org-slug/dashboard/', search: '?test=1'}}>
         {null}
       </OrganizationRoot>

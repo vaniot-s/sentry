@@ -1,24 +1,25 @@
 /* global __dirname */
-import {channel, createBroadcast} from 'emotion-theming';
 import jQuery from 'jquery';
-import sinon from 'sinon';
 import Adapter from 'enzyme-adapter-react-16';
-import Enzyme from 'enzyme';
+import Enzyme from 'enzyme'; // eslint-disable-line no-restricted-imports
 import MockDate from 'mockdate';
 import PropTypes from 'prop-types';
+import fromEntries from 'object.fromentries';
 
 import ConfigStore from 'app/stores/configStore';
-import theme from 'app/utils/theme';
 
-import {loadFixtures} from './helpers/loadFixtures';
+import {loadFixtures} from './sentry-test/loadFixtures';
 
-export * from './helpers/select';
+export * from './sentry-test/select';
+
+// We need this polyfill for testing only because
+// typescript handles it for main application
+fromEntries.shim();
 
 /**
  * Enzyme configuration
  */
 Enzyme.configure({adapter: new Adapter()});
-Enzyme.configure({disableLifecycleMethods: true});
 
 /**
  * Mock (current) date to alway be below
@@ -27,15 +28,10 @@ const constantDate = new Date(1508208080000); //National Pasta Day
 MockDate.set(constantDate);
 
 /**
- * emotion setup for theme provider in context
- */
-const broadcast = createBroadcast(theme);
-
-/**
  * Load all files in `tests/js/fixtures/*` as a module.
  * These will then be added to the `TestStubs` global below
  */
-const fixturesPath = `${__dirname}/fixtures`;
+const fixturesPath = `${__dirname}/sentry-test/fixtures`;
 const fixtures = loadFixtures(fixturesPath);
 
 /**
@@ -53,8 +49,9 @@ jest.mock('lodash/debounce', () => jest.fn(fn => fn));
 jest.mock('app/utils/recreateRoute');
 jest.mock('app/translations');
 jest.mock('app/api');
+jest.mock('app/utils/domId');
 jest.mock('app/utils/withOrganization');
-jest.mock('scroll-to-element', () => {});
+jest.mock('scroll-to-element', () => jest.fn());
 jest.mock('react-router', () => {
   const ReactRouter = require.requireActual('react-router');
   return {
@@ -65,6 +62,7 @@ jest.mock('react-router', () => {
     Route: ReactRouter.Route,
     withRouter: ReactRouter.withRouter,
     browserHistory: {
+      goBack: jest.fn(),
       push: jest.fn(),
       replace: jest.fn(),
       listen: jest.fn(() => {}),
@@ -100,14 +98,39 @@ jest.mock('echarts-for-react/lib/core', () => {
   };
 });
 
-jest.mock('app/utils/sdk', () => ({
-  captureBreadcrumb: jest.fn(),
-  addBreadcrumb: jest.fn(),
-  captureMessage: jest.fn(),
-  captureException: jest.fn(),
-  showReportDialog: jest.fn(),
-  lastEventId: jest.fn(),
-}));
+jest.mock('@sentry/browser', () => {
+  const SentryBrowser = require.requireActual('@sentry/browser');
+  return {
+    init: jest.fn(),
+    configureScope: jest.fn(),
+    captureBreadcrumb: jest.fn(),
+    addBreadcrumb: jest.fn(),
+    captureMessage: jest.fn(),
+    captureException: jest.fn(),
+    showReportDialog: jest.fn(),
+    startSpan: jest.fn(),
+    finishSpan: jest.fn(),
+    lastEventId: jest.fn(),
+    getCurrentHub: jest.spyOn(SentryBrowser, 'getCurrentHub'),
+    withScope: jest.spyOn(SentryBrowser, 'withScope'),
+    Severity: SentryBrowser.Severity,
+  };
+});
+
+jest.mock('popper.js', () => {
+  const PopperJS = jest.requireActual('popper.js');
+
+  return class {
+    static placements = PopperJS.placements;
+
+    constructor() {
+      return {
+        destroy: () => {},
+        scheduleUpdate: () => {},
+      };
+    }
+  };
+});
 
 // We generally use actual jQuery, and jest mocks takes precedence over node_modules
 jest.unmock('jquery');
@@ -120,7 +143,6 @@ jest.unmock('jquery');
 window.tick = () => new Promise(resolve => setTimeout(resolve));
 
 window.$ = window.jQuery = jQuery;
-window.sinon = sinon;
 window.scrollTo = jest.fn();
 
 // this is very commonly used, so expose it globally
@@ -166,10 +188,6 @@ window.TestStubs = {
 
   routerContext: ([context, childContextTypes] = []) => ({
     context: {
-      [channel]: {
-        subscribe: broadcast.subscribe,
-        unsubscribe: broadcast.unsubscribe,
-      },
       location: TestStubs.location(),
       router: TestStubs.router(),
       organization: fixtures.Organization(),
@@ -177,7 +195,6 @@ window.TestStubs = {
       ...context,
     },
     childContextTypes: {
-      [channel]: PropTypes.object,
       router: PropTypes.object,
       location: PropTypes.object,
       organization: PropTypes.object,

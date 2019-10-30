@@ -3,14 +3,17 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
 import createReactClass from 'create-react-class';
+import marked from 'marked';
 
+import Alert from 'app/components/alert';
+import {Panel, PanelAlert, PanelHeader} from 'app/components/panels';
 import {
   changeProjectSlug,
   removeProject,
   transferProject,
 } from 'app/actionCreators/projects';
+import {addLoadingMessage, clearIndicators} from 'app/actionCreators/indicator';
 import {fields} from 'app/data/forms/projectGeneralSettings';
-import {getOrganizationState} from 'app/mixins/organizationState';
 import {t, tct} from 'app/locale';
 import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
@@ -18,13 +21,16 @@ import Confirm from 'app/components/confirm';
 import Field from 'app/views/settings/components/forms/field';
 import Form from 'app/views/settings/components/forms/form';
 import JsonForm from 'app/views/settings/components/forms/jsonForm';
-import handleXhrErrorResponse from 'app/utils/handleXhrErrorResponse';
-import {Panel, PanelAlert, PanelHeader} from 'app/components/panels';
+import PermissionAlert from 'app/views/settings/project/permissionAlert';
+import ProjectActions from 'app/actions/projectActions';
 import ProjectsStore from 'app/stores/projectsStore';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
 import TextBlock from 'app/views/settings/components/text/textBlock';
 import TextField from 'app/views/settings/components/forms/textField';
+import BetaTag from 'app/components/betaTag';
+import handleXhrErrorResponse from 'app/utils/handleXhrErrorResponse';
 import recreateRoute from 'app/utils/recreateRoute';
+import routeTitleGen from 'app/utils/routeTitle';
 
 class ProjectGeneralSettings extends AsyncView {
   static propTypes = {
@@ -41,13 +47,20 @@ class ProjectGeneralSettings extends AsyncView {
   }
 
   getTitle() {
-    let {projectId} = this.props.params;
-    return t('%s Settings', projectId);
+    const {projectId} = this.props.params;
+    return routeTitleGen(t('Project Settings'), projectId, false);
   }
 
   getEndpoints() {
-    let {orgId, projectId} = this.props.params;
-    return [['data', `/projects/${orgId}/${projectId}/`]];
+    const {orgId, projectId} = this.props.params;
+    const endpoints = [['data', `/projects/${orgId}/${projectId}/`]];
+    const {organization} = this.context;
+    const features = new Set(organization.features);
+    if (features.has('set-grouping-config') || features.has('tweak-grouping-config')) {
+      endpoints.push(['groupingConfigs', '/grouping-configs/']);
+      endpoints.push(['groupingEnhancementBases', '/grouping-enhancements/']);
+    }
+    return endpoints;
   }
 
   handleTransferFieldChange = (id, value) => {
@@ -55,9 +68,11 @@ class ProjectGeneralSettings extends AsyncView {
   };
 
   handleRemoveProject = () => {
-    let {orgId} = this.props.params;
-    let project = this.state.data;
-    if (!project) return;
+    const {orgId} = this.props.params;
+    const project = this.state.data;
+    if (!project) {
+      return;
+    }
 
     removeProject(this.api, orgId, project).then(() => {
       // Need to hard reload because lots of components do not listen to Projects Store
@@ -66,10 +81,14 @@ class ProjectGeneralSettings extends AsyncView {
   };
 
   handleTransferProject = () => {
-    let {orgId} = this.props.params;
-    let project = this.state.data;
-    if (!project) return;
-    if (!this._form.email) return;
+    const {orgId} = this.props.params;
+    const project = this.state.data;
+    if (!project) {
+      return;
+    }
+    if (!this._form.email) {
+      return;
+    }
 
     transferProject(this.api, orgId, project, this._form.email).then(() => {
       // Need to hard reload because lots of components do not listen to Projects Store
@@ -77,12 +96,138 @@ class ProjectGeneralSettings extends AsyncView {
     }, handleXhrErrorResponse('Unable to transfer project'));
   };
 
+  renderUpgradeGrouping() {
+    const {orgId, projectId} = this.props.params;
+
+    if (!this.state.groupingConfigs || !this.state.groupingEnhancementBases) {
+      return null;
+    }
+
+    let updateNotes = '';
+    let riskLevel = 0;
+    const newData = {};
+
+    this.state.groupingConfigs.forEach(({id, latest, changelog}) => {
+      if (latest && this.state.data.groupingConfig !== id) {
+        updateNotes += changelog + '\n\n';
+        newData.groupingConfig = id;
+      }
+    });
+
+    this.state.groupingEnhancementBases.forEach(({id, latest, changelog}) => {
+      if (latest && this.state.data.groupingEnhancementsBase !== id) {
+        updateNotes += changelog + '\n\n';
+        newData.groupingEnhancementsBase = id;
+      }
+    });
+
+    // legacy to newstyle is a risky update
+    if (
+      this.state.data.groupingConfig.match(/^legacy:/) &&
+      newData.groupingConfig &&
+      newData.groupingConfig.match(/^newstyle:/)
+    ) {
+      riskLevel = 2;
+    }
+
+    let riskNote;
+    let alertType;
+    switch (riskLevel) {
+      case 0:
+        riskNote = t('This upgrade has the chance to create some new issues.');
+        alertType = 'info';
+        break;
+      case 1:
+        riskNote = t('This upgrade will create some new issues.');
+        alertType = 'warning';
+        break;
+      case 2:
+        riskNote = (
+          <strong>
+            {t(
+              'The new grouping strategy is incompatible with the current and will create entirely new issues.'
+            )}
+          </strong>
+        );
+        alertType = 'error';
+        break;
+      default:
+    }
+
+    const noUpdates = Object.keys(newData).length === 0;
+
+    return (
+      <Field
+        label={t('Upgrade Grouping Strategy')}
+        help={tct(
+          'If the project uses an old grouping strategy an update is possible.[linebreak]Doing so will cause new events to group differently.',
+          {
+            linebreak: <br />,
+          }
+        )}
+      >
+        <Confirm
+          disabled={noUpdates}
+          onConfirm={() => {
+            addLoadingMessage(t('Changing grouping...'));
+            this.api
+              .requestPromise(`/projects/${orgId}/${projectId}/`, {
+                method: 'PUT',
+                data: newData,
+              })
+              .then(resp => {
+                clearIndicators();
+                ProjectActions.updateSuccess(resp);
+                this.fetchData();
+              }, handleXhrErrorResponse('Unable to upgrade config'));
+          }}
+          priority={riskLevel >= 2 ? 'danger' : 'primary'}
+          title={t('Upgrade grouping strategy?')}
+          confirmText={t('Upgrade')}
+          message={
+            <div>
+              <TextBlock>
+                <strong>{t('Upgrade Grouping Strategy')}</strong>
+              </TextBlock>
+              <TextBlock>
+                {t(
+                  'You can upgrade the grouping strategy to the latest but this is an irreversible operation.'
+                )}
+              </TextBlock>
+              <TextBlock>
+                <strong>{t('New Behavior')}</strong>
+                <div dangerouslySetInnerHTML={{__html: marked(updateNotes)}} />
+              </TextBlock>
+              <TextBlock>
+                <Alert type={alertType}>{riskNote}</Alert>
+              </TextBlock>
+            </div>
+          }
+        >
+          <div>
+            <Button
+              disabled={noUpdates}
+              title={noUpdates ? t('You are already on the latest version') : null}
+              className="ref-upgrade-grouping-strategy"
+              type="button"
+              priority={riskLevel >= 2 ? 'danger' : 'primary'}
+            >
+              {t('Update Grouping Strategy')}
+            </Button>
+          </div>
+        </Confirm>
+      </Field>
+    );
+  }
+
+  isProjectAdmin = () => {
+    return new Set(this.context.organization.access).has('project:admin');
+  };
+
   renderRemoveProject() {
-    let project = this.state.data;
-    let isProjectAdmin = getOrganizationState(this.context.organization)
-      .getAccess()
-      .has('project:admin');
-    let {isInternal} = project;
+    const project = this.state.data;
+    const isProjectAdmin = this.isProjectAdmin();
+    const {isInternal} = project;
 
     return (
       <Field
@@ -103,43 +248,40 @@ class ProjectGeneralSettings extends AsyncView {
             'This project cannot be removed. It is used internally by the Sentry server.'
           )}
 
-        {isProjectAdmin &&
-          !isInternal && (
-            <Confirm
-              onConfirm={this.handleRemoveProject}
-              priority="danger"
-              title={t('Remove project?')}
-              confirmText={t('Remove project')}
-              message={
-                <div>
-                  <TextBlock>
-                    <strong>
-                      {t('Removing this project is permanent and cannot be undone!')}
-                    </strong>
-                  </TextBlock>
-                  <TextBlock>
-                    {t('This will also remove all associated event data.')}
-                  </TextBlock>
-                </div>
-              }
-            >
+        {isProjectAdmin && !isInternal && (
+          <Confirm
+            onConfirm={this.handleRemoveProject}
+            priority="danger"
+            title={t('Remove project?')}
+            confirmText={t('Remove project')}
+            message={
               <div>
-                <Button className="ref-remove-project" type="button" priority="danger">
-                  {t('Remove Project')}
-                </Button>
+                <TextBlock>
+                  <strong>
+                    {t('Removing this project is permanent and cannot be undone!')}
+                  </strong>
+                </TextBlock>
+                <TextBlock>
+                  {t('This will also remove all associated event data.')}
+                </TextBlock>
               </div>
-            </Confirm>
-          )}
+            }
+          >
+            <div>
+              <Button className="ref-remove-project" type="button" priority="danger">
+                {t('Remove Project')}
+              </Button>
+            </div>
+          </Confirm>
+        )}
       </Field>
     );
   }
 
   renderTransferProject() {
-    let project = this.state.data;
-    let isProjectAdmin = getOrganizationState(this.context.organization)
-      .getAccess()
-      .has('project:admin');
-    let {isInternal} = project;
+    const project = this.state.data;
+    const isProjectAdmin = this.isProjectAdmin();
+    const {isInternal} = project;
 
     return (
       <Field
@@ -160,76 +302,79 @@ class ProjectGeneralSettings extends AsyncView {
             'This project cannot be transferred. It is used internally by the Sentry server.'
           )}
 
-        {isProjectAdmin &&
-          !isInternal && (
-            <Confirm
-              onConfirm={this.handleTransferProject}
-              priority="danger"
-              title={`${t('Transfer project')}?`}
-              confirmText={t('Transfer project')}
-              renderMessage={({confirm}) => (
-                <div>
-                  <TextBlock>
-                    <strong>
-                      {t('Transferring this project is permanent and cannot be undone!')}
-                    </strong>
-                  </TextBlock>
-                  <TextBlock>
-                    {t(
-                      'Please enter the organization owner you would like to transfer this project to.'
-                    )}
-                  </TextBlock>
-                  <Panel>
-                    <Form
-                      hideFooter
-                      onFieldChange={this.handleTransferFieldChange}
-                      onSubmit={(data, onSuccess, onError, e) => {
-                        e.stopPropagation();
-                        confirm();
-                      }}
-                    >
-                      <TextField
-                        name="email"
-                        label={t('Organization Owner')}
-                        placeholder="admin@example.com"
-                        required
-                        help={tct(
-                          'A request will be emailed to the new owner in order to transfer [project] to a new organization.',
-                          {
-                            project: <strong> {project.slug} </strong>,
-                          }
-                        )}
-                      />
-                    </Form>
-                  </Panel>
-                </div>
-              )}
-            >
+        {isProjectAdmin && !isInternal && (
+          <Confirm
+            onConfirm={this.handleTransferProject}
+            priority="danger"
+            title={`${t('Transfer project')}?`}
+            confirmText={t('Transfer project')}
+            renderMessage={({confirm}) => (
               <div>
-                <Button className="ref-transfer-project" type="button" priority="danger">
-                  {t('Transfer Project')}
-                </Button>
+                <TextBlock>
+                  <strong>
+                    {t('Transferring this project is permanent and cannot be undone!')}
+                  </strong>
+                </TextBlock>
+                <TextBlock>
+                  {t(
+                    'Please enter the email of an organization owner to whom you would like to transfer this project.'
+                  )}
+                </TextBlock>
+                <Panel>
+                  <Form
+                    hideFooter
+                    onFieldChange={this.handleTransferFieldChange}
+                    onSubmit={(_data, _onSuccess, _onError, e) => {
+                      e.stopPropagation();
+                      confirm();
+                    }}
+                  >
+                    <TextField
+                      name="email"
+                      label={t('Organization Owner')}
+                      placeholder="admin@example.com"
+                      required
+                      help={t(
+                        'A request will be emailed to this address, asking the organization owner to accept the project transfer.'
+                      )}
+                    />
+                  </Form>
+                </Panel>
               </div>
-            </Confirm>
-          )}
+            )}
+          >
+            <div>
+              <Button className="ref-transfer-project" type="button" priority="danger">
+                {t('Transfer Project')}
+              </Button>
+            </div>
+          </Confirm>
+        )}
       </Field>
     );
   }
 
   renderBody() {
-    let {organization} = this.context;
-    let project = this.state.data;
-    let {orgId, projectId} = this.props.params;
-    let endpoint = `/projects/${orgId}/${projectId}/`;
-    let jsonFormProps = {
-      additionalFieldProps: {organization},
+    const {organization} = this.context;
+    const project = this.state.data;
+    const {orgId, projectId} = this.props.params;
+    const endpoint = `/projects/${orgId}/${projectId}/`;
+    const access = new Set(organization.access);
+    const jsonFormProps = {
+      additionalFieldProps: {
+        organization,
+        groupingConfigs: this.state.groupingConfigs,
+        groupingEnhancementBases: this.state.groupingEnhancementBases,
+      },
       features: new Set(organization.features),
-      access: new Set(organization.access),
+      access,
+      disabled: !access.has('project:write'),
     };
 
     return (
       <div>
         <SettingsPageHeader title={t('Project Settings')} />
+        <PermissionAlert />
 
         <Form
           saveOnBlur
@@ -241,17 +386,23 @@ class ProjectGeneralSettings extends AsyncView {
           apiMethod="PUT"
           apiEndpoint={endpoint}
           onSubmitSuccess={resp => {
+            // this is necessary for the grouping upgrade button to be
+            // updating based on the current selection of the grouping
+            // config.
+            this.setState({data: resp});
             if (projectId !== resp.slug) {
               changeProjectSlug(projectId, resp.slug);
               // Container will redirect after stores get updated with new slug
               this.props.onChangeSlug(resp.slug);
             }
+            // This will update our project context
+            ProjectActions.updateSuccess(resp);
           }}
         >
           <JsonForm
             {...jsonFormProps}
             title={t('Project Details')}
-            fields={[fields.slug, fields.name]}
+            fields={[fields.slug, fields.platform]}
           />
 
           <JsonForm
@@ -265,6 +416,37 @@ class ProjectGeneralSettings extends AsyncView {
             title={t('Event Settings')}
             fields={[fields.resolveAge]}
           />
+
+          {(jsonFormProps.features.has('set-grouping-config') ||
+            jsonFormProps.features.has('tweak-grouping-config')) && (
+            <JsonForm
+              {...jsonFormProps}
+              title={
+                <React.Fragment>
+                  {t('Grouping Settings')} <BetaTag />
+                </React.Fragment>
+              }
+              fields={[
+                fields.groupingConfig,
+                fields.groupingEnhancementsBase,
+                fields.groupingEnhancements,
+                fields.fingerprintingRules,
+              ]}
+              renderHeader={() => (
+                <React.Fragment>
+                  <PanelAlert type="warning">
+                    <TextBlock noMargin>
+                      {t(
+                        'This is an experimental feature. Changing the value here will only apply to future events and is likely to cause events to create different groups than before.'
+                      )}
+                    </TextBlock>
+                  </PanelAlert>
+                  {jsonFormProps.features.has('tweak-grouping-config') &&
+                    this.renderUpgradeGrouping()}
+                </React.Fragment>
+              )}
+            />
+          )}
 
           <JsonForm
             {...jsonFormProps}
@@ -296,7 +478,11 @@ class ProjectGeneralSettings extends AsyncView {
                   {tct(
                     'Configure origin URLs which Sentry should accept events from. This is used for communication with clients like [link].',
                     {
-                      link: <a href="https://github.com/getsentry/raven-js">raven-js</a>,
+                      link: (
+                        <a href="https://github.com/getsentry/sentry-javascript">
+                          sentry-javascript
+                        </a>
+                      ),
                     }
                   )}{' '}
                   {tct(
@@ -324,11 +510,15 @@ class ProjectGeneralSettings extends AsyncView {
 
 const ProjectGeneralSettingsContainer = createReactClass({
   mixins: [Reflux.listenTo(ProjectsStore, 'onProjectsUpdate')],
-  onProjectsUpdate(projects) {
-    if (!this.changedSlug) return;
-    let project = ProjectsStore.getBySlug(this.changedSlug);
+  onProjectsUpdate(_projects) {
+    if (!this.changedSlug) {
+      return;
+    }
+    const project = ProjectsStore.getBySlug(this.changedSlug);
 
-    if (!project) return;
+    if (!project) {
+      return;
+    }
 
     browserHistory.replace(
       recreateRoute('', {

@@ -1,20 +1,14 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 import DiffModal from 'app/components/modals/diffModal';
 
 describe('DiffModal', function() {
-  let sandbox;
+  beforeEach(function() {});
 
-  beforeEach(function() {
-    sandbox = sinon.sandbox.create();
-  });
-
-  afterEach(function() {
-    sandbox.restore();
-  });
+  afterEach(function() {});
 
   it('renders', function() {
-    let wrapper = shallow(<DiffModal Body={({children}) => <div>{children}</div>} />);
+    const wrapper = shallow(<DiffModal Body={({children}) => <div>{children}</div>} />);
     expect(wrapper).toMatchSnapshot();
   });
 });

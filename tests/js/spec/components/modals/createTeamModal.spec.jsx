@@ -2,7 +2,7 @@ import {Modal} from 'react-bootstrap';
 import React from 'react';
 
 import {createTeam} from 'app/actionCreators/teams';
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import CreateTeamModal from 'app/components/modals/createTeamModal';
 
 jest.mock('app/actionCreators/teams', () => ({
@@ -10,22 +10,27 @@ jest.mock('app/actionCreators/teams', () => ({
 }));
 
 describe('CreateTeamModal', function() {
-  let org = TestStubs.Organization();
-  let closeModal = jest.fn();
-  let onClose = jest.fn();
+  const org = TestStubs.Organization();
+  const closeModal = jest.fn();
+  const onClose = jest.fn();
+  const onSuccess = jest.fn();
 
-  beforeEach(function() {});
+  beforeEach(function() {
+    onClose.mockReset();
+    onSuccess.mockReset();
+  });
 
   afterEach(function() {});
 
   it('calls createTeam action creator on submit', async function() {
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <CreateTeamModal
         Body={Modal.Body}
         Header={Modal.Header}
         organization={org}
         closeModal={closeModal}
         onClose={onClose}
+        onSuccess={onSuccess}
       />,
       TestStubs.routerContext()
     );
@@ -36,9 +41,10 @@ describe('CreateTeamModal', function() {
 
     wrapper.find('CreateTeamForm Form').simulate('submit');
 
-    expect(createTeam).toHaveBeenCalled();
+    expect(createTeam).toHaveBeenCalledTimes(1);
     await tick();
     expect(onClose).toHaveBeenCalled();
     expect(closeModal).toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 });

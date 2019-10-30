@@ -1,8 +1,8 @@
 import {Modal} from 'react-bootstrap';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import React from 'react';
 
 import {RedirectToProjectModal} from 'app/components/modals/redirectToProject';
-import {mount} from 'enzyme';
 
 jest.unmock('app/utils/recreateRoute');
 describe('RedirectToProjectModal', function() {
@@ -14,15 +14,15 @@ describe('RedirectToProjectModal', function() {
   ];
 
   beforeEach(function() {
-    sinon.stub(window.location, 'assign');
+    jest.spyOn(window.location, 'assign').mockImplementation(() => {});
   });
 
   afterEach(function() {
-    window.location.assign.restore();
+    window.location.assign.mockRestore();
   });
 
   it('has timer to redirect to new slug after mounting', function() {
-    mount(
+    mountWithTheme(
       <RedirectToProjectModal
         routes={routes}
         params={{orgId: 'org-slug', projectId: 'project-slug'}}
@@ -34,10 +34,10 @@ describe('RedirectToProjectModal', function() {
     );
 
     jest.advanceTimersByTime(4900);
-    expect(window.location.assign.calledOnce).toBe(false);
+    expect(window.location.assign).not.toHaveBeenCalled();
 
     jest.advanceTimersByTime(200);
-    expect(window.location.assign.calledOnce).toBe(true);
-    expect(window.location.assign.calledWith('/org-slug/new-slug/')).toBe(true);
+    expect(window.location.assign).toHaveBeenCalledTimes(1);
+    expect(window.location.assign).toHaveBeenCalledWith('/org-slug/new-slug/');
   });
 });

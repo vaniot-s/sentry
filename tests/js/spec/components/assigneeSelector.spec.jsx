@@ -1,8 +1,11 @@
 import React from 'react';
 
-import {AssigneeSelectorComponent} from 'app/components/assigneeSelector';
+import {
+  AssigneeSelectorComponent,
+  putSessionUserFirst,
+} from 'app/components/assigneeSelector';
 import {Client} from 'app/api';
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import ConfigStore from 'app/stores/configStore';
 import GroupStore from 'app/stores/groupStore';
 import MemberListStore from 'app/stores/memberListStore';
@@ -10,7 +13,6 @@ import ProjectsStore from 'app/stores/projectsStore';
 import TeamStore from 'app/stores/teamStore';
 
 describe('AssigneeSelector', function() {
-  let sandbox;
   let assigneeSelector;
   let assignMock;
   let openMenu;
@@ -20,8 +22,6 @@ describe('AssigneeSelector', function() {
   let GROUP_1;
 
   beforeEach(function() {
-    sandbox = sinon.sandbox.create();
-
     USER_1 = TestStubs.User({
       id: '1',
       name: 'Jane Doe',
@@ -56,10 +56,10 @@ describe('AssigneeSelector', function() {
       },
     });
 
-    sandbox.stub(MemberListStore, 'getAll').returns(null);
-    sandbox.stub(TeamStore, 'getAll').returns([TEAM_1]);
-    sandbox.stub(ProjectsStore, 'getAll').returns([PROJECT_1]);
-    sandbox.stub(GroupStore, 'get').returns(GROUP_1);
+    jest.spyOn(MemberListStore, 'getAll').mockImplementation(() => null);
+    jest.spyOn(TeamStore, 'getAll').mockImplementation(() => [TEAM_1]);
+    jest.spyOn(ProjectsStore, 'getAll').mockImplementation(() => [PROJECT_1]);
+    jest.spyOn(GroupStore, 'get').mockImplementation(() => GROUP_1);
 
     assignMock = Client.addMockResponse({
       method: 'PUT',
@@ -73,7 +73,7 @@ describe('AssigneeSelector', function() {
     MemberListStore.items = null;
     MemberListStore.loaded = false;
 
-    assigneeSelector = mount(
+    assigneeSelector = mountWithTheme(
       <AssigneeSelectorComponent id={GROUP_1.id} />,
       TestStubs.routerContext()
     );
@@ -82,35 +82,51 @@ describe('AssigneeSelector', function() {
   });
 
   afterEach(function() {
-    sandbox.restore();
     Client.clearMockResponses();
   });
 
+  describe('render with props', function() {
+    it('renders members from the prop when present', async function() {
+      assigneeSelector = mountWithTheme(
+        <AssigneeSelectorComponent id={GROUP_1.id} memberList={[USER_2, USER_3]} />,
+        TestStubs.routerContext()
+      );
+      MemberListStore.loadInitialData([USER_1]);
+      openMenu();
+
+      assigneeSelector.update();
+      expect(assigneeSelector.find('LoadingIndicator')).toHaveLength(0);
+      expect(assigneeSelector.find('Avatar')).toHaveLength(3);
+      expect(assigneeSelector.find('UserAvatar')).toHaveLength(2);
+      expect(assigneeSelector.find('TeamAvatar')).toHaveLength(1);
+
+      const names = assigneeSelector
+        .find('MenuItemWrapper Label Highlight')
+        .map(el => el.text());
+      expect(names).toEqual([`#${TEAM_1.slug}`, USER_2.name, USER_3.name]);
+    });
+  });
+
   describe('putSessionUserFirst()', function() {
-    const putSessionUserFirst = AssigneeSelectorComponent.putSessionUserFirst;
     it('should place the session user at the top of the member list if present', function() {
-      sandbox
-        .stub(ConfigStore, 'get')
-        .withArgs('user')
-        .returns({
-          id: '2',
-          name: 'John Smith',
-          email: 'johnsmith@example.com',
-        });
+      jest.spyOn(ConfigStore, 'get').mockImplementation(() => ({
+        id: '2',
+        name: 'John Smith',
+        email: 'johnsmith@example.com',
+      }));
       expect(putSessionUserFirst([USER_1, USER_2])).toEqual([USER_2, USER_1]);
+      ConfigStore.get.mockRestore();
     });
 
     it("should return the same member list if the session user isn't present", function() {
-      sandbox
-        .stub(ConfigStore, 'get')
-        .withArgs('user')
-        .returns({
-          id: '555',
-          name: 'Here Comes a New Challenger',
-          email: 'guile@mail.us.af.mil',
-        });
+      jest.spyOn(ConfigStore, 'get').mockImplementation(() => ({
+        id: '555',
+        name: 'Here Comes a New Challenger',
+        email: 'guile@mail.us.af.mil',
+      }));
 
       expect(putSessionUserFirst([USER_1, USER_2])).toEqual([USER_1, USER_2]);
+      ConfigStore.get.mockRestore();
     });
   });
 
@@ -245,7 +261,7 @@ describe('AssigneeSelector', function() {
   });
 
   it('shows invite member button', async function() {
-    let routerContext = TestStubs.routerContext();
+    const routerContext = TestStubs.routerContext();
 
     openMenu();
     MemberListStore.loadInitialData([USER_1, USER_2]);
@@ -256,11 +272,8 @@ describe('AssigneeSelector', function() {
     ).toHaveLength(0);
 
     assigneeSelector.unmount();
-    sandbox
-      .stub(ConfigStore, 'get')
-      .withArgs('invitesEnabled')
-      .returns(true);
-    assigneeSelector = mount(
+    jest.spyOn(ConfigStore, 'get').mockImplementation(() => true);
+    assigneeSelector = mountWithTheme(
       <AssigneeSelectorComponent id={GROUP_1.id} />,
       routerContext
     );
@@ -270,18 +283,16 @@ describe('AssigneeSelector', function() {
     expect(
       assigneeSelector.find('InviteMemberLink[data-test-id="invite-member"]')
     ).toHaveLength(1);
+    ConfigStore.get.mockRestore();
   });
 
   it('requires org:write to invite member', async function() {
     MemberListStore.loadInitialData([USER_1, USER_2]);
-    sandbox
-      .stub(ConfigStore, 'get')
-      .withArgs('invitesEnabled')
-      .returns(true);
+    jest.spyOn(ConfigStore, 'get').mockImplementation(() => true);
 
     // Remove org:write access permission and make sure invite member button is not shown.
     assigneeSelector.unmount();
-    assigneeSelector = mount(
+    assigneeSelector = mountWithTheme(
       <AssigneeSelectorComponent id={GROUP_1.id} />,
       TestStubs.routerContext([{organization: TestStubs.Organization({access: []})}])
     );
@@ -290,6 +301,7 @@ describe('AssigneeSelector', function() {
     expect(
       assigneeSelector.find('InviteMemberLink[data-test-id="invite-member"]')
     ).toHaveLength(0);
+    ConfigStore.get.mockRestore();
   });
 
   it('filters user by email and selects with keyboard', async function() {

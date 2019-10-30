@@ -1,20 +1,23 @@
+import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React from 'react';
-import jQuery from 'jquery';
+
+import classNames from 'classnames';
+
 import _ from 'lodash';
 
 import {isUrl} from 'app/utils';
 
 function looksLikeObjectRepr(value) {
-  let a = value[0];
-  let z = value[value.length - 1];
-  if (a == '<' && z == '>') {
+  const a = value[0];
+  const z = value[value.length - 1];
+  if (a === '<' && z === '>') {
     return true;
-  } else if (a == '[' && z == ']') {
+  } else if (a === '[' && z === ']') {
     return true;
-  } else if (a == '(' && z == ')') {
+  } else if (a === '(' && z === ')') {
     return true;
-  } else if (z == ')' && value.match(/^[\w\d._-]+\(/)) {
+  } else if (z === ')' && value.match(/^[\w\d._-]+\(/)) {
     return true;
   }
   return false;
@@ -48,7 +51,7 @@ function naturalCaseInsensitiveSort(a, b) {
 }
 
 function analyzeStringForRepr(value) {
-  let rv = {
+  const rv = {
     repr: value,
     isString: true,
     isMultiLine: false,
@@ -73,6 +76,7 @@ function analyzeStringForRepr(value) {
 class ContextData extends React.Component {
   static propTypes = {
     data: PropTypes.any,
+    preserveQuotes: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -81,11 +85,13 @@ class ContextData extends React.Component {
 
   renderValue = value => {
     function toggle(evt) {
-      jQuery(evt.target)
+      $(evt.target)
         .parent()
         .toggleClass('val-toggle-open');
       evt.preventDefault();
     }
+
+    const {preserveQuotes} = this.props;
 
     function makeToggle(highUp, childCount, children) {
       if (childCount === 0) {
@@ -104,16 +110,16 @@ class ContextData extends React.Component {
 
     /*eslint no-shadow:0*/
     function walk(value, depth) {
-      let i = 0,
-        children = [];
+      let i = 0;
+      const children = [];
       if (value === null) {
         return <span className="val-null">{'None'}</span>;
       } else if (value === true || value === false) {
         return <span className="val-bool">{value ? 'True' : 'False'}</span>;
       } else if (_.isString(value)) {
-        let valueInfo = analyzeStringForRepr(value);
+        const valueInfo = analyzeStringForRepr(value);
 
-        let out = [
+        const out = [
           <span
             key="value"
             className={
@@ -122,7 +128,7 @@ class ContextData extends React.Component {
               (valueInfo.isMultiLine ? ' val-string-multiline' : '')
             }
           >
-            {valueInfo.repr}
+            {preserveQuotes ? `"${valueInfo.repr}"` : valueInfo.repr}
           </span>,
         ];
 
@@ -159,15 +165,17 @@ class ContextData extends React.Component {
             <span className="val-array-marker">{']'}</span>
           </span>
         );
+      } else if (React.isValidElement(value)) {
+        return value;
       } else {
-        let keys = Object.keys(value);
+        const keys = Object.keys(value);
         keys.sort(naturalCaseInsensitiveSort);
         for (i = 0; i < keys.length; i++) {
-          let key = keys[i];
+          const key = keys[i];
           children.push(
             <span className="val-dict-pair" key={key}>
               <span className="val-dict-key">
-                <span className="val-string">{key}</span>
+                <span className="val-string">{preserveQuotes ? `"${key}"` : key}</span>
               </span>
               <span className="val-dict-col">{': '}</span>
               <span className="val-dict-value">
@@ -203,19 +211,13 @@ class ContextData extends React.Component {
   };
 
   render() {
-    // XXX(dcramer): babel does not support this yet
-    // let {data, className, ...other} = this.props;
-    let data = this.props.data;
-    let className = this.props.className;
-    let other = {};
-    for (let key in this.props) {
-      if (key !== 'data' && key !== 'className') {
-        other[key] = this.props[key];
-      }
-    }
-    other.className = 'val ' + (className || '');
+    const {data, className, preserveQuotes: _preserveQuotes, ...other} = this.props;
 
-    return <pre {...other}>{this.renderValue(data)}</pre>;
+    return (
+      <pre className={classNames('val', className || '')} {...other}>
+        {this.renderValue(data)}
+      </pre>
+    );
   }
 }
 

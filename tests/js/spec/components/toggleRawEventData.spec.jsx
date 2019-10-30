@@ -1,8 +1,7 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 import EventDataSection from 'app/components/events/eventDataSection';
 import KeyValueList from 'app/components/events/interfaces/keyValueList';
-import {objectToArray} from 'app/utils';
 
 const data = {
   metadata: {
@@ -30,7 +29,7 @@ describe('EventDataSection', function() {
     culprit: undefined,
   };
   it('renders formatted', function() {
-    let component = shallow(
+    const component = shallow(
       <EventDataSection
         group={groupData}
         event={eventData}
@@ -44,13 +43,13 @@ describe('EventDataSection', function() {
   });
 
   it('renders raw', function() {
-    let component = shallow(
+    const component = shallow(
       <EventDataSection
         group={groupData}
         event={eventData}
         type="extra"
         title="Additional Data"
-        raw={true}
+        raw
       />
     );
     expect(component).toMatchSnapshot();
@@ -63,20 +62,18 @@ describe('KeyValueList', function() {
     plussomeotherstuff: 'here',
     andthis: 0,
   };
-  const extraDataArray = objectToArray(context);
+  const extraDataArray = Object.entries(context);
 
   it('renders formatted', function() {
-    let component = shallow(
-      <KeyValueList data={extraDataArray} isContextData={true} raw={false} />
+    const component = shallow(
+      <KeyValueList data={extraDataArray} isContextData raw={false} />
     );
 
     expect(component).toMatchSnapshot();
   });
 
   it('renders raw', function() {
-    let component = shallow(
-      <KeyValueList data={extraDataArray} isContextData={true} raw={true} />
-    );
+    const component = shallow(<KeyValueList data={extraDataArray} isContextData raw />);
 
     expect(component).toMatchSnapshot();
   });

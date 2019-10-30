@@ -1,128 +1,142 @@
-import {Box, Flex} from 'grid-emotion';
 import React from 'react';
-import {Link} from 'react-router';
 
+import AlertLink from 'app/components/alertLink';
 import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
-import CircleIndicator from 'app/components/circleIndicator';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
-import SentryAppAvatar from 'app/components/avatar/sentryAppAvatar';
-import PropTypes from 'prop-types';
-import {Panel, PanelItem, PanelBody, PanelHeader} from 'app/components/panels';
+import {Panel, PanelBody, PanelHeader} from 'app/components/panels';
+import {removeSentryApp} from 'app/actionCreators/sentryApps';
+import SentryTypes from 'app/sentryTypes';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
+import SentryApplicationRow from 'app/views/settings/organizationDeveloperSettings/sentryApplicationRow';
+import withOrganization from 'app/utils/withOrganization';
 import {t} from 'app/locale';
-import styled from 'react-emotion';
-import space from 'app/styles/space';
-import {withTheme} from 'emotion-theming';
+import routeTitleGen from 'app/utils/routeTitle';
 
-class SentryApplicationRow extends React.PureComponent {
+class OrganizationDeveloperSettings extends AsyncView {
   static propTypes = {
-    app: PropTypes.object.isRequired,
-    orgId: PropTypes.string.isRequired,
+    organization: SentryTypes.Organization.isRequired,
   };
 
-  render() {
-    let {app, orgId} = this.props;
-    let btnClassName = 'btn btn-default';
-
-    return (
-      <SentryAppItem>
-        <Flex>
-          <SentryAppAvatar size={36} sentryApp={app} />
-          <SentryAppBox>
-            <SentryAppName>
-              <StyledLink to={`/settings/${orgId}/developer-settings/${app.slug}/`}>
-                {app.name}
-              </StyledLink>
-            </SentryAppName>
-            <Status published={app.status === 'published'} />
-          </SentryAppBox>
-        </Flex>
-
-        <Flex>
-          <Box>
-            <Button icon="icon-trash" onClick={() => {}} className={btnClassName} />
-          </Box>
-        </Flex>
-      </SentryAppItem>
-    );
+  getTitle() {
+    const {orgId} = this.props.params;
+    return routeTitleGen(t('Developer Settings'), orgId, false);
   }
-}
 
-export default class OrganizationDeveloperSettings extends AsyncView {
   getEndpoints() {
-    let {orgId} = this.props.params;
+    const {orgId} = this.props.params;
+
     return [['applications', `/organizations/${orgId}/sentry-apps/`]];
   }
 
-  renderBody() {
-    let {orgId} = this.props.params;
-    let action = (
+  removeApp = app => {
+    const apps = this.state.applications.filter(a => a.slug !== app.slug);
+    removeSentryApp(this.api, app).then(
+      () => {
+        this.setState({applications: apps});
+      },
+      () => {}
+    );
+  };
+
+  renderApplicationRow = app => {
+    const {organization} = this.props;
+    return (
+      <SentryApplicationRow
+        key={app.uuid}
+        app={app}
+        organization={organization}
+        onRemoveApp={this.removeApp}
+        showInstallationStatus={false}
+        showAppDashboardLink={app.status === 'published'}
+      />
+    );
+  };
+
+  renderInternalIntegrations() {
+    const {orgId} = this.props.params;
+    const integrations = this.state.applications.filter(app => app.status === 'internal');
+    const isEmpty = integrations.length === 0;
+
+    const action = (
       <Button
         priority="primary"
         size="small"
-        to={`/settings/${orgId}/developer-settings/new/`}
+        to={`/settings/${orgId}/developer-settings/new-internal/`}
         icon="icon-circle-add"
       >
-        {t('Create New Application')}
+        {t('New Internal Integration')}
       </Button>
     );
 
-    let isEmpty = this.state.applications.length === 0;
+    return (
+      <Panel>
+        <PanelHeader hasButtons>
+          {t('Internal Integrations')}
+          {action}
+        </PanelHeader>
+        <PanelBody>
+          {!isEmpty ? (
+            integrations.map(this.renderApplicationRow)
+          ) : (
+            <EmptyMessage>
+              {t('No internal integrations have been created yet.')}
+            </EmptyMessage>
+          )}
+        </PanelBody>
+      </Panel>
+    );
+  }
+
+  renderExernalIntegrations() {
+    const {orgId} = this.props.params;
+    const integrations = this.state.applications.filter(app => app.status !== 'internal');
+    const isEmpty = integrations.length === 0;
+
+    const action = (
+      <Button
+        priority="primary"
+        size="small"
+        to={`/settings/${orgId}/developer-settings/new-public/`}
+        icon="icon-circle-add"
+      >
+        {t('New Public Integration')}
+      </Button>
+    );
+
+    return (
+      <Panel>
+        <PanelHeader hasButtons>
+          {t('Public Integrations')}
+          {action}
+        </PanelHeader>
+        <PanelBody>
+          {!isEmpty ? (
+            integrations.map(this.renderApplicationRow)
+          ) : (
+            <EmptyMessage>
+              {t('No public integrations have been created yet.')}
+            </EmptyMessage>
+          )}
+        </PanelBody>
+      </Panel>
+    );
+  }
+
+  renderBody() {
     return (
       <div>
-        <SettingsPageHeader title={t('Developer Settings')} action={action} />
-        <Panel>
-          <PanelHeader>{t('Applications')}</PanelHeader>
-          <PanelBody>
-            {!isEmpty ? (
-              this.state.applications.map(app => {
-                return <SentryApplicationRow key={app.uuid} app={app} orgId={orgId} />;
-              })
-            ) : (
-              <EmptyMessage>{t('No applications have been created yet.')}</EmptyMessage>
-            )}
-          </PanelBody>
-        </Panel>
+        <SettingsPageHeader title={t('Developer Settings')} />
+        <AlertLink href="https://docs.sentry.io/workflow/integrations/integration-platform/">
+          {t(
+            'Have questions about the Integration Platform? Learn more about it in our docs.'
+          )}
+        </AlertLink>
+        {this.renderExernalIntegrations()}
+        {this.renderInternalIntegrations()}
       </div>
     );
   }
 }
 
-const SentryAppItem = styled(PanelItem)`
-  justify-content: space-between;
-  padding: 15px;
-`;
-
-const SentryAppBox = styled(Box)`
-  padding-left: 15px;
-  flex: 1;
-`;
-
-const SentryAppName = styled('div')`
-  margin-bottom: 3px;
-`;
-
-const StyledLink = styled(Link)`
-  font-size: 22px;
-  color: ${props => props.theme.textColor};
-`;
-
-const Status = styled(
-  withTheme(({published, ...props}) => {
-    return (
-      <Flex align="center">
-        <CircleIndicator
-          size={4}
-          color={published ? props.theme.success : props.theme.gray2}
-        />
-        <div {...props}>{published ? t('published') : t('unpublished')}</div>
-      </Flex>
-    );
-  })
-)`
-  color: ${props => (props.published ? props.theme.success : props.theme.gray2)};
-  margin-left: ${space(0.5)};
-  font-weight: light;
-  margin-right: ${space(0.75)};
-`;
+export default withOrganization(OrganizationDeveloperSettings);

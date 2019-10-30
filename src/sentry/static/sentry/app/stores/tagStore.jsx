@@ -75,6 +75,12 @@ const TagStore = Reflux.createStore({
         values: ['-1h', '+1d', '-1w'],
         predefined: true,
       },
+      firstRelease: {
+        key: 'firstRelease',
+        name: 'First Release',
+        values: ['latest'],
+        predefined: true,
+      },
       'event.timestamp': {
         key: 'event.timestamp',
         name: 'Event Timestamp',
@@ -90,6 +96,7 @@ const TagStore = Reflux.createStore({
         predefined: true,
       },
     };
+
     this.trigger(this.tags);
   },
 
@@ -122,10 +129,12 @@ const TagStore = Reflux.createStore({
             tag
           );
 
-          let old = this.tags[tag.key];
+          const old = this.tags[tag.key];
 
           // Don't override predefined filters (e.g. "is")
-          if (!old || !old.predefined) obj[tag.key] = tag;
+          if (!old || !old.predefined) {
+            obj[tag.key] = tag;
+          }
 
           return obj;
         },
@@ -137,7 +146,7 @@ const TagStore = Reflux.createStore({
   },
 
   onMemberListStoreChange(members) {
-    let assignedTag = this.tags.assigned;
+    const assignedTag = this.tags.assigned;
     assignedTag.values = getMemberListStoreUsernames();
     assignedTag.values.unshift('me');
     this.tags.bookmarks.values = assignedTag.values;

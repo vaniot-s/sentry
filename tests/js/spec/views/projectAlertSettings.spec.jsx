@@ -1,5 +1,5 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import ProjectAlertSettings from 'app/views/settings/projectAlerts/projectAlertSettings';
@@ -26,7 +26,7 @@ describe('ProjectAlertSettings', function() {
 
   describe('render()', function() {
     it('renders', function() {
-      let wrapper = shallow(
+      const wrapper = shallow(
         <ProjectAlertSettings
           params={{orgId: org.slug, projectId: project.slug}}
           organization={org}

@@ -8,12 +8,13 @@ import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
 import {Panel, PanelBody, PanelHeader, PanelItem} from 'app/components/panels';
 import recreateRoute from 'app/utils/recreateRoute';
+import routeTitleGen from 'app/utils/routeTitle';
 import ReportUri from 'app/views/settings/projectSecurityHeaders/reportUri';
 import PreviewFeature from 'app/components/previewFeature';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
 import TextBlock from 'app/views/settings/components/text/textBlock';
 
-const HeaderName = styled.span`
+const HeaderName = styled('span')`
   font-size: 1.2em;
 `;
 
@@ -28,8 +29,13 @@ export default class ProjectSecurityHeaders extends AsyncView {
   }
 
   getEndpoints() {
-    let {orgId, projectId} = this.props.params;
+    const {orgId, projectId} = this.props.params;
     return [['keyList', `/projects/${orgId}/${projectId}/keys/`]];
+  }
+
+  getTitle() {
+    const {projectId} = this.props.params;
+    return routeTitleGen(t('Security Headers'), projectId, false);
   }
 
   getReports() {

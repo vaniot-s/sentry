@@ -29,15 +29,15 @@ export default class AdminSettings extends AsyncView {
   }
 
   renderBody() {
-    let {data} = this.state;
+    const {data} = this.state;
 
-    let initialData = {};
-    let fields = {};
-    for (let key of optionsAvailable) {
+    const initialData = {};
+    const fields = {};
+    for (const key of optionsAvailable) {
       // TODO(dcramer): we should not be mutating options
-      let option = data[key] || {field: {}};
+      const option = data[key] || {field: {}};
       if (_.isUndefined(option.value) || option.value === '') {
-        let defn = getOption(key);
+        const defn = getOption(key);
         initialData[key] = defn.defaultValue ? defn.defaultValue() : '';
       } else {
         initialData[key] = option.value;
@@ -54,7 +54,7 @@ export default class AdminSettings extends AsyncView {
           apiEndpoint={this.getEndpoint()}
           onSubmit={this.onSubmit}
           initialData={initialData}
-          requireChanges={true}
+          requireChanges
         >
           <h4>General</h4>
           {fields['system.url-prefix']}

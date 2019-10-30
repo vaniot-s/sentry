@@ -11,8 +11,13 @@ import DropdownButton from 'app/components/dropdownButton';
 const Item = styled('span')`
   padding: 12px;
 `;
+
 const Section = styled('div')`
   margin-bottom: 32px;
+`;
+
+const WideButton = styled(Button)`
+  width: 200px;
 `;
 
 // eslint-disable-next-line
@@ -51,7 +56,7 @@ storiesOf('UI|Buttons', module)
           </Item>
 
           <Item>
-            <Button to={''} disabled onClick={action('click disabled')}>
+            <Button to="" disabled onClick={action('click disabled')}>
               Disabled Button
             </Button>
           </Item>
@@ -59,6 +64,18 @@ storiesOf('UI|Buttons', module)
 
         <Section>
           <h2>Sizes</h2>
+          <Item>
+            <Button size="micro">Micro</Button>
+          </Item>
+
+          <Item>
+            <Button size="zero">Zero</Button>
+          </Item>
+
+          <Item>
+            <Button size="xxsmall">Extra Extra Small</Button>
+          </Item>
+
           <Item>
             <Button size="xsmall">Extra Small</Button>
           </Item>
@@ -77,6 +94,17 @@ storiesOf('UI|Buttons', module)
         </Section>
 
         <Section>
+          <h2>Alignment</h2>
+          <Item>
+            <WideButton align="left">Aligned left</WideButton>
+          </Item>
+
+          <Item>
+            <WideButton align="right">Aligned right</WideButton>
+          </Item>
+        </Section>
+
+        <Section>
           <h2>Icons</h2>
           <div style={{display: 'flex', alignItems: 'center'}}>
             <Item>
@@ -86,6 +114,27 @@ storiesOf('UI|Buttons', module)
               <Button size="small" icon="icon-github">
                 View on GitHub
               </Button>
+            </Item>
+            <Item>
+              <Button size="micro" icon="icon-trash" />
+            </Item>
+            <Item>
+              <Button size="zero" icon="icon-trash" />
+            </Item>
+            <Item>
+              <Button size="xxsmall" icon="icon-trash" />
+            </Item>
+            <Item>
+              <Button size="xsmall" icon="icon-trash" />
+            </Item>
+            <Item>
+              <Button size="small" icon="icon-trash" />
+            </Item>
+            <Item>
+              <Button icon="icon-trash" />
+            </Item>
+            <Item>
+              <Button size="large" icon="icon-trash" />
             </Item>
           </div>
         </Section>

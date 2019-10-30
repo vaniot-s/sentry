@@ -1,5 +1,5 @@
 import React from 'react';
-import {mount, shallow} from 'enzyme';
+import {mount, shallow} from 'sentry-test/enzyme';
 
 import RadioGroup from 'app/views/settings/components/forms/controls/radioGroup';
 
@@ -18,6 +18,21 @@ describe('RadioGroup', function() {
         />
       );
       expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders disabled', function() {
+      const wrapper = mount(
+        <RadioGroup
+          name="radio"
+          value="choice_one"
+          disabled
+          choices={[['choice_one', 'Choice One']]}
+        />
+      );
+      expect(wrapper).toMatchSnapshot();
+
+      expect(wrapper.find('RadioLineText').props().disabled).toBe(true);
+      expect(wrapper.find('RadioLineButtonFill').props().disabled).toBe(true);
     });
 
     it('can select a different item', function() {
@@ -54,7 +69,7 @@ describe('RadioGroup', function() {
         .find('[role="radio"]')
         .last()
         .simulate('click');
-      expect(mock).toBeCalledWith(expect.any(String), expect.any(Object));
+      expect(mock).toHaveBeenCalledWith(expect.any(String), expect.any(Object));
     });
   });
 });

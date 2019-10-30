@@ -1,12 +1,12 @@
 import React from 'react';
 
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import ProjectFilters from 'app/views/settings/project/projectFilters';
 
 describe('ProjectFilters', function() {
-  let org = TestStubs.Organization();
-  let project = TestStubs.Project({options: {}});
-  let PROJECT_URL = `/projects/${org.slug}/${project.slug}/`;
+  const org = TestStubs.Organization();
+  const project = TestStubs.Project({options: {}});
+  const PROJECT_URL = `/projects/${org.slug}/${project.slug}/`;
   let wrapper;
 
   const getFilterEndpoint = filter => `${PROJECT_URL}filters/${filter}/`;
@@ -22,7 +22,7 @@ describe('ProjectFilters', function() {
     if (custom) {
       wrapper = custom();
     } else {
-      wrapper = mount(
+      wrapper = mountWithTheme(
         <ProjectFilters
           params={{projectId: project.slug, orgId: org.slug}}
           location={{}}
@@ -60,8 +60,8 @@ describe('ProjectFilters', function() {
   });
 
   it('has browser extensions enabled initially', function() {
-    let filter = 'browser-extensions';
-    let mock = createFilterMock(filter);
+    const filter = 'browser-extensions';
+    const mock = createFilterMock(filter);
     const Switch = wrapper.find(`BooleanField[name="${filter}"] Switch`);
 
     expect(Switch.prop('isActive')).toBe(true);
@@ -81,7 +81,7 @@ describe('ProjectFilters', function() {
 
   it('can toggle filters: localhost, web crawlers', function() {
     ['localhost', 'web-crawlers'].map((filter, i) => {
-      let mock = createFilterMock(filter);
+      const mock = createFilterMock(filter);
       const Switch = wrapper.find(`BooleanField[name="${filter}"] Switch`);
 
       // Toggle filter on
@@ -120,8 +120,8 @@ describe('ProjectFilters', function() {
   });
 
   it('can toggle legacy browser', function() {
-    let filter = 'legacy-browsers';
-    let mock = createFilterMock(filter);
+    const filter = 'legacy-browsers';
+    const mock = createFilterMock(filter);
 
     // default stubs ie_pre_9 and ie9 selected (first 2 switches)
     const Switch = wrapper.find('LegacyBrowserFilterRow Switch').at(4);
@@ -167,8 +167,8 @@ describe('ProjectFilters', function() {
   });
 
   it('can toggle all/none for legacy browser', function() {
-    let filter = 'legacy-browsers';
-    let mock = createFilterMock(filter);
+    const filter = 'legacy-browsers';
+    const mock = createFilterMock(filter);
     const All = wrapper.find('BulkFilterItem').at(0);
     const None = wrapper.find('BulkFilterItem').at(1);
 
@@ -191,13 +191,13 @@ describe('ProjectFilters', function() {
   });
 
   it('can set ip address filter', function() {
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: PROJECT_URL,
       method: 'PUT',
     });
 
     wrapper
-      .find('TextArea[id="filters:blacklisted_ips"]')
+      .find('TextArea[name="filters:blacklisted_ips"]')
       .simulate('change', {target: {value: 'test\ntest2'}})
       .simulate('blur');
     expect(mock.mock.calls[0][0]).toBe(PROJECT_URL);
@@ -206,14 +206,16 @@ describe('ProjectFilters', function() {
     );
   });
 
-  it('does not have filter by release/error message because no hooks store', function() {
-    expect(wrapper.find('TextArea[id="filters:releases"]')).toHaveLength(0);
-    expect(wrapper.find('TextArea[id="filters:error_messages"]')).toHaveLength(0);
+  it('filter by release/error message are not enabled', function() {
+    expect(wrapper.find('TextArea[name="filters:releases"][disabled]')).toHaveLength(1);
+    expect(
+      wrapper.find('TextArea[name="filters:error_messages"][disabled]')
+    ).toHaveLength(1);
   });
 
   it('has custom inbound filters with flag + can change', function() {
     wrapper = creator(() => {
-      return mount(
+      return mountWithTheme(
         <ProjectFilters
           params={{projectId: project.slug, orgId: org.slug}}
           location={{}}
@@ -231,16 +233,16 @@ describe('ProjectFilters', function() {
       );
     });
 
-    expect(wrapper.find('TextArea[id="filters:releases"]')).toHaveLength(1);
-    expect(wrapper.find('TextArea[id="filters:error_messages"]')).toHaveLength(1);
+    expect(wrapper.find('TextArea[name="filters:releases"]')).toHaveLength(1);
+    expect(wrapper.find('TextArea[name="filters:error_messages"]')).toHaveLength(1);
 
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: PROJECT_URL,
       method: 'PUT',
     });
 
     wrapper
-      .find('TextArea[id="filters:releases"]')
+      .find('TextArea[name="filters:releases"]')
       .simulate('change', {target: {value: 'release\nrelease2'}})
       .simulate('blur');
     expect(mock.mock.calls[0][0]).toBe(PROJECT_URL);
@@ -249,11 +251,24 @@ describe('ProjectFilters', function() {
     );
 
     wrapper
-      .find('TextArea[id="filters:error_messages"]')
+      .find('TextArea[name="filters:error_messages"]')
       .simulate('change', {target: {value: 'error\nerror2'}})
       .simulate('blur');
     expect(mock.mock.calls[1][1].data.options['filters:error_messages']).toBe(
       'error\nerror2'
     );
+  });
+
+  it('disables configuration for non project:write users', function() {
+    wrapper = mountWithTheme(
+      <ProjectFilters
+        params={{projectId: project.slug, orgId: org.slug}}
+        location={{}}
+      />,
+      TestStubs.routerContext([{organization: TestStubs.Organization({access: []})}])
+    );
+
+    expect(wrapper.find('FormField[disabled=false]')).toHaveLength(0);
+    expect(wrapper.find('LegacyBrowserFilterRow[disabled=false]')).toHaveLength(0);
   });
 });

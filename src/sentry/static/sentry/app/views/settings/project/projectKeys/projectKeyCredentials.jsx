@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import React from 'react';
 
 import {t, tct} from 'app/locale';
-import ExternalLink from 'app/components/externalLink';
+import ExternalLink from 'app/components/links/externalLink';
 import Field from 'app/views/settings/components/forms/field';
 import TextCopyInput from 'app/views/settings/components/forms/textCopyInput';
 import SentryTypes from 'app/sentryTypes';
@@ -17,6 +17,7 @@ class ProjectKeyCredentials extends React.Component {
     showDsnPublic: PropTypes.bool,
     showSecurityEndpoint: PropTypes.bool,
     showMinidump: PropTypes.bool,
+    showUnreal: PropTypes.bool,
     showPublicKey: PropTypes.bool,
     showSecretKey: PropTypes.bool,
     showProjectId: PropTypes.bool,
@@ -27,19 +28,21 @@ class ProjectKeyCredentials extends React.Component {
     showDsnPublic: true,
     showSecurityEndpoint: true,
     showMinidump: true,
+    showUnreal: true,
     showPublicKey: false,
     showSecretKey: false,
     showProjectId: false,
   };
 
   render() {
-    let {
+    const {
       projectId,
       data,
       showDsn,
       showDsnPublic,
       showSecurityEndpoint,
       showMinidump,
+      showUnreal,
       showPublicKey,
       showSecretKey,
       showProjectId,
@@ -119,8 +122,24 @@ class ProjectKeyCredentials extends React.Component {
           </Field>
         )}
 
+        {showUnreal && (
+          <Field
+            label={t('Unreal Engine 4 Endpoint')}
+            help={t('Use this endpoint to configure your UE4 Crash Reporter.')}
+            inline={false}
+            flexibleControlStateSize
+          >
+            <TextCopyInput>
+              {getDynamicText({
+                value: data.dsn.unreal || '',
+                fixed: '__UNREAL_ENDPOINT__',
+              })}
+            </TextCopyInput>
+          </Field>
+        )}
+
         {showPublicKey && (
-          <Field label={t('Public Key')} inline={true} flexibleControlStateSize>
+          <Field label={t('Public Key')} inline flexibleControlStateSize>
             <TextCopyInput>
               {getDynamicText({
                 value: data.public,
@@ -131,7 +150,7 @@ class ProjectKeyCredentials extends React.Component {
         )}
 
         {showSecretKey && (
-          <Field label={t('Secret Key')} inline={true} flexibleControlStateSize>
+          <Field label={t('Secret Key')} inline flexibleControlStateSize>
             <TextCopyInput>
               {getDynamicText({
                 value: data.secret,
@@ -142,7 +161,7 @@ class ProjectKeyCredentials extends React.Component {
         )}
 
         {showProjectId && (
-          <Field label={t('Project ID')} inline={true} flexibleControlStateSize>
+          <Field label={t('Project ID')} inline flexibleControlStateSize>
             <TextCopyInput>
               {getDynamicText({
                 value: projectId,

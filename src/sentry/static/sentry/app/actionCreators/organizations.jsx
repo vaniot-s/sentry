@@ -1,15 +1,17 @@
 import {browserHistory} from 'react-router';
 
+import {resetGlobalSelection} from 'app/actionCreators/globalSelection';
 import {Client} from 'app/api';
 import IndicatorStore from 'app/stores/indicatorStore';
+import OrganizationActions from 'app/actions/organizationActions';
 import OrganizationsActions from 'app/actions/organizationsActions';
 import OrganizationsStore from 'app/stores/organizationsStore';
 import ProjectsStore from 'app/stores/projectsStore';
 import TeamStore from 'app/stores/teamStore';
 
-export function redirectToRemainingOrganization({orgId}) {
+export function redirectToRemainingOrganization({orgId, removeOrg}) {
   // Remove queued, should redirect
-  let allOrgs = OrganizationsStore.getAll().filter(
+  const allOrgs = OrganizationsStore.getAll().filter(
     org => org.status.id === 'active' && org.slug !== orgId
   );
   if (!allOrgs.length) {
@@ -18,30 +20,39 @@ export function redirectToRemainingOrganization({orgId}) {
   }
 
   // Let's be smart and select the best org to redirect to
-  let firstRemainingOrg = allOrgs[0];
+  const firstRemainingOrg = allOrgs[0];
   browserHistory.push(`/${firstRemainingOrg.slug}/`);
+
+  // Remove org from SidebarDropdown
+  if (removeOrg) {
+    OrganizationsStore.remove(orgId);
+  }
 }
 
 export function remove(api, {successMessage, errorMessage, orgId} = {}) {
-  let endpoint = `/organizations/${orgId}/`;
+  const endpoint = `/organizations/${orgId}/`;
   return api
     .requestPromise(endpoint, {
       method: 'DELETE',
     })
-    .then(data => {
+    .then(() => {
       OrganizationsActions.removeSuccess(orgId);
 
       if (successMessage) {
         IndicatorStore.add(successMessage, 'success', {duration: 3000});
       }
     })
-    .catch(err => {
+    .catch(() => {
       OrganizationsActions.removeError();
 
       if (errorMessage) {
         IndicatorStore.add(errorMessage, 'error', {duration: 3000});
       }
     });
+}
+
+export function switchOrganization() {
+  resetGlobalSelection();
 }
 
 export function removeAndRedirectToRemainingOrganization(api, params) {
@@ -58,42 +69,50 @@ export function changeOrganizationSlug(prev, next) {
 
 export function updateOrganization(org) {
   OrganizationsActions.update(org);
+  OrganizationActions.update(org);
 }
 
-export function fetchOrganizationByMember(memberId, {loadOrg, setActive}) {
-  let api = new Client();
-  let request = api.requestPromise(`/organizations/?query=member_id:${memberId}`);
+export async function fetchOrganizationByMember(memberId, {addOrg, fetchOrgDetails}) {
+  const api = new Client();
+  const data = await api.requestPromise(`/organizations/?query=member_id:${memberId}`);
 
-  request.then(data => {
-    if (data.length && loadOrg) {
-      OrganizationsStore.add(data[0]);
-    }
+  if (!data.length) {
+    return null;
+  }
 
-    if (data.length && setActive) {
-      setActiveOrganization(data[0]);
-    }
-  });
+  const org = data[0];
 
-  return request;
+  if (addOrg) {
+    // add org to SwitchOrganization dropdown
+    OrganizationsStore.add(org);
+  }
+
+  if (fetchOrgDetails) {
+    // load SidebarDropdown with org details including `access`
+    await fetchOrganizationDetails(org.slug, {setActive: true, loadProjects: true});
+  }
+
+  return org;
 }
 
-export function fetchOrganizationDetails(orgId, {setActive, loadProjects, loadTeam}) {
-  let api = new Client();
-  let request = api.requestPromise(`/organizations/${orgId}/`);
+export async function fetchOrganizationDetails(
+  orgId,
+  {setActive, loadProjects, loadTeam}
+) {
+  const api = new Client();
+  const data = await api.requestPromise(`/organizations/${orgId}/`);
 
-  request.then(data => {
-    if (setActive) {
-      setActiveOrganization(data);
-    }
+  if (setActive) {
+    setActiveOrganization(data);
+  }
 
-    if (loadTeam) {
-      TeamStore.loadInitialData(data.teams);
-    }
+  if (loadTeam) {
+    TeamStore.loadInitialData(data.teams);
+  }
 
-    if (loadProjects) {
-      ProjectsStore.loadInitialData(data.projects || []);
-    }
-  });
+  if (loadProjects) {
+    ProjectsStore.loadInitialData(data.projects || []);
+  }
 
-  return request;
+  return data;
 }

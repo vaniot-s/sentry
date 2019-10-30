@@ -1,119 +1,172 @@
 from __future__ import absolute_import
 
-from functools32 import partial
-
-from rest_framework.exceptions import PermissionDenied
+import logging
+import six
+from functools import partial
 from rest_framework.response import Response
 
-from sentry import roles
-from sentry.api.bases import OrganizationEndpoint
-from sentry.api.event_search import get_snuba_query_args, InvalidSearchQuery
-from sentry.api.exceptions import ResourceDoesNotExist
+from sentry.api.bases import OrganizationEventsEndpointBase, OrganizationEventsError, NoProjects
+from sentry.api.helpers.events import get_direct_hit_response
 from sentry.api.paginator import GenericOffsetPaginator
-from sentry.api.serializers import serialize
-from sentry.api.serializers.models.event import SnubaEvent
-from sentry.api.utils import get_date_range_from_params, InvalidParams
-from sentry.models import (
-    Environment, OrganizationMember, OrganizationMemberTeam, Project, ProjectStatus
-)
-from sentry.utils.snuba import raw_query
+from sentry.api.serializers import EventSerializer, serialize, SimpleEventSerializer
+from sentry import eventstore, features
+from sentry.utils import snuba
+from sentry.models.project import Project
+
+logger = logging.getLogger(__name__)
 
 
-class OrganizationEventsEndpoint(OrganizationEndpoint):
-
-    def get_project_ids(self, request, organization):
-        project_ids = set(map(int, request.GET.getlist('project')))
-
-        requested_projects = project_ids.copy()
+class OrganizationEventsEndpoint(OrganizationEventsEndpointBase):
+    def get(self, request, organization):
+        # Check for a direct hit on event ID
+        query = request.GET.get("query", "").strip()
 
         try:
-            om_role = OrganizationMember.objects.filter(
-                user=request.user,
-                organization=organization,
-            ).values_list('role', flat=True).get()
-        except OrganizationMember.DoesNotExist:
-            om_role = None
-
-        if request.user.is_superuser or (om_role and roles.get(om_role).is_global):
-            qs = Project.objects.filter(
-                organization=organization,
-                status=ProjectStatus.VISIBLE,
+            direct_hit_resp = get_direct_hit_response(
+                request,
+                query,
+                self.get_filter_params(request, organization),
+                "api.organization-events",
             )
+        except (OrganizationEventsError, NoProjects):
+            pass
         else:
-            qs = Project.objects.filter(
-                organization=organization,
-                teams__in=OrganizationMemberTeam.objects.filter(
-                    organizationmember__user=request.user,
-                    organizationmember__organization=organization,
-                ).values_list('team'),
-                status=ProjectStatus.VISIBLE,
+            if direct_hit_resp:
+                return direct_hit_resp
+
+        full = request.GET.get("full", False)
+        try:
+            snuba_args = self.get_snuba_query_args_legacy(request, organization)
+        except OrganizationEventsError as exc:
+            return Response({"detail": exc.message}, status=400)
+        except NoProjects:
+            # return empty result if org doesn't have projects
+            # or user doesn't have access to projects in org
+            data_fn = lambda *args, **kwargs: []
+        else:
+            cols = None if full else eventstore.full_columns
+
+            data_fn = partial(
+                eventstore.get_events,
+                additional_columns=cols,
+                referrer="api.organization-events",
+                filter=eventstore.Filter(
+                    start=snuba_args["start"],
+                    end=snuba_args["end"],
+                    conditions=snuba_args["conditions"],
+                    project_ids=snuba_args["filter_keys"].get("project_id", None),
+                    group_ids=snuba_args["filter_keys"].get("issue", None),
+                ),
             )
 
-        if project_ids:
-            qs = qs.filter(id__in=project_ids)
-
-        project_ids = set(qs.values_list('id', flat=True))
-
-        if requested_projects and project_ids != requested_projects:
-            raise PermissionDenied
-
-        return list(project_ids)
-
-    def get_environments(self, request, organization):
-        requested_environments = set(request.GET.getlist('environment'))
-
-        if not requested_environments:
-            return []
-
-        environments = set(
-            Environment.objects.filter(
-                organization_id=organization.id,
-                name__in=requested_environments,
-            ).values_list('name', flat=True),
+        serializer = EventSerializer() if full else SimpleEventSerializer()
+        return self.paginate(
+            request=request,
+            on_results=lambda results: serialize(results, request.user, serializer),
+            paginator=GenericOffsetPaginator(data_fn=data_fn),
         )
 
-        if requested_environments != environments:
-            raise ResourceDoesNotExist
-
-        return list(environments)
-
-    def get(self, request, organization):
-        try:
-            start, end = get_date_range_from_params(request.GET)
-        except InvalidParams as exc:
-            return Response({'detail': exc.message}, status=400)
-
-        try:
-            project_ids = self.get_project_ids(request, organization)
-        except ValueError:
-            return Response({'detail': 'Invalid project ids'}, status=400)
-
-        environments = self.get_environments(request, organization)
-        params = {
-            'start': start,
-            'end': end,
-            'project_id': project_ids,
+    def handle_results(self, request, organization, project_ids, results):
+        projects = {
+            p["id"]: p["slug"]
+            for p in Project.objects.filter(organization=organization, id__in=project_ids).values(
+                "id", "slug"
+            )
         }
-        if environments:
-            params['environment'] = environments
+
+        fields = request.GET.getlist("field")
+
+        if "project.name" in fields:
+            for result in results:
+                result["project.name"] = projects[result["project.id"]]
+                if "project.id" not in fields:
+                    del result["project.id"]
+
+        return results
+
+
+class OrganizationEventsV2Endpoint(OrganizationEventsEndpointBase):
+    def get(self, request, organization):
+        if not features.has("organizations:events-v2", organization, actor=request.user):
+            return Response(status=404)
 
         try:
-            snuba_args = get_snuba_query_args(query=request.GET.get('query'), params=params)
-        except InvalidSearchQuery as exc:
-            return Response({'detail': exc.message}, status=400)
+            params = self.get_filter_params(request, organization)
+            snuba_args = self.get_snuba_query_args(request, organization, params)
+            if not snuba_args.get("selected_columns") and not snuba_args.get("aggregations"):
+                return Response({"detail": "No fields provided"}, status=400)
+
+        except OrganizationEventsError as exc:
+            return Response({"detail": exc.message}, status=400)
+        except NoProjects:
+            return Response([])
+
+        filters = snuba_args.get("filter_keys", {})
+        has_global_views = features.has(
+            "organizations:global-views", organization, actor=request.user
+        )
+        if not has_global_views and len(filters.get("project_id", [])) > 1:
+            return Response(
+                {"detail": "You cannot view events from multiple projects."}, status=400
+            )
 
         data_fn = partial(
-            # extract 'data' from raw_query result
-            lambda *args, **kwargs: raw_query(*args, **kwargs)['data'],
-            selected_columns=SnubaEvent.selected_columns,
-            orderby='-timestamp',
-            referrer='api.organization-events',
+            lambda **kwargs: snuba.transform_aliases_and_query(**kwargs),
+            referrer="api.organization-events-v2",
             **snuba_args
         )
 
-        return self.paginate(
-            request=request,
-            on_results=lambda results: serialize(
-                [SnubaEvent(row) for row in results], request.user),
-            paginator=GenericOffsetPaginator(data_fn=data_fn)
-        )
+        try:
+            return self.paginate(
+                request=request,
+                paginator=GenericOffsetPaginator(data_fn=data_fn),
+                on_results=lambda results: self.handle_results_with_meta(
+                    request, organization, params["project_id"], results
+                ),
+            )
+        except snuba.SnubaError as error:
+            logger.info(
+                "organization.events.snuba-error",
+                extra={
+                    "organization_id": organization.id,
+                    "user_id": request.user.id,
+                    "error": six.text_type(error),
+                },
+            )
+            return Response({"detail": "Invalid query."}, status=400)
+
+    def handle_results_with_meta(self, request, organization, project_ids, results):
+        data = self.handle_data(request, organization, project_ids, results.get("data"))
+        if not data:
+            return {"data": [], "meta": {}}
+
+        meta = {value["name"]: snuba.get_json_type(value["type"]) for value in results["meta"]}
+        # Ensure all columns in the result have types.
+        for key in data[0]:
+            if key not in meta:
+                meta[key] = "string"
+        return {"meta": meta, "data": data}
+
+    def handle_data(self, request, organization, project_ids, results):
+        if not results:
+            return results
+
+        first_row = results[0]
+        if not ("project.id" in first_row or "projectid" in first_row):
+            return results
+
+        fields = request.GET.getlist("field")
+        projects = {
+            p["id"]: p["slug"]
+            for p in Project.objects.filter(organization=organization, id__in=project_ids).values(
+                "id", "slug"
+            )
+        }
+        for result in results:
+            for key in ("projectid", "project.id"):
+                if key in result:
+                    result["project.name"] = projects[result[key]]
+                    if key not in fields:
+                        del result[key]
+
+        return results

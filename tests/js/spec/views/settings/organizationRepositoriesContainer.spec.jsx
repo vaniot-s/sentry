@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import OrganizationRepositoriesContainer from 'app/views/settings/organizationRepositories';
@@ -29,7 +29,7 @@ describe('OrganizationRepositoriesContainer', function() {
       });
 
       it('is loading when initially rendering', function() {
-        let wrapper = shallow(
+        const wrapper = shallow(
           <OrganizationRepositoriesContainer params={{orgId: 'org-slug'}} />,
           {
             context: {

@@ -1,4 +1,3 @@
-import {Flex} from 'grid-emotion';
 import React from 'react';
 import PropTypes from 'prop-types';
 import styled from 'react-emotion';
@@ -8,11 +7,15 @@ import space from 'app/styles/space';
 import overflowEllipsis from 'app/styles/overflowEllipsis';
 import SentryTypes from 'app/sentryTypes';
 
+const BasicModelShape = PropTypes.shape({slug: PropTypes.string});
+
 class BaseBadge extends React.PureComponent {
   static propTypes = {
-    team: SentryTypes.Team,
-    organization: SentryTypes.Organization,
-    project: SentryTypes.Project,
+    team: PropTypes.oneOfType([BasicModelShape, SentryTypes.Team]),
+    organization: PropTypes.oneOfType([BasicModelShape, SentryTypes.Organization]),
+    project: PropTypes.oneOfType([BasicModelShape, SentryTypes.Project]),
+    member: PropTypes.oneOfType([BasicModelShape, SentryTypes.Member]),
+    user: PropTypes.oneOfType([BasicModelShape, SentryTypes.User]),
 
     /**
      * Avatar size
@@ -47,7 +50,7 @@ class BaseBadge extends React.PureComponent {
   };
 
   render() {
-    let {
+    const {
       className,
       hideAvatar,
       hideName,
@@ -61,18 +64,19 @@ class BaseBadge extends React.PureComponent {
       project,
     } = this.props;
 
-    let data = {
+    const data = {
       team,
       organization,
       project,
     };
 
     return (
-      <Flex align="center" className={className}>
+      <BaseBadgeWrapper className={className}>
         {!hideAvatar && (
           <StyledAvatar
             css={avatarClassName}
             size={avatarSize}
+            hideName={hideName}
             {...avatarProps || {}}
             {...data}
           />
@@ -84,19 +88,25 @@ class BaseBadge extends React.PureComponent {
           )}
           {!!description && <Description>{description}</Description>}
         </DisplayNameAndDescription>
-      </Flex>
+      </BaseBadgeWrapper>
     );
   }
 }
 
+const BaseBadgeWrapper = styled('div')`
+  display: flex;
+  align-items: center;
+`;
+
 export default BaseBadge;
 
 const StyledAvatar = styled(Avatar)`
-  margin-right: ${space(1)};
+  margin-right: ${p => (p.hideName ? 0 : space(1))};
   flex-shrink: 0;
 `;
 
-const DisplayNameAndDescription = styled(Flex)`
+const DisplayNameAndDescription = styled('div')`
+  display: flex;
   flex-direction: column;
   line-height: 1;
   overflow: hidden;
@@ -105,6 +115,7 @@ const DisplayNameAndDescription = styled(Flex)`
 const DisplayName = styled('span')`
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 `;
 
 const Description = styled('div')`

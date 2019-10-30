@@ -1,15 +1,20 @@
-import {Box, Flex} from 'grid-emotion';
 import PropTypes from 'prop-types';
 import React from 'react';
 import styled from 'react-emotion';
 
+import {selectText} from 'app/utils/selectText';
 import {t, tct} from 'app/locale';
 import Alert from 'app/components/alert';
 import Button from 'app/components/button';
-import ExternalLink from 'app/components/externalLink';
+import ExternalLink from 'app/components/links/externalLink';
 import space from 'app/styles/space';
 
 const CONFIG_DOCS_URL = 'https://docs.sentry.io/server/config/';
+
+const installText = (features, featureName) =>
+  `# ${t('Enables the %s feature', featureName)}\n${features
+    .map(f => `SENTRY_FEATURES['${f}'] = True`)
+    .join('\n')}`;
 
 /**
  * DisabledInfo renders a component informing that a feature has been disabled.
@@ -21,15 +26,15 @@ const CONFIG_DOCS_URL = 'https://docs.sentry.io/server/config/';
 class FeatureDisabled extends React.Component {
   static propTypes = {
     /**
-     * The feature flag key that should be uwed in the code example for
+     * The feature flag keys that should be awed in the code example for
      * enabling the feature.
      */
-    feature: PropTypes.string,
+    features: PropTypes.arrayOf(PropTypes.string).isRequired,
     /**
-     * The english name of the feature. This is used in the comment that will
+     * The English name of the feature. This is used in the comment that will
      * be outputted above the example line of code to enable the feature.
      */
-    featureName: PropTypes.string,
+    featureName: PropTypes.string.isRequired,
     /**
      * Render the disabled message within a warning Alert. A custom Alert
      * component may be provided.
@@ -39,7 +44,7 @@ class FeatureDisabled extends React.Component {
      */
     alert: PropTypes.oneOfType([PropTypes.bool, PropTypes.func]),
     /**
-     * Do not show the help toggle.
+     * Do not show the help toggle. The description will always be rendered.
      */
     hideHelpToggle: PropTypes.bool,
     /**
@@ -63,11 +68,12 @@ class FeatureDisabled extends React.Component {
 
   render() {
     const {showHelp} = this.state;
-    const {message, feature, featureName, hideHelpToggle, alert} = this.props;
+    const {message, features, featureName, hideHelpToggle, alert} = this.props;
+    const showDescription = hideHelpToggle || showHelp;
 
     const featureDisabled = (
       <React.Fragment>
-        <Flex justify="space-between" data-test-id="feature-message">
+        <FeatureDisabledMessage>
           {message}
           {!hideHelpToggle && (
             <HelpButton
@@ -79,8 +85,8 @@ class FeatureDisabled extends React.Component {
               {t('Help')}
             </HelpButton>
           )}
-        </Flex>
-        {showHelp && (
+        </FeatureDisabledMessage>
+        {showDescription && (
           <HelpDescription>
             <p>
               {tct(
@@ -94,9 +100,8 @@ class FeatureDisabled extends React.Component {
                 }
               )}
             </p>
-            <pre>
-              <code
-              >{`# Enables the ${featureName} feature\nSENTRY_FEATURES['${feature}'] = True`}</code>
+            <pre onClick={e => selectText(e.target)}>
+              <code>{installText(features, featureName)}</code>
             </pre>
           </HelpDescription>
         )}
@@ -115,11 +120,16 @@ class FeatureDisabled extends React.Component {
   }
 }
 
+const FeatureDisabledMessage = styled('div')`
+  display: flex;
+  justify-content: space-between;
+`;
+
 const HelpButton = styled(Button)`
   font-size: 0.8em;
 `;
 
-const HelpDescription = styled(Box)`
+const HelpDescription = styled('div')`
   font-size: 0.9em;
   margin-top: ${space(1)};
 
@@ -127,13 +137,14 @@ const HelpDescription = styled(Box)`
     line-height: 1.5em;
   }
 
-  pre {
+  pre,
+  code {
     margin-bottom: 0;
+    white-space: pre;
   }
 `;
 
 const AlertWrapper = styled('div')`
-  /* stylelint-disable-next-line no-duplicate-selectors */
   ${HelpButton} {
     color: #6d6319;
     &:hover {

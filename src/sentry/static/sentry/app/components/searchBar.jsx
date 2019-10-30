@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import React from 'react';
+import {cx} from 'react-emotion';
 
 class SearchBar extends React.PureComponent {
   static propTypes = {
@@ -20,6 +21,7 @@ class SearchBar extends React.PureComponent {
     this.state = {
       query: this.props.query || this.props.defaultQuery,
     };
+    this.searchInputRef = React.createRef();
   }
 
   componentWillReceiveProps(nextProps) {
@@ -31,7 +33,7 @@ class SearchBar extends React.PureComponent {
   }
 
   blur = () => {
-    this.searchInput.blur();
+    this.searchInputRef.current.blur();
   };
 
   onSubmit = evt => {
@@ -61,8 +63,9 @@ class SearchBar extends React.PureComponent {
   };
 
   render() {
+    const {className} = this.props;
     return (
-      <div className="search">
+      <div className={cx('search', className)}>
         <form className="form-horizontal" onSubmit={this.onSubmit}>
           <div>
             <input
@@ -70,7 +73,7 @@ class SearchBar extends React.PureComponent {
               className="search-input form-control"
               placeholder={this.props.placeholder}
               name="query"
-              ref={el => (this.searchInput = el)}
+              ref={this.searchInputRef}
               autoComplete="off"
               value={this.state.query}
               onBlur={this.onQueryBlur}

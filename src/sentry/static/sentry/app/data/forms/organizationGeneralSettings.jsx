@@ -1,7 +1,5 @@
-import React from 'react';
-
 import {extractMultilineFields} from 'app/utils';
-import {t, tct} from 'app/locale';
+import {t} from 'app/locale';
 import slugify from 'app/utils/slugify';
 
 // Export route to make these forms searchable by label/help
@@ -31,14 +29,8 @@ const formGroups = [
         type: 'string',
         required: true,
 
-        label: t('Legacy Name'),
-        help: tct(
-          '[Deprecated] In the future, only [Name] will be used to identify your organization',
-          {
-            Deprecated: <strong>DEPRECATED</strong>,
-            Name: <strong>Name</strong>,
-          }
-        ),
+        label: t('Display Name'),
+        help: t('This is the name that users will see for the organization'),
       },
       {
         name: 'isEarlyAdopter',
@@ -82,7 +74,7 @@ const formGroups = [
         name: 'require2FA',
         type: 'boolean',
         label: t('Require Two-Factor Authentication'),
-        help: t('Require two-factor authentication for all members'),
+        help: t('Require and enforce two-factor authentication for all members'),
         confirm: {
           true: t(
             'This will remove all members without two-factor authentication' +
@@ -93,7 +85,6 @@ const formGroups = [
             'Are you sure you want to allow users to access your organization without having two-factor authentication enabled?'
           ),
         },
-        visible: ({features}) => features.has('require-2fa'),
       },
       {
         name: 'allowSharedIssues',
@@ -150,7 +141,7 @@ const formGroups = [
         autosize: true,
         maxRows: 10,
         placeholder: 'e.g. email',
-        label: t('Global sensitive fields'),
+        label: t('Global Sensitive Fields'),
         help: t(
           'Additional field names to match against when scrubbing data for all projects. Separate multiple entries with a newline.'
         ),
@@ -167,7 +158,7 @@ const formGroups = [
         autosize: true,
         maxRows: 10,
         placeholder: t('e.g. business-email'),
-        label: t('Global safe fields'),
+        label: t('Global Safe Fields'),
         help: t(
           'Field names which data scrubbers should ignore. Separate multiple entries with a newline.'
         ),
@@ -198,7 +189,7 @@ const formGroups = [
             "Are you sure you want to disable sourcecode fetching for JavaScript events? This will affect Sentry's ability to aggregate issues if you're not already uploading sourcemaps as artifacts."
           ),
         },
-        label: t('Allow JavaScript source fetching'),
+        label: t('Allow JavaScript Source Fetching'),
         help: t('Allow Sentry to scrape missing JavaScript source context when possible'),
       },
       {
@@ -207,6 +198,19 @@ const formGroups = [
         label: t('Store Native Crash Reports'),
         help: t(
           'Store native crash reports such as Minidumps for improved processing and download in issue details'
+        ),
+        visible: ({features}) => features.has('event-attachments'),
+      },
+      {
+        name: 'attachmentsRole',
+        type: 'array',
+        choices: ({initialData} = {}) =>
+          (initialData.availableRoles &&
+            initialData.availableRoles.map(r => [r.id, r.name])) ||
+          [],
+        label: t('Attachments Access'),
+        help: t(
+          'Permissions required to download event attachments, such as native crash reports or log files'
         ),
         visible: ({features}) => features.has('event-attachments'),
       },
@@ -224,6 +228,20 @@ const formGroups = [
         getValue: val => extractMultilineFields(val),
         setValue: val => (val && typeof val.join === 'function' && val.join('\n')) || '',
         visible: ({features}) => features.has('relay'),
+      },
+      {
+        name: 'allowJoinRequests',
+        type: 'boolean',
+
+        label: t('Allow Join Requests'),
+        help: t('Allow users to request to join your organization'),
+        confirm: {
+          true: t(
+            'Are you sure you want to allow users to request to join your organization?'
+          ),
+        },
+        visible: ({experiments}) =>
+          !!experiments && experiments.JoinRequestExperiment === 1,
       },
     ],
   },

@@ -1,22 +1,20 @@
+import {Link, withRouter} from 'react-router';
 import PropTypes from 'prop-types';
 import React from 'react';
-import createReactClass from 'create-react-class';
-import {Link} from 'react-router';
 import styled from 'react-emotion';
-import {Flex, Box} from 'grid-emotion';
 
-import ProjectState from 'app/mixins/projectState';
-import TimeSince from 'app/components/timeSince';
+import {tct} from 'app/locale';
+import EventAnnotation from 'app/components/events/eventAnnotation';
+import InlineSvg from 'app/components/inlineSvg';
+import ProjectBadge from 'app/components/idBadge/projectBadge';
+import SentryTypes from 'app/sentryTypes';
 import ShortId from 'app/components/shortId';
-import {t, tct} from 'app/locale';
+import Times from 'app/components/group/times';
+import space from 'app/styles/space';
 
-const EventOrGroupExtraDetails = createReactClass({
-  displayName: 'EventOrGroupExtraDetails',
-
-  propTypes: {
-    orgId: PropTypes.string.isRequired,
-    projectId: PropTypes.string.isRequired,
-    groupId: PropTypes.string.isRequired,
+class EventOrGroupExtraDetails extends React.Component {
+  static propTypes = {
+    id: PropTypes.string,
     lastSeen: PropTypes.string,
     firstSeen: PropTypes.string,
     subscriptionDetails: PropTypes.shape({
@@ -30,15 +28,12 @@ const EventOrGroupExtraDetails = createReactClass({
     }),
     showAssignee: PropTypes.bool,
     shortId: PropTypes.string,
-  },
-
-  mixins: [ProjectState],
+    project: SentryTypes.Project,
+  };
 
   render() {
-    let {
-      orgId,
-      projectId,
-      groupId,
+    const {
+      id,
       lastSeen,
       firstSeen,
       subscriptionDetails,
@@ -48,68 +43,52 @@ const EventOrGroupExtraDetails = createReactClass({
       annotations,
       showAssignee,
       shortId,
+      project,
+      params,
     } = this.props;
-    let styles = {};
-    if (subscriptionDetails && subscriptionDetails.reason === 'mentioned') {
-      styles = {color: '#57be8c'};
-    }
+
+    const issuesPath = `/organizations/${params.orgId}/issues/`;
 
     return (
-      <GroupExtra align="center">
+      <GroupExtra>
         {shortId && (
-          <Box mr={2}>
-            <GroupShortId shortId={shortId} />
-          </Box>
+          <GroupShortId
+            shortId={shortId}
+            avatar={
+              project && <ProjectBadge project={project} avatarSize={14} hideName />
+            }
+          />
         )}
-        <Flex align="center" mr={2}>
-          {lastSeen && (
-            <React.Fragment>
-              <GroupExtraIcon className="icon icon-clock" />
-              <TimeSince date={lastSeen} suffix={t('ago')} />
-            </React.Fragment>
-          )}
-          {firstSeen &&
-            lastSeen && <span className="hidden-xs hidden-sm">&nbsp;—&nbsp;</span>}
-          {firstSeen && (
-            <TimeSince
-              date={firstSeen}
-              suffix={t('old')}
-              className="hidden-xs hidden-sm"
+        <StyledTimes lastSeen={lastSeen} firstSeen={firstSeen} />
+        {numComments > 0 && (
+          <CommentsLink to={`${issuesPath}${id}/activity/`} className="comments">
+            <GroupExtraIcon
+              src="icon-comment-sm"
+              mentioned={
+                subscriptionDetails && subscriptionDetails.reason === 'mentioned'
+              }
             />
-          )}
-        </Flex>
-        <GroupExtraCommentsAndLogger>
-          {numComments > 0 && (
-            <Box mr={2}>
-              <Link
-                to={`/${orgId}/${projectId}/issues/${groupId}/activity/`}
-                className="comments"
-              >
-                <GroupExtraIcon className="icon icon-comments" style={styles} />
-                <GroupExtraIcon className="tag-count">{numComments}</GroupExtraIcon>
-              </Link>
-            </Box>
-          )}
-          {logger && (
-            <Box className="event-annotation" mr={2}>
-              <Link
-                to={{
-                  pathname: `/${orgId}/${projectId}/`,
-                  query: {
-                    query: 'logger:' + logger,
-                  },
-                }}
-              >
-                {logger}
-              </Link>
-            </Box>
-          )}
-        </GroupExtraCommentsAndLogger>
+            <span>{numComments}</span>
+          </CommentsLink>
+        )}
+        {logger && (
+          <LoggerAnnotation>
+            <Link
+              to={{
+                pathname: issuesPath,
+                query: {
+                  query: 'logger:' + logger,
+                },
+              }}
+            >
+              {logger}
+            </Link>
+          </LoggerAnnotation>
+        )}
         {annotations &&
           annotations.map((annotation, key) => {
             return (
-              <Box
-                className="event-annotation"
+              <AnnotationNoMargin
                 dangerouslySetInnerHTML={{
                   __html: annotation,
                 }}
@@ -118,33 +97,56 @@ const EventOrGroupExtraDetails = createReactClass({
             );
           })}
 
-        {showAssignee &&
-          assignedTo && <Box>{tct('Assigned to [name]', {name: assignedTo.name})}</Box>}
+        {showAssignee && assignedTo && (
+          <div>{tct('Assigned to [name]', {name: assignedTo.name})}</div>
+        )}
       </GroupExtra>
     );
-  },
-});
+  }
+}
 
-const GroupExtra = styled(Flex)`
+const GroupExtra = styled('div')`
+  display: grid;
+  grid-auto-flow: column;
+  grid-gap: ${space(2)};
+  justify-content: start;
+  align-items: center;
   color: ${p => p.theme.gray3};
   font-size: 12px;
+  position: relative;
+
   a {
     color: inherit;
   }
 `;
 
-const GroupExtraCommentsAndLogger = styled(Flex)`
+const StyledTimes = styled(Times)`
+  margin-right: 0;
+`;
+
+const CommentsLink = styled(Link)`
   color: ${p => p.theme.gray4};
 `;
 
 const GroupShortId = styled(ShortId)`
+  flex-shrink: 0;
   font-size: 12px;
   color: ${p => p.theme.gray3};
 `;
 
-const GroupExtraIcon = styled.span`
+const GroupExtraIcon = styled(InlineSvg)`
+  color: ${p => (p.isMentioned ? p.theme.green : null)};
   font-size: 11px;
   margin-right: 4px;
 `;
 
-export default EventOrGroupExtraDetails;
+const AnnotationNoMargin = styled(EventAnnotation)`
+  margin-left: 0;
+  padding-left: ${space(2)};
+`;
+
+const LoggerAnnotation = styled(AnnotationNoMargin)`
+  color: ${p => p.theme.gray4};
+`;
+
+export default withRouter(EventOrGroupExtraDetails);

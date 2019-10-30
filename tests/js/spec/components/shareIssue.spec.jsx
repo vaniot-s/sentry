@@ -1,19 +1,19 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 import ShareIssue from 'app/components/shareIssue';
 
 describe('ShareIssue', function() {
   it('renders when not shared', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <ShareIssue isSharing={false} onToggle={() => {}} onShare={() => {}} />
     );
     expect(wrapper).toMatchSnapshot();
   });
 
   it('renders when shared ', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <ShareIssue
-        isSharing={true}
+        isSharing
         onToggle={() => {}}
         onShare={() => {}}
         shareUrl="http://sentry.io/share/test/"
@@ -23,9 +23,7 @@ describe('ShareIssue', function() {
   });
 
   it('renders when busy', function() {
-    let wrapper = shallow(
-      <ShareIssue onToggle={() => {}} onShare={() => {}} busy={true} />
-    );
+    const wrapper = shallow(<ShareIssue onToggle={() => {}} onShare={() => {}} busy />);
     expect(wrapper).toMatchSnapshot();
   });
 });

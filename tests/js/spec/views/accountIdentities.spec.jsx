@@ -1,5 +1,5 @@
 import React from 'react';
-import {shallow, mount} from 'enzyme';
+import {shallow, mountWithTheme} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import AccountIdentities from 'app/views/settings/account/accountIdentities';
@@ -18,7 +18,7 @@ describe('AccountIdentities', function() {
       body: [],
     });
 
-    let wrapper = shallow(<AccountIdentities />, TestStubs.routerContext());
+    const wrapper = shallow(<AccountIdentities />, TestStubs.routerContext());
 
     expect(wrapper).toMatchSnapshot();
   });
@@ -31,12 +31,12 @@ describe('AccountIdentities', function() {
         {
           id: '1',
           provider: 'github',
-          providerLabel: 'Github',
+          providerLabel: 'GitHub',
         },
       ],
     });
 
-    let wrapper = shallow(<AccountIdentities />, TestStubs.routerContext());
+    const wrapper = shallow(<AccountIdentities />, TestStubs.routerContext());
     expect(wrapper).toMatchSnapshot();
   });
 
@@ -48,19 +48,19 @@ describe('AccountIdentities', function() {
         {
           id: '1',
           provider: 'github',
-          providerLabel: 'Github',
+          providerLabel: 'GitHub',
         },
       ],
     });
 
-    let wrapper = mount(<AccountIdentities />, TestStubs.routerContext());
+    const wrapper = mountWithTheme(<AccountIdentities />, TestStubs.routerContext());
 
-    let disconnectRequest = {
+    const disconnectRequest = {
       url: `${ENDPOINT}1/`,
       method: 'DELETE',
     };
 
-    let mock = Client.addMockResponse(disconnectRequest);
+    const mock = Client.addMockResponse(disconnectRequest);
 
     expect(mock).not.toHaveBeenCalled();
 

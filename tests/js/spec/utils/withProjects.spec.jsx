@@ -1,5 +1,5 @@
 import React from 'react';
-import {mount} from 'enzyme';
+import {mount} from 'sentry-test/enzyme';
 
 import ProjectsStore from 'app/stores/projectsStore';
 import withProjects from 'app/utils/withProjects';
@@ -11,17 +11,17 @@ describe('withProjects HoC', function() {
 
   it('works', function() {
     const MyComponent = () => null;
-    let Container = withProjects(MyComponent);
-    let wrapper = mount(<Container />);
+    const Container = withProjects(MyComponent);
+    const wrapper = mount(<Container />);
 
     expect(wrapper.find('MyComponent').prop('projects')).toEqual([]);
 
     // Insert into projects store
-    let project = TestStubs.Project();
+    const project = TestStubs.Project();
     ProjectsStore.loadInitialData([project]);
 
     wrapper.update();
-    let props = wrapper.find('MyComponent').prop('projects');
+    const props = wrapper.find('MyComponent').prop('projects');
     expect(props).toHaveLength(1);
     expect(props[0].id).toBe(project.id);
   });

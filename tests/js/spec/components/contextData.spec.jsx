@@ -1,5 +1,5 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import ContextData from 'app/components/contextData';
 
@@ -8,7 +8,7 @@ describe('ContextData', function() {
     describe('strings', function() {
       it('should render urls w/ an additional <a> link', function() {
         const URL = 'https://example.org/foo/bar/';
-        let wrapper = shallow(<ContextData data={URL} />);
+        const wrapper = shallow(<ContextData data={URL} />);
 
         expect(
           wrapper

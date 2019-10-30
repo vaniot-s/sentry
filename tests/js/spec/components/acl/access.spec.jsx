@@ -1,5 +1,5 @@
 import React from 'react';
-import {mount} from 'enzyme';
+import {mount} from 'sentry-test/enzyme';
 
 import Access from 'app/components/acl/access';
 import ConfigStore from 'app/stores/configStore';
@@ -11,7 +11,7 @@ describe('Access', function() {
   const routerContext = TestStubs.routerContext([{organization}]);
 
   describe('as render prop', function() {
-    let childrenMock = jest.fn().mockReturnValue(null);
+    const childrenMock = jest.fn().mockReturnValue(null);
     beforeEach(function() {
       childrenMock.mockClear();
     });

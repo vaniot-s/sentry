@@ -2,8 +2,8 @@ import React from 'react';
 
 import $ from 'jquery';
 
-import {mount} from 'enzyme';
-import ProjectTags from 'app/views/projectTags';
+import {mountWithTheme} from 'sentry-test/enzyme';
+import ProjectTags from 'app/views/settings/projectTags';
 
 describe('ProjectTags', function() {
   let org, project, wrapper;
@@ -23,7 +23,7 @@ describe('ProjectTags', function() {
       method: 'DELETE',
     });
 
-    wrapper = mount(
+    wrapper = mountWithTheme(
       <ProjectTags params={{orgId: org.slug, projectId: project.slug}} />,
       TestStubs.routerContext()
     );
@@ -37,7 +37,7 @@ describe('ProjectTags', function() {
       body: [],
     });
 
-    wrapper = mount(
+    wrapper = mountWithTheme(
       <ProjectTags params={{orgId: org.slug, projectId: project.slug}} />,
       TestStubs.routerContext()
     );
@@ -45,12 +45,25 @@ describe('ProjectTags', function() {
     expect(wrapper.find('EmptyMessage')).toHaveLength(1);
   });
 
+  it('disables delete button for users without access', function() {
+    const context = {
+      organization: TestStubs.Organization({access: []}),
+    };
+
+    wrapper = mountWithTheme(
+      <ProjectTags params={{orgId: org.slug, projectId: project.slug}} />,
+      TestStubs.routerContext([context])
+    );
+
+    expect(wrapper.find('Button[disabled=false]')).toHaveLength(0);
+  });
+
   it('renders', function() {
     expect(wrapper).toMatchSnapshot();
   });
 
   it('deletes tag', function() {
-    let tags = wrapper.state('tags').length;
+    const tags = wrapper.state('tags').length;
 
     wrapper
       .find('Button')

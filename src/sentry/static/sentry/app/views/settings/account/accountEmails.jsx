@@ -1,7 +1,9 @@
 import {Flex, Box} from 'grid-emotion';
 import PropTypes from 'prop-types';
 import React from 'react';
+import styled from 'react-emotion';
 
+import {Panel, PanelBody, PanelHeader, PanelItem} from 'app/components/panels';
 import {addErrorMessage} from 'app/actionCreators/indicator';
 import {t} from 'app/locale';
 import AlertLink from 'app/components/alertLink';
@@ -9,10 +11,10 @@ import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
 import Form from 'app/views/settings/components/forms/form';
 import JsonForm from 'app/views/settings/components/forms/jsonForm';
-import {Panel, PanelBody, PanelHeader, PanelItem} from 'app/components/panels';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
 import Tag from 'app/views/settings/components/tag';
 import accountEmailsFields from 'app/data/forms/accountEmails';
+import space from 'app/styles/space';
 
 const ENDPOINT = '/users/me/emails/';
 
@@ -42,47 +44,39 @@ class EmailRow extends React.Component {
   };
 
   render() {
-    let {email, isPrimary, isVerified, hideRemove} = this.props;
+    const {email, isPrimary, isVerified, hideRemove} = this.props;
 
     return (
       <PanelItem justify="space-between">
         <Flex align="center">
           {email}
           {!isVerified && (
-            <Tag ml={1} priority="warning">
-              {t('Unverified')}
-            </Tag>
+            <TagWithSpace priority="warning">{t('Unverified')}</TagWithSpace>
           )}
-          {isPrimary && (
-            <Tag ml={1} priority="success">
-              {t('Primary')}
-            </Tag>
-          )}
+          {isPrimary && <TagWithSpace priority="success">{t('Primary')}</TagWithSpace>}
         </Flex>
         <Flex>
-          {!isPrimary &&
-            isVerified && (
-              <Button size="small" onClick={this.handleSetPrimary}>
-                {t('Set as primary')}
-              </Button>
-            )}
+          {!isPrimary && isVerified && (
+            <Button size="small" onClick={this.handleSetPrimary}>
+              {t('Set as primary')}
+            </Button>
+          )}
           {!isVerified && (
             <Button size="small" onClick={this.handleVerify}>
               {t('Resend verification')}
             </Button>
           )}
-          {!hideRemove &&
-            !isPrimary && (
-              <Box ml={1}>
-                <Button
-                  data-test-id="remove"
-                  priority="danger"
-                  size="small"
-                  icon="icon-trash"
-                  onClick={this.handleRemove}
-                />
-              </Box>
-            )}
+          {!hideRemove && !isPrimary && (
+            <Box ml={1}>
+              <Button
+                data-test-id="remove"
+                priority="danger"
+                size="small"
+                icon="icon-trash"
+                onClick={this.handleRemove}
+              />
+            </Box>
+          )}
         </Flex>
       </PanelItem>
     );
@@ -98,7 +92,7 @@ class AccountEmails extends AsyncView {
     return 'Emails';
   }
 
-  handleSubmitSuccess = (change, model, id) => {
+  handleSubmitSuccess = (_change, model, id) => {
     model.setValue(id, '');
     this.remountComponent();
   };
@@ -148,9 +142,9 @@ class AccountEmails extends AsyncView {
   };
 
   renderBody() {
-    let {emails} = this.state;
-    let primary = emails.find(({isPrimary}) => isPrimary);
-    let secondary = emails.filter(({isPrimary}) => !isPrimary);
+    const {emails} = this.state;
+    const primary = emails.find(({isPrimary}) => isPrimary);
+    const secondary = emails.filter(({isPrimary}) => !isPrimary);
 
     return (
       <div>
@@ -201,3 +195,7 @@ class AccountEmails extends AsyncView {
 }
 
 export default AccountEmails;
+
+const TagWithSpace = styled(Tag)`
+  margin-left: ${space(1)};
+`;

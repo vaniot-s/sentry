@@ -1,21 +1,24 @@
 import React from 'react';
 
 import {PanelAlert} from 'app/components/panels';
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import FeatureDisabled from 'app/components/acl/featureDisabled';
 
 describe('FeatureDisabled', function() {
   const routerContext = TestStubs.routerContext();
 
   it('renders', function() {
-    const wrapper = mount(
-      <FeatureDisabled feature={'organization:my-feature'} featureName="Some Feature" />,
+    const wrapper = mountWithTheme(
+      <FeatureDisabled
+        features={['organization:my-features']}
+        featureName="Some Feature"
+      />,
       routerContext
     );
 
     expect(
       wrapper
-        .find('[data-test-id="feature-message"]')
+        .find('FeatureDisabledMessage')
         .first()
         .text()
     ).toEqual(
@@ -26,10 +29,10 @@ describe('FeatureDisabled', function() {
 
   it('renders with custom message', function() {
     const customMessage = 'custom message';
-    const wrapper = mount(
+    const wrapper = mountWithTheme(
       <FeatureDisabled
         message={customMessage}
-        feature={'organization:my-feature'}
+        features={['organization:my-features']}
         featureName="Some Feature"
       />,
       routerContext
@@ -37,17 +40,17 @@ describe('FeatureDisabled', function() {
 
     expect(
       wrapper
-        .find('[data-test-id="feature-message"]')
+        .find('FeatureDisabledMessage')
         .first()
         .text()
     ).toEqual(expect.stringContaining(customMessage));
   });
 
   it('renders as an Alert', function() {
-    const wrapper = mount(
+    const wrapper = mountWithTheme(
       <FeatureDisabled
         alert
-        feature={'organization:my-feature'}
+        features={['organization:my-features']}
         featureName="Some Feature"
       />,
       routerContext
@@ -57,10 +60,10 @@ describe('FeatureDisabled', function() {
   });
 
   it('renders with custom alert component', function() {
-    const wrapper = mount(
+    const wrapper = mountWithTheme(
       <FeatureDisabled
         alert={PanelAlert}
-        feature={'organization:my-feature'}
+        features={['organization:my-features']}
         featureName="Some Feature"
       />,
       routerContext
@@ -70,10 +73,10 @@ describe('FeatureDisabled', function() {
   });
 
   it('displays instructions when help is clicked', function() {
-    const wrapper = mount(
+    const wrapper = mountWithTheme(
       <FeatureDisabled
         alert
-        feature={'organization:my-feature'}
+        features={['organization:my-features']}
         featureName="Some Feature"
       />,
       routerContext

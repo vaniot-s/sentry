@@ -1,22 +1,19 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {debounce} from 'lodash';
-import idx from 'idx';
 
 import {Panel, PanelBody, PanelHeader} from 'app/components/panels';
 import {addErrorMessage, addSuccessMessage} from 'app/actionCreators/indicator';
 import {t, tct} from 'app/locale';
 import AsyncView from 'app/views/asyncView';
-import Button from 'app/components/button';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
 import ConfigStore from 'app/stores/configStore';
-import GuideAnchor from 'app/components/assistant/guideAnchor';
 import Pagination from 'app/components/pagination';
+import routeTitleGen from 'app/utils/routeTitle';
 import SentryTypes from 'app/sentryTypes';
-import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
-import recreateRoute from 'app/utils/recreateRoute';
+import {redirectToRemainingOrganization} from 'app/actionCreators/organizations';
+import withOrganization from 'app/utils/withOrganization';
 
-import OrganizationAccessRequests from './organizationAccessRequests';
 import OrganizationMemberRow from './organizationMemberRow';
 
 class OrganizationMembersView extends AsyncView {
@@ -31,8 +28,8 @@ class OrganizationMembersView extends AsyncView {
 
   componentWillReceiveProps(nextProps, nextContext) {
     super.componentWillReceiveProps(nextProps, nextContext);
-    let searchQuery = idx(nextProps, _ => _.location.query.query);
-    if (searchQuery !== idx(this.props, _ => _.location.query.query)) {
+    const searchQuery = nextProps.location.query.query;
+    if (searchQuery !== this.props.location.query.query) {
       this.setState({searchQuery});
     }
   }
@@ -40,13 +37,12 @@ class OrganizationMembersView extends AsyncView {
   // XXX(billy): setState causes re-render of the entire view...
   // we should not do this
   getDefaultState() {
-    let state = super.getDefaultState();
+    const state = super.getDefaultState();
     return {
       ...state,
       members: [],
       invited: new Map(),
-      accessRequestBusy: new Map(),
-      searchQuery: idx(this.props, _ => _.location.query.query) || '',
+      searchQuery: this.props.location.query.query || '',
     };
   }
 
@@ -57,7 +53,7 @@ class OrganizationMembersView extends AsyncView {
         `/organizations/${this.props.params.orgId}/members/`,
         {
           query: {
-            query: idx(this.props, _ => _.location.query.query),
+            query: this.props.location.query.query,
           },
         },
         {paginate: true},
@@ -73,18 +69,17 @@ class OrganizationMembersView extends AsyncView {
           },
         },
       ],
-      ['requestList', `/organizations/${this.props.params.orgId}/access-requests/`],
     ];
   }
 
   getTitle() {
-    let org = this.context.organization;
-    return `${org.name} Members`;
+    const orgId = this.props.organization.slug;
+    return routeTitleGen(t('Members'), orgId, false);
   }
 
   removeMember = id => {
-    let {params} = this.props;
-    let {orgId} = params || {};
+    const {params} = this.props;
+    const {orgId} = params || {};
 
     return new Promise((resolve, reject) => {
       this.api.request(`/organizations/${orgId}/members/${id}/`, {
@@ -101,42 +96,9 @@ class OrganizationMembersView extends AsyncView {
     });
   };
 
-  approveOrDeny = (isApproved, id) => {
-    let {params} = this.props;
-    let {orgId} = params || {};
-
-    this.setState(state => ({
-      accessRequestBusy: state.accessRequestBusy.set(id, true),
-    }));
-
-    return new Promise((resolve, reject) => {
-      this.api.request(`/organizations/${orgId}/access-requests/${id}/`, {
-        method: 'PUT',
-        data: {isApproved},
-        success: data => {
-          this.setState(state => ({
-            requestList: state.requestList.filter(
-              ({id: existingId}) => existingId !== id
-            ),
-          }));
-          resolve(data);
-        },
-        error: err => reject(err),
-        complete: () =>
-          this.setState(state => ({
-            accessRequestBusy: state.accessRequestBusy.set(id, false),
-          })),
-      });
-    });
-  };
-
-  handleApprove = id => this.approveOrDeny(true, id);
-
-  handleDeny = id => this.approveOrDeny(false, id);
-
-  handleRemove = ({id, name}, e) => {
-    let {organization} = this.context;
-    let {slug: orgName} = organization;
+  handleRemove = ({id, name}) => {
+    const {organization} = this.props;
+    const {slug: orgName} = organization;
 
     this.removeMember(id).then(
       () =>
@@ -156,17 +118,20 @@ class OrganizationMembersView extends AsyncView {
     );
   };
 
-  handleLeave = ({id}, e) => {
-    let {organization} = this.context;
-    let {slug: orgName} = organization;
+  handleLeave = ({id}) => {
+    const {organization} = this.props;
+    const {slug: orgName} = organization;
 
     this.removeMember(id).then(
-      () =>
+      () => {
+        redirectToRemainingOrganization({orgId: orgName, removeOrg: true});
+
         addSuccessMessage(
           tct('You left [orgName]', {
             orgName,
           })
-        ),
+        );
+      },
       () =>
         addErrorMessage(
           tct('Error leaving [orgName]', {
@@ -184,7 +149,7 @@ class OrganizationMembersView extends AsyncView {
     this.api.request(`/organizations/${this.props.params.orgId}/members/${id}/`, {
       method: 'PUT',
       data: {reinvite: 1},
-      success: data =>
+      success: () =>
         this.setState(state => ({
           invited: state.invited.set(id, 'success'),
         })),
@@ -198,14 +163,14 @@ class OrganizationMembersView extends AsyncView {
   };
 
   handleChange = evt => {
-    let searchQuery = evt.target.value;
+    const searchQuery = evt.target.value;
     this.getMembers(searchQuery);
     this.setState({searchQuery});
   };
 
   getMembers = debounce(searchQuery => {
-    let {params} = this.props;
-    let {orgId} = params || {};
+    const {params} = this.props;
+    const {orgId} = params || {};
 
     this.api.request(`/organizations/${orgId}/members/?query=${searchQuery}`, {
       method: 'GET',
@@ -216,59 +181,25 @@ class OrganizationMembersView extends AsyncView {
   }, 200);
 
   renderBody() {
-    let {params, routes} = this.props;
-    let {membersPageLinks, members, requestList} = this.state;
-    let {organization} = this.context;
-    let {orgId} = params || {};
-    let {name: orgName, access} = organization;
-    let canAddMembers = access.indexOf('org:write') > -1;
-    let canRemove = access.indexOf('member:admin') > -1;
-    let currentUser = ConfigStore.get('user');
+    const {params, routes, organization} = this.props;
+    const {membersPageLinks, members} = this.state;
+    const {orgId} = params || {};
+    const {name: orgName, access} = organization;
+    const canAddMembers = access.indexOf('member:write') > -1;
+    const canRemove = access.indexOf('member:admin') > -1;
+    const currentUser = ConfigStore.get('user');
     // Find out if current user is the only owner
-    let isOnlyOwner = !members.find(
+    const isOnlyOwner = !members.find(
       ({role, email}) => role === 'owner' && email !== currentUser.email
     );
     // Only admins/owners can remove members
-    let requireLink = !!this.state.authProvider && this.state.authProvider.require_link;
-
-    let action = (
-      <Button
-        priority="primary"
-        size="small"
-        disabled={!canAddMembers}
-        title={
-          !canAddMembers
-            ? t('You do not have enough permission to add new members')
-            : undefined
-        }
-        to={recreateRoute('new/', {routes, params})}
-        icon="icon-circle-add"
-      >
-        {t('Invite Member')}
-      </Button>
-    );
-
-    if (canAddMembers)
-      action = (
-        <GuideAnchor target="member_add" type="invisible">
-          {action}
-        </GuideAnchor>
-      );
+    const requireLink = !!this.state.authProvider && this.state.authProvider.require_link;
 
     return (
-      <div>
-        <SettingsPageHeader title="Members" action={action} />
-
-        <OrganizationAccessRequests
-          onApprove={this.handleApprove}
-          onDeny={this.handleDeny}
-          accessRequestBusy={this.state.accessRequestBusy}
-          requestList={requestList}
-        />
-
-        <Panel>
+      <React.Fragment>
+        <Panel data-test-id="org-member-list">
           <PanelHeader hasButtons>
-            {t('Member')}
+            {t('Members')}
 
             {this.renderSearchInput({
               updateRoute: true,
@@ -296,7 +227,6 @@ class OrganizationMembersView extends AsyncView {
                   onSendInvite={this.handleSendInvite}
                   onRemove={this.handleRemove}
                   onLeave={this.handleLeave}
-                  firstRow={members.indexOf(member) === 0}
                 />
               );
             })}
@@ -307,9 +237,9 @@ class OrganizationMembersView extends AsyncView {
         </Panel>
 
         <Pagination pageLinks={membersPageLinks} />
-      </div>
+      </React.Fragment>
     );
   }
 }
 
-export default OrganizationMembersView;
+export default withOrganization(OrganizationMembersView);

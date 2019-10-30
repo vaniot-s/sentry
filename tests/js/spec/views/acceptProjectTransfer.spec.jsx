@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import AcceptProjectTransfer from 'app/views/acceptProjectTransfer';
 
 jest.mock('jquery');
@@ -8,7 +8,7 @@ jest.mock('jquery');
 describe('AcceptProjectTransfer', function() {
   let getMock;
   let postMock;
-  let endpoint = '/accept-transfer/';
+  const endpoint = '/accept-transfer/';
   beforeEach(function() {
     MockApiClient.clearMockResponses();
 
@@ -29,7 +29,7 @@ describe('AcceptProjectTransfer', function() {
   });
 
   it('renders', function() {
-    mount(
+    mountWithTheme(
       <AcceptProjectTransfer
         location={{
           pathame: 'endpoint',
@@ -43,7 +43,7 @@ describe('AcceptProjectTransfer', function() {
   });
 
   it('submits', function() {
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <AcceptProjectTransfer
         location={{
           pathame: 'endpoint',

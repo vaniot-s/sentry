@@ -1,5 +1,7 @@
 import PropTypes from 'prop-types';
 
+import {SEARCH_TYPES} from 'app/constants';
+
 export const Metadata = PropTypes.shape({
   value: PropTypes.string,
   message: PropTypes.string,
@@ -16,7 +18,6 @@ const Avatar = PropTypes.shape({
 
 /**
  * A User is someone that has registered on Sentry
- *
  */
 export const User = PropTypes.shape({
   avatar: Avatar,
@@ -41,14 +42,24 @@ export const User = PropTypes.shape({
   username: PropTypes.string,
 });
 
+export const AuthConfig = PropTypes.shape({
+  canRegister: PropTypes.bool,
+  serverHostname: PropTypes.string,
+  hasNewsletter: PropTypes.bool,
+  githubLoginLink: PropTypes.string,
+  vstsLoginLink: PropTypes.string,
+});
+
 export const Config = PropTypes.shape({
+  languageCode: PropTypes.string,
+  csrfCookieName: PropTypes.string,
+  lastOrganization: PropTypes.string,
   dsn: PropTypes.string,
   features: PropTypes.instanceOf(Set),
   gravatarBaseUrl: PropTypes.string,
   invitesEnabled: PropTypes.bool,
   isAuthenticated: PropTypes.bool,
   isOnPremise: PropTypes.bool,
-  mediaUrl: PropTypes.string,
   messages: PropTypes.array,
   needsUpgrade: PropTypes.bool,
   privacyUrl: PropTypes.string,
@@ -57,12 +68,27 @@ export const Config = PropTypes.shape({
   termsUrl: PropTypes.string,
   urlPrefix: PropTypes.string,
   user: User,
+  statuspage: PropTypes.shape({
+    id: PropTypes.string,
+    api_host: PropTypes.string,
+  }),
   version: PropTypes.shape({
     current: PropTypes.string,
     build: PropTypes.string,
     latest: PropTypes.string,
     upgradeAvailable: PropTypes.bool,
   }),
+  userIdentity: PropTypes.shape({
+    ip_address: PropTypes.string,
+    email: PropTypes.string,
+    id: PropTypes.number,
+  }),
+  sentryConfig: PropTypes.shape({
+    dsn: PropTypes.string,
+    release: PropTypes.string,
+    whitelistUrls: PropTypes.arrayOf(PropTypes.string),
+  }),
+  distPrefix: PropTypes.string,
 });
 
 export const Deploy = PropTypes.shape({
@@ -71,12 +97,7 @@ export const Deploy = PropTypes.shape({
   version: PropTypes.string,
 });
 
-export const DiscoverSavedQuery = PropTypes.shape({
-  id: PropTypes.string.isRequired,
-  dateCreated: PropTypes.string.isRequired,
-  dateUpdated: PropTypes.string.isRequired,
-  name: PropTypes.string.isRequired,
-  createdBy: PropTypes.string,
+const DiscoverQueryShape = {
   projects: PropTypes.arrayOf(PropTypes.number),
   fields: PropTypes.arrayOf(PropTypes.string),
   aggregations: PropTypes.arrayOf(PropTypes.array),
@@ -85,6 +106,45 @@ export const DiscoverSavedQuery = PropTypes.shape({
   range: PropTypes.string,
   start: PropTypes.string,
   end: PropTypes.string,
+};
+
+export const DiscoverQuery = PropTypes.shape(DiscoverQueryShape);
+
+export const DiscoverSavedQuery = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  dateCreated: PropTypes.string.isRequired,
+  dateUpdated: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  createdBy: PropTypes.string,
+  ...DiscoverQueryShape,
+});
+
+const DiscoverResultsShape = {
+  data: PropTypes.arrayOf(PropTypes.object),
+  meta: PropTypes.arrayOf(
+    PropTypes.shape({
+      type: PropTypes.string,
+      name: PropTypes.string,
+    })
+  ),
+  timing: PropTypes.shape({
+    duration_ms: PropTypes.number,
+    marks_ms: PropTypes.object,
+    timestamp: PropTypes.number,
+  }),
+};
+
+export const DiscoverResults = PropTypes.arrayOf(PropTypes.shape(DiscoverResultsShape));
+
+export const EventView = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  data: PropTypes.shape({
+    fields: PropTypes.arrayOf(PropTypes.string),
+    groupby: PropTypes.arrayOf(PropTypes.string),
+    orderby: PropTypes.arrayOf(PropTypes.string),
+  }).isRequired,
+  tags: PropTypes.arrayOf(PropTypes.string).isRequired,
 });
 
 /**
@@ -105,6 +165,16 @@ export const Member = PropTypes.shape({
   roleName: PropTypes.string.isRequired,
   user: User,
 });
+
+const EventOrGroupType = PropTypes.oneOf([
+  'error',
+  'csp',
+  'hpkp',
+  'expectct',
+  'expectstaple',
+  'default',
+  'transaction',
+]);
 
 export const Group = PropTypes.shape({
   id: PropTypes.string.isRequired,
@@ -132,7 +202,7 @@ export const Group = PropTypes.shape({
   status: PropTypes.string,
   statusDetails: PropTypes.object,
   title: PropTypes.string,
-  type: PropTypes.oneOf(['error', 'csp', 'default']),
+  type: EventOrGroupType,
   userCount: PropTypes.number,
 });
 
@@ -144,7 +214,7 @@ export const Event = PropTypes.shape({
   dateReceived: PropTypes.string,
   entries: PropTypes.arrayOf(
     PropTypes.shape({
-      data: PropTypes.object,
+      data: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
       type: PropTypes.string,
     })
   ),
@@ -170,8 +240,24 @@ export const Event = PropTypes.shape({
       value: PropTypes.string,
     })
   ),
-  type: PropTypes.oneOf(['error', 'csp', 'default']),
+  type: EventOrGroupType,
   user: PropTypes.object,
+});
+
+export const EventAttachment = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  headers: PropTypes.object,
+  size: PropTypes.number.isRequired,
+  sha1: PropTypes.string.isRequired,
+  dateCreated: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  type: PropTypes.string.isRequired,
+});
+
+export const EventError = PropTypes.shape({
+  type: PropTypes.string.isRequired,
+  message: PropTypes.string.isRequired,
+  data: PropTypes.object,
 });
 
 export const Tag = PropTypes.shape({
@@ -190,6 +276,12 @@ export const Actor = PropTypes.shape({
 export const Team = PropTypes.shape({
   id: PropTypes.string.isRequired,
   slug: PropTypes.string.isRequired,
+});
+
+export const Monitor = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  dateCreated: PropTypes.string,
 });
 
 export const Project = PropTypes.shape({
@@ -228,6 +320,13 @@ export const Release = PropTypes.shape({
   url: PropTypes.string,
   dateReleased: PropTypes.string,
   owner: User,
+});
+
+export const Repository = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  name: PropTypes.string,
+  url: PropTypes.string,
+  status: PropTypes.string,
 });
 
 export const NavigationObject = PropTypes.shape({
@@ -293,6 +392,13 @@ export const PluginsStore = PropTypes.shape({
   pageLinks: PropTypes.any,
 });
 
+export const AuthProvider = PropTypes.shape({
+  key: PropTypes.string,
+  name: PropTypes.string,
+  requiredFeature: PropTypes.string,
+  disables2FA: PropTypes.bool,
+});
+
 export const ProjectDsn = {
   secret: PropTypes.string,
   minidump: PropTypes.string,
@@ -330,6 +436,104 @@ export const SentryApplication = PropTypes.shape({
   status: PropTypes.string,
 });
 
+export const SavedSearch = PropTypes.shape({
+  id: PropTypes.string,
+  dateCreated: PropTypes.string,
+  isDefault: PropTypes.bool,
+  isGlobal: PropTypes.bool,
+  isOrgCustom: PropTypes.bool,
+  isPinned: PropTypes.bool,
+  isPrivate: PropTypes.bool,
+  isUserDefault: PropTypes.bool,
+  name: PropTypes.string,
+  projectId: PropTypes.string,
+  query: PropTypes.string,
+  type: PropTypes.oneOf([SEARCH_TYPES.ISSUE, SEARCH_TYPES.EVENTS]),
+});
+
+export const Incident = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  identifier: PropTypes.string.isRequired,
+  organizationId: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  status: PropTypes.number.isRequired,
+  query: PropTypes.string,
+  projects: PropTypes.array.isRequired,
+  eventStats: PropTypes.shape({
+    data: PropTypes.arrayOf(
+      PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.array]))
+    ),
+  }),
+  totalEvents: PropTypes.number.isRequired,
+  uniqueUsers: PropTypes.number.isRequired,
+  isSubscribed: PropTypes.bool,
+  dateClosed: PropTypes.string,
+  dateStarted: PropTypes.string.isRequired,
+  dateDetected: PropTypes.string.isRequired,
+  dateAdded: PropTypes.string.isRequired,
+});
+
+export const IncidentSuspectData = PropTypes.shape({
+  author: User,
+  dateCreated: PropTypes.string.isRequired,
+  id: PropTypes.string.isRequired,
+  message: PropTypes.string,
+  repository: Repository,
+  score: PropTypes.number,
+});
+
+export const IncidentSuspect = PropTypes.shape({
+  type: PropTypes.oneOf(['commit']).isRequired,
+  data: IncidentSuspectData.isRequired,
+});
+
+export const Activity = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  type: PropTypes.string.isRequired,
+  dateCreated: PropTypes.string.isRequired,
+  user: User,
+  data: PropTypes.shape({
+    text: PropTypes.string,
+  }),
+});
+
+export const IncidentActivity = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  type: PropTypes.number.isRequired,
+  dateCreated: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string])
+    .isRequired,
+  user: User,
+  comment: PropTypes.string,
+  value: PropTypes.string,
+  previousValue: PropTypes.string,
+});
+
+export const GlobalSelection = PropTypes.shape({
+  projects: PropTypes.arrayOf(PropTypes.number),
+  environments: PropTypes.arrayOf(PropTypes.string),
+  datetime: PropTypes.shape({
+    period: PropTypes.string,
+    start: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    end: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    utc: PropTypes.bool,
+  }),
+});
+
+export const DebugSourceType = PropTypes.oneOf(['http', 's3', 'gcs']);
+
+// Avoiding code duplication here. This is validated strictly by the server and
+// form elements in the `DebugFilesSourceModal`.
+export const DebugSourceConfig = PropTypes.object;
+
+export const Widget = PropTypes.shape({
+  queries: PropTypes.shape({
+    discover: PropTypes.arrayOf(DiscoverQuery),
+  }),
+  title: PropTypes.node,
+  fieldLabelMap: PropTypes.object,
+  yAxisMapping: PropTypes.array,
+});
+
 export const EChartsData = PropTypes.arrayOf(
   PropTypes.oneOfType([
     // `PercentageBarChart` has a fixed dataset of 0, 25, 50, 100
@@ -347,7 +551,7 @@ export const EChartsData = PropTypes.arrayOf(
 );
 
 export const EChartsSeriesUnit = PropTypes.shape({
-  type: PropTypes.oneOf(['line', 'bar', 'pie']),
+  type: PropTypes.oneOf(['line', 'bar', 'pie', 'map']),
   showSymbol: PropTypes.bool,
   name: PropTypes.string,
   data: EChartsData,
@@ -500,7 +704,7 @@ export const EChartsAxis = PropTypes.shape({
   axisPointer: PropTypes.object,
 
   // zlevel value of all graghical elements in x axis.
-  // zlevel is used to make layers with Canvas. Graphical elements with different zlevel values will be placed in different Canvases, which is a common optimization technique. We can put those frequently changed elements (like those with animations) to a seperate zlevel. Notice that too many Canvases will increase memory cost, and should be used carefully on mobile phones to avoid crash.
+  // zlevel is used to make layers with Canvas. Graphical elements with different zlevel values will be placed in different Canvases, which is a common optimization technique. We can put those frequently changed elements (like those with animations) to a separate zlevel. Notice that too many Canvases will increase memory cost, and should be used carefully on mobile phones to avoid crash.
   // Canvases with bigger zlevel will be placed on Canvases with smaller zlevel.
   zlevel: PropTypes.number,
 
@@ -603,7 +807,7 @@ export const EChartsTooltip = PropTypes.shape({
   // padding: 5
   // // Set the top and bottom paddings to be 5, and left and right paddings to be 10
   // padding: [5, 10]
-  // // Set each of the four paddings seperately
+  // // Set each of the four paddings separately
   // padding: [
   // 5,  // up
   // 10, // right
@@ -626,7 +830,7 @@ export const EChartsGrid = PropTypes.shape({
   show: PropTypes.bool,
 
   // zlevel value of all graghical elements in .
-  // zlevel is used to make layers with Canvas. Graphical elements with different zlevel values will be placed in different Canvases, which is a common optimization technique. We can put those frequently changed elements (like those with animations) to a seperate zlevel. Notice that too many Canvases will increase memory cost, and should be used carefully on mobile phones to avoid crash.
+  // zlevel is used to make layers with Canvas. Graphical elements with different zlevel values will be placed in different Canvases, which is a common optimization technique. We can put those frequently changed elements (like those with animations) to a separate zlevel. Notice that too many Canvases will increase memory cost, and should be used carefully on mobile phones to avoid crash.
   // Canvases with bigger zlevel will be placed on Canvases with smaller zlevel.
   zlevel: PropTypes.number,
 
@@ -776,7 +980,7 @@ export const EChartsToolBox = PropTypes.shape({
   iconStyle: PropTypes.object,
 
   // zlevel value of all graghical elements in .
-  // zlevel is used to make layers with Canvas. Graphical elements with different zlevel values will be placed in different Canvases, which is a common optimization technique. We can put those frequently changed elements (like those with animations) to a seperate zlevel. Notice that too many Canvases will increase memory cost, and should be used carefully on mobile phones to avoid crash.
+  // zlevel is used to make layers with Canvas. Graphical elements with different zlevel values will be placed in different Canvases, which is a common optimization technique. We can put those frequently changed elements (like those with animations) to a separate zlevel. Notice that too many Canvases will increase memory cost, and should be used carefully on mobile phones to avoid crash.
   // Canvases with bigger zlevel will be placed on Canvases with smaller zlevel.
   zlevel: PropTypes.number,
 
@@ -810,6 +1014,13 @@ export const EChartsToolBox = PropTypes.shape({
   height: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 });
 
+export const EchartsGraphic = PropTypes.shape({
+  id: PropTypes.string,
+
+  // These are a bit complex to add typing for
+  elements: PropTypes.arrayOf(PropTypes.object),
+});
+
 export const SeriesUnit = PropTypes.shape({
   seriesName: PropTypes.string,
   data: PropTypes.arrayOf(
@@ -823,21 +1034,36 @@ export const SeriesUnit = PropTypes.shape({
 
 export const Series = PropTypes.arrayOf(SeriesUnit);
 
-let SentryTypes = {
+const SentryTypes = {
   AnyModel: PropTypes.shape({
     id: PropTypes.string.isRequired,
   }),
   Actor,
+  AuthConfig,
+  Activity,
+  AuthProvider,
   Config,
+  DebugSourceConfig,
+  DebugSourceType,
   Deploy,
+  DiscoverQuery,
   DiscoverSavedQuery,
+  DiscoverResults,
   Environment,
   Event,
+  EventAttachment,
+  EventView,
   Organization: PropTypes.shape({
     id: PropTypes.string.isRequired,
   }),
+  GlobalSelection,
   Group,
+  Incident,
+  IncidentActivity,
+  IncidentSuspect,
+  IncidentSuspectData,
   Tag,
+  Monitor,
   PageLinks,
   Project,
   Series,
@@ -853,8 +1079,11 @@ let SentryTypes = {
   PluginsStore,
   ProjectKey,
   Release,
+  Repository,
   User,
+  SavedSearch,
   SentryApplication,
+  Widget,
 
   // echarts prop types
   EChartsSeries,
@@ -866,6 +1095,7 @@ let SentryTypes = {
   EChartsLegend,
   EChartsDataZoom,
   EChartsToolBox,
+  EchartsGraphic,
 };
 
 export default SentryTypes;

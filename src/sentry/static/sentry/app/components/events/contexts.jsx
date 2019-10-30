@@ -1,8 +1,9 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 
+import {get} from 'lodash';
 import {objectIsEmpty, toTitleCase, defined} from 'app/utils';
-import GroupEventDataSection from 'app/components/events/eventDataSection';
+import EventDataSection from 'app/components/events/eventDataSection';
 import plugins from 'app/plugins';
 
 const CONTEXT_TYPES = {
@@ -23,7 +24,7 @@ function getSourcePlugin(pluginContexts, contextType) {
   if (CONTEXT_TYPES[contextType]) {
     return null;
   }
-  for (let plugin of pluginContexts) {
+  for (const plugin of pluginContexts) {
     if (plugin.contexts.indexOf(contextType) >= 0) {
       return plugin;
     }
@@ -34,7 +35,7 @@ function getSourcePlugin(pluginContexts, contextType) {
 class ContextChunk extends React.Component {
   static propTypes = {
     event: PropTypes.object.isRequired,
-    group: PropTypes.object.isRequired,
+    group: PropTypes.object,
     type: PropTypes.string.isRequired,
     alias: PropTypes.string.isRequired,
     value: PropTypes.object.isRequired,
@@ -51,14 +52,30 @@ class ContextChunk extends React.Component {
     this.syncPlugin();
   }
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevProps.group.id != this.props.group.id || prevProps.type != this.props.type) {
+  componentDidUpdate(prevProps) {
+    if (
+      prevProps.type !== this.props.type ||
+      get(prevProps, 'group.id') !== get(this.props, 'group.id')
+    ) {
       this.syncPlugin();
     }
   }
 
   syncPlugin = () => {
-    let sourcePlugin = getSourcePlugin(this.props.group.pluginContexts, this.props.type);
+    const {group, type, alias} = this.props;
+    // If we don't have a grouped event we can't sync with plugins.
+    if (!group) {
+      return;
+    }
+
+    // Search using `alias` first because old plugins rely on it and type is set to "default"
+    // e.g. sessionstack
+    const sourcePlugin =
+      type === 'default'
+        ? getSourcePlugin(group.pluginContexts, alias) ||
+          getSourcePlugin(group.pluginContexts, type)
+        : getSourcePlugin(group.pluginContexts, type);
+
     if (!sourcePlugin) {
       this.setState({
         pluginLoading: false,
@@ -78,7 +95,7 @@ class ContextChunk extends React.Component {
   };
 
   renderTitle = component => {
-    let {value, alias, type} = this.props;
+    const {value, alias, type} = this.props;
     let title = null;
     if (defined(value.title)) {
       title = value.title;
@@ -105,10 +122,12 @@ class ContextChunk extends React.Component {
       return null;
     }
 
-    let group = this.props.group;
-    let evt = this.props.event;
-    let {type, alias, value} = this.props;
-    let Component = getContextComponent(type);
+    const evt = this.props.event;
+    const {type, alias, value} = this.props;
+    const Component =
+      type === 'default'
+        ? getContextComponent(alias) || getContextComponent(type)
+        : getContextComponent(type);
 
     // this can happen if the component does not exist
     if (!Component) {
@@ -116,15 +135,14 @@ class ContextChunk extends React.Component {
     }
 
     return (
-      <GroupEventDataSection
-        group={group}
+      <EventDataSection
         event={evt}
         key={`context-${alias}`}
         type={`context-${alias}`}
         title={this.renderTitle(Component)}
       >
         <Component alias={alias} data={value} />
-      </GroupEventDataSection>
+      </EventDataSection>
     );
   }
 }
@@ -132,13 +150,13 @@ class ContextChunk extends React.Component {
 class ContextsInterface extends React.Component {
   static propTypes = {
     event: PropTypes.object.isRequired,
-    group: PropTypes.object.isRequired,
+    group: PropTypes.object,
   };
 
   render() {
-    let group = this.props.group;
-    let evt = this.props.event;
-    let children = [];
+    const group = this.props.group;
+    const evt = this.props.event;
+    const children = [];
     if (!objectIsEmpty(evt.user)) {
       children.push(
         <ContextChunk
@@ -153,7 +171,7 @@ class ContextsInterface extends React.Component {
     }
 
     let value = null;
-    for (let key in evt.contexts) {
+    for (const key in evt.contexts) {
       value = evt.contexts[key];
       children.push(
         <ContextChunk

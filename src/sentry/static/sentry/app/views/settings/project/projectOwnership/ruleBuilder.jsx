@@ -13,7 +13,7 @@ import Input from 'app/views/settings/components/forms/controls/input';
 import SentryTypes from 'app/sentryTypes';
 import {addErrorMessage} from 'app/actionCreators/indicator';
 import SelectOwners from 'app/views/settings/project/projectOwnership/selectOwners';
-import space from 'app/styles/space.jsx';
+import space from 'app/styles/space';
 
 const initialState = {
   text: '',
@@ -29,6 +29,7 @@ class RuleBuilder extends React.Component {
     onAddRule: PropTypes.func,
     urls: PropTypes.arrayOf(PropTypes.string),
     paths: PropTypes.arrayOf(PropTypes.string),
+    disabled: PropTypes.bool,
   };
 
   constructor(props) {
@@ -58,23 +59,22 @@ class RuleBuilder extends React.Component {
   };
 
   handleAddRule = () => {
-    let {type, text, owners, isValid} = this.state;
+    const {type, text, owners, isValid} = this.state;
 
     if (!isValid) {
-      addErrorMessage('A Rule needs a type, a value, and one or more owners.');
+      addErrorMessage('A rule needs a type, a value, and one or more issue owners.');
       return;
     }
 
-    let ownerText = owners
-      .map(
-        owner =>
-          owner.actor.type === 'team'
-            ? `#${owner.actor.name}`
-            : memberListStore.getById(owner.actor.id).email
+    const ownerText = owners
+      .map(owner =>
+        owner.actor.type === 'team'
+          ? `#${owner.actor.name}`
+          : memberListStore.getById(owner.actor.id).email
       )
       .join(' ');
 
-    let rule = `${type}:${text} ${ownerText}`;
+    const rule = `${type}:${text} ${ownerText}`;
     this.props.onAddRule(rule);
     this.setState(initialState);
   };
@@ -85,8 +85,8 @@ class RuleBuilder extends React.Component {
   };
 
   render() {
-    let {urls, paths, project, organization} = this.props;
-    let {type, text, owners, isValid} = this.state;
+    const {urls, paths, disabled, project, organization} = this.props;
+    const {type, text, owners, isValid} = this.state;
 
     return (
       <React.Fragment>
@@ -125,11 +125,13 @@ class RuleBuilder extends React.Component {
             options={[{value: 'path', label: t('Path')}, {value: 'url', label: t('URL')}]}
             style={{width: 140}}
             clearable={false}
+            disabled={disabled}
           />
           <BuilderInput
             controlled
             value={text}
             onChange={this.handleChangeValue}
+            disabled={disabled}
             placeholder={
               type === 'path' ? 'src/example/*' : 'https://example.com/settings/*'
             }
@@ -141,6 +143,7 @@ class RuleBuilder extends React.Component {
               project={project}
               value={owners}
               onChange={this.handleChangeOwners}
+              disabled={disabled}
             />
           </Flex>
 
@@ -156,11 +159,11 @@ class RuleBuilder extends React.Component {
     );
   }
 }
-const Candidates = styled.div`
+const Candidates = styled('div')`
   margin-bottom: 10px;
 `;
 
-const TypeHint = styled.div`
+const TypeHint = styled('div')`
   color: ${p => p.theme.borderDark};
 `;
 
@@ -168,7 +171,7 @@ const StyledTextOverflow = styled(TextOverflow)`
   flex: 1;
 `;
 
-const RuleCandidate = styled.div`
+const RuleCandidate = styled('div')`
   font-family: ${p => p.theme.text.familyMono};
   border: 1px solid ${p => p.theme.borderDark};
   background-color: #f8fafd;
@@ -186,7 +189,7 @@ const AddIcon = styled(InlineSvg)`
   flex-shrink: 0;
 `;
 
-const BuilderBar = styled.div`
+const BuilderBar = styled('div')`
   display: flex;
   height: 40px;
   align-items: center;

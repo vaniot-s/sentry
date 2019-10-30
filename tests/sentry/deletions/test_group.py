@@ -2,101 +2,107 @@ from __future__ import absolute_import
 
 from uuid import uuid4
 
-from sentry import tagstore
-from sentry.tagstore.models import EventTag
 from sentry.models import (
-    Event, EventAttachment, EventMapping, File, Group, GroupAssignee, GroupHash, GroupMeta, GroupRedirect,
-    ScheduledDeletion, UserReport
+    Event,
+    EventAttachment,
+    File,
+    Group,
+    GroupAssignee,
+    GroupHash,
+    GroupMeta,
+    GroupRedirect,
+    GroupStatus,
+    ScheduledDeletion,
+    UserReport,
 )
+from sentry import nodestore
+from sentry.deletions.defaults.group import EventDataDeletionTask
 from sentry.tasks.deletion import run_deletion
-from sentry.testutils import TestCase
+
+from sentry.testutils import TestCase, SnubaTestCase
+from sentry.testutils.helpers.datetime import iso_format, before_now
 
 
-class DeleteGroupTest(TestCase):
+class DeleteGroupTest(TestCase, SnubaTestCase):
     def test_simple(self):
+        EventDataDeletionTask.DEFAULT_CHUNK_SIZE = 1  # test chunking logic
+        event_id = "a" * 32
+        event_id2 = "b" * 32
+        event_id3 = "c" * 32
         project = self.create_project()
-        group = self.create_group(
-            project=project,
-        )
-        event = self.create_event(group=group)
-        EventMapping.objects.create(
+        node_id = Event.generate_node_id(project.id, event_id)
+        node_id2 = Event.generate_node_id(project.id, event_id2)
+        node_id3 = Event.generate_node_id(project.id, event_id3)
+
+        event = self.store_event(
+            data={
+                "event_id": event_id,
+                "tags": {"foo": "bar"},
+                "timestamp": iso_format(before_now(minutes=1)),
+                "fingerprint": ["group1"],
+            },
             project_id=project.id,
-            event_id='a' * 32,
-            group_id=group.id,
+        )
+
+        self.store_event(
+            data={
+                "event_id": event_id2,
+                "timestamp": iso_format(before_now(minutes=1)),
+                "fingerprint": ["group1"],
+            },
+            project_id=project.id,
+        )
+
+        self.store_event(
+            data={
+                "event_id": event_id3,
+                "timestamp": iso_format(before_now(minutes=1)),
+                "fingerprint": ["group2"],
+            },
+            project_id=project.id,
+        )
+
+        group = event.group
+        group.update(status=GroupStatus.PENDING_DELETION)
+
+        project = self.create_project()
+
+        UserReport.objects.create(
+            group_id=group.id, project_id=event.project_id, name="With group id"
+        )
+        UserReport.objects.create(
+            event_id=event.event_id, project_id=event.project_id, name="With event id"
         )
         EventAttachment.objects.create(
             event_id=event.event_id,
-            group_id=event.group_id,
             project_id=event.project_id,
-            file=File.objects.create(
-                name='hello.png',
-                type='image/png',
-            ),
-            name='hello.png',
+            file=File.objects.create(name="hello.png", type="image/png"),
+            name="hello.png",
         )
-        UserReport.objects.create(
-            group_id=group.id,
-            project_id=event.project_id,
-            name='Jane Doe',
-        )
-        key = 'key'
-        value = 'value'
-        tk = tagstore.create_tag_key(
-            project_id=project.id,
-            environment_id=self.environment.id,
-            key=key
-        )
-        tv = tagstore.create_tag_value(
-            project_id=project.id,
-            environment_id=self.environment.id,
-            key=key,
-            value=value
-        )
-        tagstore.create_event_tags(
-            event_id=event.id,
-            group_id=group.id,
-            project_id=project.id,
-            environment_id=self.environment.id,
-            tags=[
-                (tk.key, tv.value),
-            ],
-        )
-        GroupAssignee.objects.create(
-            group=group,
-            project=project,
-            user=self.user,
-        )
-        GroupHash.objects.create(
-            project=project,
-            group=group,
-            hash=uuid4().hex,
-        )
-        GroupMeta.objects.create(
-            group=group,
-            key='foo',
-            value='bar',
-        )
-        GroupRedirect.objects.create(
-            group_id=group.id,
-            previous_group_id=1,
-        )
+
+        GroupAssignee.objects.create(group=group, project=project, user=self.user)
+        GroupHash.objects.create(project=project, group=group, hash=uuid4().hex)
+        GroupMeta.objects.create(group=group, key="foo", value="bar")
+        GroupRedirect.objects.create(group_id=group.id, previous_group_id=1)
 
         deletion = ScheduledDeletion.schedule(group, days=0)
         deletion.update(in_progress=True)
+
+        assert nodestore.get(node_id)
+        assert nodestore.get(node_id2)
+        assert nodestore.get(node_id3)
 
         with self.tasks():
             run_deletion(deletion.id)
 
         assert not Event.objects.filter(id=event.id).exists()
-        assert not EventAttachment.objects.filter(
-            event_id=event.event_id,
-            group_id=group.id,
-        ).exists()
-        assert not EventMapping.objects.filter(
-            group_id=group.id,
-        ).exists()
-        assert not EventTag.objects.filter(event_id=event.id).exists()
         assert not UserReport.objects.filter(group_id=group.id).exists()
+        assert not UserReport.objects.filter(event_id=event.event_id).exists()
+        assert not EventAttachment.objects.filter(event_id=event.event_id).exists()
+
         assert not GroupRedirect.objects.filter(group_id=group.id).exists()
         assert not GroupHash.objects.filter(group_id=group.id).exists()
         assert not Group.objects.filter(id=group.id).exists()
+        assert not nodestore.get(node_id)
+        assert not nodestore.get(node_id2)
+        assert nodestore.get(node_id3), "Does not remove from second group"

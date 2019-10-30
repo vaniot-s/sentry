@@ -2,10 +2,11 @@
 
 exports[`ProjectSecurityHeaders renders 1`] = `
 <SideEffect(DocumentTitle)
-  title="Sentry"
+  title="Security Headers - project-slug - Sentry"
 >
   <div>
-    <SettingsPageHeading
+    <StyledSettingsPageHeading
+      noTitleStyles={false}
       title="Security Header Reports"
     />
     <PreviewFeature
@@ -137,6 +138,7 @@ exports[`ProjectSecurityHeaders renders 1`] = `
               </HeaderName>
             </Box>
             <Button
+              align="center"
               disabled={false}
               priority="primary"
               to="csp/"
@@ -163,6 +165,7 @@ exports[`ProjectSecurityHeaders renders 1`] = `
               </HeaderName>
             </Box>
             <Button
+              align="center"
               disabled={false}
               priority="primary"
               to="expect-ct/"
@@ -189,6 +192,7 @@ exports[`ProjectSecurityHeaders renders 1`] = `
               </HeaderName>
             </Box>
             <Button
+              align="center"
               disabled={false}
               priority="primary"
               to="hpkp/"

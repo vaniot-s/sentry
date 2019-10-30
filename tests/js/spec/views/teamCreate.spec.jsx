@@ -1,12 +1,12 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {TeamCreate} from 'app/views/teamCreate';
 
 describe('TeamCreate', function() {
   describe('render()', function() {
     it('renders correctly', function() {
-      let wrapper = shallow(
+      const wrapper = shallow(
         <TeamCreate
           params={{
             orgId: 'org',
@@ -22,7 +22,7 @@ describe('TeamCreate', function() {
 
   describe('handleSubmitSuccess()', function() {
     let wrapper;
-    let redirectMock = jest.fn();
+    const redirectMock = jest.fn();
 
     beforeEach(function() {
       redirectMock.mockReset();
@@ -55,7 +55,7 @@ describe('TeamCreate', function() {
       wrapper.instance().handleSubmitSuccess({
         slug: 'new-team',
       });
-      expect(redirectMock).toBeCalledWith('/settings/org/teams/new-team/');
+      expect(redirectMock).toHaveBeenCalledWith('/settings/org/teams/new-team/');
     });
   });
 });

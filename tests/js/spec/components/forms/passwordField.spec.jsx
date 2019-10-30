@@ -1,22 +1,22 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {PasswordField} from 'app/components/forms';
 
 describe('PasswordField', function() {
   describe('render()', function() {
     it('renders', function() {
-      let wrapper = shallow(<PasswordField name="fieldName" />);
+      const wrapper = shallow(<PasswordField name="fieldName" />);
       expect(wrapper).toMatchSnapshot();
     });
 
     it('renders with value', function() {
-      let wrapper = shallow(<PasswordField name="fieldName" value="foobar" />);
+      const wrapper = shallow(<PasswordField name="fieldName" value="foobar" />);
       expect(wrapper).toMatchSnapshot();
     });
 
     it('renders with form context', function() {
-      let wrapper = shallow(<PasswordField name="fieldName" />, {
+      const wrapper = shallow(<PasswordField name="fieldName" />, {
         context: {
           form: {
             data: {

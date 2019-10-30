@@ -1,9 +1,7 @@
 import {Box, Flex} from 'grid-emotion';
 import {Link} from 'react-router';
-import DocumentTitle from 'react-document-title';
 import PropTypes from 'prop-types';
 import React from 'react';
-import createReactClass from 'create-react-class';
 import styled from 'react-emotion';
 
 import {
@@ -12,15 +10,13 @@ import {
   addSuccessMessage,
   removeIndicator,
 } from 'app/actionCreators/indicator';
-import {getOrganizationState} from 'app/mixins/organizationState';
 import {t, tct} from 'app/locale';
-import ApiMixin from 'app/mixins/apiMixin';
 import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
 import ClippedBox from 'app/components/clippedBox';
 import Confirm from 'app/components/confirm';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
-import ExternalLink from 'app/components/externalLink';
+import ExternalLink from 'app/components/links/externalLink';
 import Pagination from 'app/components/pagination';
 import {Panel, PanelBody, PanelHeader} from 'app/components/panels';
 import ProjectKeyCredentials from 'app/views/settings/project/projectKeys/projectKeyCredentials';
@@ -28,36 +24,34 @@ import SentryTypes from 'app/sentryTypes';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
 import TextBlock from 'app/views/settings/components/text/textBlock';
 import recreateRoute from 'app/utils/recreateRoute';
+import routeTitleGen from 'app/utils/routeTitle';
 
-const KeyRow = createReactClass({
-  displayName: 'KeyRow',
-
-  propTypes: {
+class KeyRow extends React.Component {
+  static propTypes = {
+    api: PropTypes.object.isRequired,
     orgId: PropTypes.string.isRequired,
     projectId: PropTypes.string.isRequired,
     data: PropTypes.object.isRequired,
     access: PropTypes.object.isRequired,
     onToggle: PropTypes.func.isRequired,
     onRemove: PropTypes.func.isRequired,
-  },
+  };
 
-  mixins: [ApiMixin],
+  state = {
+    loading: false,
+    error: false,
+  };
 
-  getInitialState() {
-    return {
-      loading: false,
-      error: false,
-    };
-  },
+  handleRemove = () => {
+    if (this.state.loading) {
+      return;
+    }
 
-  handleRemove() {
-    if (this.state.loading) return;
-
-    let loadingIndicator = addLoadingMessage(t('Saving changes..'));
-    let {orgId, projectId, data} = this.props;
-    this.api.request(`/projects/${orgId}/${projectId}/keys/${data.id}/`, {
+    const loadingIndicator = addLoadingMessage(t('Saving changes..'));
+    const {orgId, projectId, data} = this.props;
+    this.props.api.request(`/projects/${orgId}/${projectId}/keys/${data.id}/`, {
       method: 'DELETE',
-      success: (d, _, jqXHR) => {
+      success: () => {
         this.props.onRemove();
         removeIndicator(loadingIndicator);
         addSuccessMessage(t('Revoked key'));
@@ -71,16 +65,18 @@ const KeyRow = createReactClass({
         addErrorMessage(t('Unable to revoke key'));
       },
     });
-  },
+  };
 
-  handleUpdate(params, cb) {
-    if (this.state.loading) return;
-    let loadingIndicator = addLoadingMessage(t('Saving changes..'));
-    let {orgId, projectId, data} = this.props;
-    this.api.request(`/projects/${orgId}/${projectId}/keys/${data.id}/`, {
+  handleUpdate = (params, cb) => {
+    if (this.state.loading) {
+      return;
+    }
+    const loadingIndicator = addLoadingMessage(t('Saving changes..'));
+    const {orgId, projectId, data} = this.props;
+    this.props.api.request(`/projects/${orgId}/${projectId}/keys/${data.id}/`, {
       method: 'PUT',
       data: params,
-      success: (d, _, jqXHR) => {
+      success: d => {
         removeIndicator(loadingIndicator);
         cb(d);
       },
@@ -92,61 +88,56 @@ const KeyRow = createReactClass({
         removeIndicator(loadingIndicator);
       },
     });
-  },
+  };
 
-  handleEnable() {
+  handleEnable = () => {
     this.handleUpdate(
       {
         isActive: true,
       },
       this.props.onToggle
     );
-  },
+  };
 
-  handleDisable() {
+  handleDisable = () => {
     this.handleUpdate(
       {
         isActive: false,
       },
       this.props.onToggle
     );
-  },
+  };
 
   render() {
-    let {access, data} = this.props;
-    let editUrl = recreateRoute(`${data.id}/`, this.props);
-    let controls = [
-      <Button key="edit" to={editUrl} size="small">
-        {t('Details')}
-      </Button>,
-    ];
+    const {access, data} = this.props;
+    const editUrl = recreateRoute(`${data.id}/`, this.props);
+    const controlActive = access.has('project:write') && !this.state.loading;
 
-    if (access.has('project:write')) {
-      controls.push(
-        <Button
-          key="toggle"
-          size="small"
-          onClick={data.isActive ? this.handleDisable : this.handleEnable}
-          disabled={this.state.loading}
-        >
-          {data.isActive ? t('Disable') : t('Enable')}
-        </Button>
-      );
-      controls.push(
-        <Confirm
-          key="remove"
-          priority="danger"
-          disabled={this.state.loading}
-          onConfirm={this.handleRemove}
-          confirmText={t('Remove Key')}
-          message={t(
-            'Are you sure you want to remove this key? This action is irreversible.'
-          )}
-        >
-          <Button size="small" disabled={this.state.loading} icon="icon-trash" />
-        </Confirm>
-      );
-    }
+    const controls = [
+      <Button key="edit" to={editUrl} size="small">
+        {t('Configure')}
+      </Button>,
+      <Button
+        key="toggle"
+        size="small"
+        onClick={data.isActive ? this.handleDisable : this.handleEnable}
+        disabled={!controlActive}
+      >
+        {data.isActive ? t('Disable') : t('Enable')}
+      </Button>,
+      <Confirm
+        key="remove"
+        priority="danger"
+        disabled={!controlActive}
+        onConfirm={this.handleRemove}
+        confirmText={t('Remove Key')}
+        message={t(
+          'Are you sure you want to remove this key? This action is irreversible.'
+        )}
+      >
+        <Button size="small" disabled={!controlActive} icon="icon-trash" />
+      </Confirm>,
+    ];
 
     return (
       <ClientKeyItemPanel disabled={!data.isActive}>
@@ -161,24 +152,21 @@ const KeyRow = createReactClass({
             )}
           </Box>
           <Flex align="center">
-            {controls.map((c, n) => <KeyControl key={n}> {c}</KeyControl>)}
+            {controls.map((c, n) => (
+              <KeyControl key={n}> {c}</KeyControl>
+            ))}
           </Flex>
         </PanelHeader>
 
-        <ClippedBox
-          clipHeight={300}
-          defaultClipped={true}
-          btnClassName="btn btn-default btn-sm"
-          btnText={t('Expand')}
-        >
+        <ClippedBox clipHeight={300} defaultClipped btnText={t('Expand')}>
           <PanelBody>
             <ProjectKeyCredentials projectId={`${data.projectId}`} data={data} />
           </PanelBody>
         </ClippedBox>
       </ClientKeyItemPanel>
     );
-  },
-});
+  }
+}
 
 export default class ProjectKeys extends AsyncView {
   static propTypes = {
@@ -192,11 +180,12 @@ export default class ProjectKeys extends AsyncView {
   };
 
   getTitle() {
-    return t('Client Keys');
+    const {projectId} = this.props.params;
+    return routeTitleGen(t('Client Keys'), projectId, false);
   }
 
   getEndpoints() {
-    let {orgId, projectId} = this.props.params;
+    const {orgId, projectId} = this.props.params;
     return [['keyList', `/projects/${orgId}/${projectId}/keys/`]];
   }
 
@@ -212,7 +201,7 @@ export default class ProjectKeys extends AsyncView {
 
   handleToggleKey = (data, newData) => {
     this.setState(state => {
-      let keyList = state.keyList;
+      const keyList = state.keyList;
       keyList.forEach(key => {
         if (key.id === data.id) {
           key.isActive = newData.isActive;
@@ -223,10 +212,10 @@ export default class ProjectKeys extends AsyncView {
   };
 
   handleCreateKey = () => {
-    let {orgId, projectId} = this.props.params;
+    const {orgId, projectId} = this.props.params;
     this.api.request(`/projects/${orgId}/${projectId}/keys/`, {
       method: 'POST',
-      success: (data, _, jqXHR) => {
+      success: data => {
         this.setState(state => {
           return {
             keyList: [...state.keyList, data],
@@ -243,18 +232,18 @@ export default class ProjectKeys extends AsyncView {
   renderEmpty() {
     return (
       <Panel>
-        <EmptyMessage>
-          <span className="icon icon-exclamation" />
-          <p>{t('There are no keys active for this project.')}</p>
-        </EmptyMessage>
+        <EmptyMessage
+          icon="icon-circle-exclamation"
+          description={t('There are no keys active for this project.')}
+        />
       </Panel>
     );
   }
 
   renderResults() {
-    let {routes, params} = this.props;
-    let {orgId, projectId} = params;
-    let access = getOrganizationState(this.context.organization).getAccess();
+    const {routes, params} = this.props;
+    const {orgId, projectId} = params;
+    const access = new Set(this.context.organization.access);
 
     return (
       <div>
@@ -282,48 +271,48 @@ export default class ProjectKeys extends AsyncView {
   }
 
   renderBody() {
-    let access = getOrganizationState(this.context.organization).getAccess();
-    let isEmpty = !this.state.keyList.length;
+    const access = new Set(this.context.organization.access);
+    const isEmpty = !this.state.keyList.length;
 
     return (
-      <DocumentTitle title={t('Client Keys')}>
-        <div className="ref-keys">
-          <SettingsPageHeader
-            title={t('Client Keys')}
-            action={
-              access.has('project:write') ? (
-                <Button
-                  onClick={this.handleCreateKey}
-                  size="small"
-                  priority="primary"
-                  icon="icon-circle-add"
-                >
-                  {t('Generate New Key')}
-                </Button>
-              ) : null
+      <div className="ref-keys">
+        <SettingsPageHeader
+          title={t('Client Keys')}
+          action={
+            access.has('project:write') ? (
+              <Button
+                onClick={this.handleCreateKey}
+                size="small"
+                priority="primary"
+                icon="icon-circle-add"
+              >
+                {t('Generate New Key')}
+              </Button>
+            ) : null
+          }
+        />
+        <TextBlock>
+          {tct(
+            `To send data to Sentry you will need to configure an SDK with a client key
+          (usually referred to as the [code:SENTRY_DSN] value). For more
+          information on integrating Sentry with your application take a look at our
+          [link:documentation].`,
+            {
+              link: <ExternalLink href="https://docs.sentry.io/" />,
+              code: <code />,
             }
-          />
-          <TextBlock>
-            {tct(
-              `To send data to Sentry you will need to configure an SDK with a client key
-            (usually referred to as the [code:SENTRY_DSN] value). For more
-            information on integrating Sentry with your application take a look at our
-            [link:documentation].`,
-              {
-                link: <ExternalLink href="https://docs.sentry.io/" />,
-                code: <code />,
-              }
-            )}
-          </TextBlock>
+          )}
+        </TextBlock>
 
-          {isEmpty ? this.renderEmpty() : this.renderResults()}
-        </div>
-      </DocumentTitle>
+        {isEmpty ? this.renderEmpty() : this.renderResults()}
+      </div>
     );
   }
 }
 
-const ClientKeyItemPanel = styled(({disabled, ...props}) => <Panel {...props} />)`
+const ClientKeyItemPanel = styled(({disabled: _disabled, ...props}) => (
+  <Panel {...props} />
+))`
   ${p => (p.disabled ? 'opacity: 0.5;' : '')};
 
   .box-clippable {
@@ -340,6 +329,6 @@ const PanelHeaderLink = styled(Link)`
   color: ${p => p.theme.gray3};
 `;
 
-const KeyControl = styled.span`
+const KeyControl = styled('span')`
   margin-left: 6px;
 `;

@@ -5,7 +5,11 @@ import _ from 'lodash';
 
 import Avatar from 'app/components/avatar';
 import ErrorBoundary from 'app/components/errorBoundary';
+import ExternalLink from 'app/components/links/externalLink';
 import KeyValueList from 'app/components/events/interfaces/keyValueList';
+import {removeFilterMaskedEntries} from 'app/components/events/interfaces/utils';
+
+const EMAIL_REGEX = /[^@]+@[^\.]+\..+/;
 
 class UserContextType extends React.Component {
   static propTypes = {
@@ -13,20 +17,22 @@ class UserContextType extends React.Component {
   };
 
   render() {
-    let user = this.props.data;
-    let builtins = [];
-    let children = [];
+    const user = this.props.data;
+    const builtins = [];
+    const children = [];
 
-    // Handle our native attributes special
+    // Handle our native attributes specially
     user.id && builtins.push(['ID', <pre>{user.id}</pre>]);
     user.email &&
       builtins.push([
         'Email',
         <pre>
           {user.email}
-          <a href={`mailto:${user.email}`} target="_blank" className="external-icon">
-            <em className="icon-envelope" />
-          </a>
+          {EMAIL_REGEX.test(user.email) && (
+            <ExternalLink href={`mailto:${user.email}`} className="external-icon">
+              <em className="icon-envelope" />
+            </ExternalLink>
+          )}
         </pre>,
       ]);
     user.username && builtins.push(['Username', <pre>{user.username}</pre>]);
@@ -41,7 +47,7 @@ class UserContextType extends React.Component {
     return (
       <div className="user-widget">
         <div className="pull-left">
-          <Avatar user={user} size={48} gravatar={false} />
+          <Avatar user={removeFilterMaskedEntries(user)} size={48} gravatar={false} />
         </div>
         <table className="key-value table">
           <tbody>
@@ -51,7 +57,11 @@ class UserContextType extends React.Component {
                   <td className="key" key="0">
                     {key}
                   </td>
-                  <td className="value" key="1">
+                  <td
+                    className="value"
+                    key="1"
+                    data-test-id={`user-context-${key.toLowerCase()}-value`}
+                  >
                     {value}
                   </td>
                 </tr>
@@ -60,15 +70,13 @@ class UserContextType extends React.Component {
           </tbody>
         </table>
         <ErrorBoundary mini>
-          {children && <KeyValueList data={children} isContextData={true} />}
+          {children && <KeyValueList data={children} isContextData />}
         </ErrorBoundary>
       </div>
     );
   }
 }
 
-UserContextType.getTitle = function(value) {
-  return 'User';
-};
+UserContextType.getTitle = () => 'User';
 
 export default UserContextType;

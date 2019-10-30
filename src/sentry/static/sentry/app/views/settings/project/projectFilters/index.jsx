@@ -4,6 +4,8 @@ import React from 'react';
 import {t} from 'app/locale';
 import GroupTombstones from 'app/views/settings/project/projectFilters/groupTombstones';
 import NavTabs from 'app/components/navTabs';
+import SentryDocumentTitle from 'app/components/sentryDocumentTitle';
+import PermissionAlert from 'app/views/settings/project/permissionAlert';
 import ProjectFiltersChart from 'app/views/settings/project/projectFilters/projectFiltersChart';
 import ProjectFiltersSettings from 'app/views/settings/project/projectFilters/projectFiltersSettings';
 import SentryTypes from 'app/sentryTypes';
@@ -13,20 +15,24 @@ import recreateRoute from 'app/utils/recreateRoute';
 
 class ProjectFilters extends React.Component {
   static contextTypes = {
-    organization: SentryTypes.Organization,
     project: SentryTypes.Project,
   };
 
   render() {
-    let {organization, project} = this.context;
-    let {orgId, projectId, filterType} = this.props.params;
-    if (!project) return null;
+    const {project} = this.context;
+    const {orgId, projectId, filterType} = this.props.params;
+    if (!project) {
+      return null;
+    }
 
-    let features = new Set(project.features);
+    const features = new Set(project.features);
 
     return (
       <div>
+        <SentryDocumentTitle title={t('Inbound Filters')} objSlug={projectId} />
         <SettingsPageHeader title={t('Inbound Data Filters')} />
+        <PermissionAlert />
+
         <TextBlock>
           {t(
             'Filters allow you to prevent Sentry from storing events in certain situations. Filtered events are tracked separately from rate limits, and do not apply to any project quotas.'
@@ -53,12 +59,11 @@ class ProjectFilters extends React.Component {
             </NavTabs>
           )}
 
-          {filterType == 'discarded-groups' ? (
+          {filterType === 'discarded-groups' ? (
             <GroupTombstones orgId={orgId} projectId={projectId} />
           ) : (
             <ProjectFiltersSettings
               project={project}
-              organization={organization}
               params={this.props.params}
               features={features}
             />

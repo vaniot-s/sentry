@@ -1,5 +1,5 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import AdminQuotas from 'app/views/admin/adminQuotas';
@@ -21,7 +21,7 @@ describe('AdminQuotas', function() {
     });
 
     it('renders', function() {
-      let wrapper = shallow(<AdminQuotas params={{}} />, {
+      const wrapper = shallow(<AdminQuotas params={{}} />, {
         context: {
           router: TestStubs.router(),
         },

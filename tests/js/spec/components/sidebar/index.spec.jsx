@@ -1,19 +1,19 @@
 import React from 'react';
 
-import {mount, shallow} from 'enzyme';
-import IncidentStore from 'app/stores/incidentStore';
+import {mountWithTheme, shallow} from 'sentry-test/enzyme';
+import ServiceIncidentStore from 'app/stores/serviceIncidentStore';
 import ConfigStore from 'app/stores/configStore';
 import SidebarContainer, {Sidebar} from 'app/components/sidebar';
 
 describe('Sidebar', function() {
   let wrapper;
-  let routerContext = TestStubs.routerContext();
-  let {organization, router} = routerContext.context;
-  let user = TestStubs.User();
-  let apiMocks = {};
+  const routerContext = TestStubs.routerContext();
+  const {organization, router} = routerContext.context;
+  const user = TestStubs.User();
+  const apiMocks = {};
 
-  let createWrapper = props =>
-    mount(
+  const createWrapper = props =>
+    mountWithTheme(
       <Sidebar
         organization={organization}
         user={user}
@@ -26,12 +26,16 @@ describe('Sidebar', function() {
 
   beforeEach(function() {
     apiMocks.broadcasts = MockApiClient.addMockResponse({
-      url: '/broadcasts/',
+      url: `/organizations/${organization.slug}/broadcasts/`,
       body: [TestStubs.Broadcast()],
     });
     apiMocks.broadcastsMarkAsSeen = MockApiClient.addMockResponse({
       url: '/broadcasts/',
       method: 'PUT',
+    });
+    apiMocks.savedQueries = MockApiClient.addMockResponse({
+      url: `/organizations/${organization.slug}/discover/saved/`,
+      body: [],
     });
   });
 
@@ -50,17 +54,24 @@ describe('Sidebar', function() {
       router: null,
     });
 
+    // no org displays user details
+    expect(wrapper.find('OrgOrUserName').text()).toContain(user.name);
+    expect(wrapper.find('UserNameOrEmail').text()).toContain(user.email);
+
     wrapper.find('SidebarDropdownActor').simulate('click');
     expect(wrapper.find('OrgAndUserMenu')).toMatchSnapshot();
   });
 
   it('can toggle collapsed state', async function() {
-    wrapper = mount(
+    wrapper = mountWithTheme(
       <SidebarContainer organization={organization} user={user} router={router} />,
       routerContext
     );
 
-    wrapper.find('SidebarCollapseItem').simulate('click');
+    expect(wrapper.find('OrgOrUserName').text()).toContain(organization.name);
+    expect(wrapper.find('UserNameOrEmail').text()).toContain(user.name);
+
+    wrapper.find('SidebarCollapseItem StyledSidebarItem').simulate('click');
     await tick();
     wrapper.update();
 
@@ -68,14 +79,14 @@ describe('Sidebar', function() {
     // Instead check for `SidebarItemLabel` which doesn't exist in collapsed state
     expect(wrapper.find('SidebarItemLabel')).toHaveLength(0);
 
-    wrapper.find('SidebarCollapseItem').simulate('click');
+    wrapper.find('SidebarCollapseItem StyledSidebarItem').simulate('click');
     await tick();
     wrapper.update();
     expect(wrapper.find('SidebarItemLabel').length).toBeGreaterThan(0);
   });
 
-  it('can have onboarding feature', function() {
-    wrapper = mount(
+  it('can have onboarding feature', async function() {
+    wrapper = mountWithTheme(
       <SidebarContainer
         organization={{...organization, features: ['onboarding']}}
         user={user}
@@ -88,6 +99,7 @@ describe('Sidebar', function() {
 
     wrapper.find('[data-test-id="onboarding-progress-bar"]').simulate('click');
     wrapper.update();
+
     expect(wrapper.find('OnboardingStatus SidebarPanel')).toMatchSnapshot();
   });
 
@@ -95,7 +107,7 @@ describe('Sidebar', function() {
     it('can toggle help menu', function() {
       wrapper = createWrapper();
       wrapper.find('HelpActor').simulate('click');
-      let menu = wrapper.find('HelpMenu');
+      const menu = wrapper.find('HelpMenu');
       expect(menu).toHaveLength(1);
       expect(menu).toMatchSnapshot();
       expect(menu.find('SidebarMenuItem')).toHaveLength(3);
@@ -143,7 +155,7 @@ describe('Sidebar', function() {
     });
 
     it('has can logout', function() {
-      let mock = MockApiClient.addMockResponse({
+      const mock = MockApiClient.addMockResponse({
         url: '/auth/',
         method: 'DELETE',
         status: 204,
@@ -168,7 +180,7 @@ describe('Sidebar', function() {
   describe('SidebarPanel', function() {
     it('displays empty panel when there are no Broadcasts', async function() {
       MockApiClient.addMockResponse({
-        url: '/broadcasts/',
+        url: `/organizations/${organization.slug}/broadcasts/`,
         body: [],
       });
       wrapper = createWrapper();
@@ -229,7 +241,7 @@ describe('Sidebar', function() {
     it('can unmount Sidebar (and Broadcasts) and kills Broadcast timers', async function() {
       jest.useFakeTimers();
       wrapper = createWrapper();
-      let broadcasts = wrapper.find('Broadcasts').instance();
+      const broadcasts = wrapper.find('Broadcasts').instance();
 
       // This will start timer to mark as seen
       await wrapper.find('Broadcasts SidebarItem').simulate('click');
@@ -251,12 +263,12 @@ describe('Sidebar', function() {
 
     it('can show Incidents in Sidebar Panel', async function() {
       wrapper = createWrapper();
-      IncidentStore.onUpdateSuccess({
-        status: {incidents: [TestStubs.Incident()]},
+      ServiceIncidentStore.onUpdateSuccess({
+        status: {incidents: [TestStubs.ServiceIncident()]},
       });
       wrapper.update();
 
-      wrapper.find('Incidents').simulate('click');
+      wrapper.find('ServiceIncidents').simulate('click');
       wrapper.update();
       expect(wrapper.find('SidebarPanel')).toHaveLength(1);
 

@@ -1,12 +1,12 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {MultipleCheckboxField} from 'app/components/forms';
 
 describe('MultipleCheckboxField', function() {
   describe('render()', function() {
     it('renders without form context', function() {
-      let wrapper = shallow(
+      const wrapper = shallow(
         <MultipleCheckboxField
           name="fieldName"
           choices={[['1', 'On'], ['2', 'Off']]}
@@ -17,7 +17,7 @@ describe('MultipleCheckboxField', function() {
     });
 
     it('renders with form context', function() {
-      let wrapper = shallow(
+      const wrapper = shallow(
         <MultipleCheckboxField name="fieldName" choices={[['1', 'On'], ['2', 'Off']]} />,
         {
           context: {

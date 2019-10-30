@@ -1,10 +1,10 @@
 import React from 'react';
-import {shallow, mount} from 'enzyme';
+import {shallow, mount} from 'sentry-test/enzyme';
 import MultipleCheckbox from 'app/views/settings/components/forms/controls/multipleCheckbox';
 
 describe('MultipleCheckbox', function() {
   it('renders', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <MultipleCheckbox
         choices={[[0, 'Choice A'], [1, 'Choice B'], [2, 'Choice C']]}
         value={[1]}
@@ -15,8 +15,8 @@ describe('MultipleCheckbox', function() {
   });
 
   it('unselects a checked input', function() {
-    let onChange = jest.fn();
-    let wrapper = mount(
+    const onChange = jest.fn();
+    const wrapper = mount(
       <MultipleCheckbox
         choices={[[0, 'Choice A'], [1, 'Choice B'], [2, 'Choice C']]}
         value={[1]}
@@ -32,8 +32,8 @@ describe('MultipleCheckbox', function() {
   });
 
   it('selects an unchecked input', function() {
-    let onChange = jest.fn();
-    let wrapper = mount(
+    const onChange = jest.fn();
+    const wrapper = mount(
       <MultipleCheckbox
         choices={[[0, 'Choice A'], [1, 'Choice B'], [2, 'Choice C']]}
         value={[1]}

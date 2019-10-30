@@ -3,13 +3,14 @@ import PropTypes from 'prop-types';
 
 import {t, tct} from 'app/locale';
 import AsyncView from 'app/views/asyncView';
-import ExternalLink from 'app/components/externalLink';
+import ExternalLink from 'app/components/links/externalLink';
 import {Panel, PanelBody, PanelHeader} from 'app/components/panels';
 import ReportUri, {
   getSecurityDsn,
 } from 'app/views/settings/projectSecurityHeaders/reportUri';
 import PreviewFeature from 'app/components/previewFeature';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
+import routeTitleGen from 'app/utils/routeTitle';
 
 export default class ProjectHpkpReports extends AsyncView {
   static propTypes = {
@@ -22,11 +23,16 @@ export default class ProjectHpkpReports extends AsyncView {
   }
 
   getEndpoints() {
-    let {orgId, projectId} = this.props.params;
+    const {orgId, projectId} = this.props.params;
     return [
       ['keyList', `/projects/${orgId}/${projectId}/keys/`],
       ['project', `/projects/${orgId}/${projectId}/`],
     ];
+  }
+
+  getTitle() {
+    const {projectId} = this.props.params;
+    return routeTitleGen(t('HTTP Public Key Pinning (HPKP)'), projectId, false);
   }
 
   getInstructions() {

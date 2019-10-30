@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import ProjectKeys from 'app/views/settings/project/projectKeys';
 
 describe('ProjectKeys', function() {
@@ -24,9 +24,9 @@ describe('ProjectKeys', function() {
       url: `/projects/${org.slug}/${project.slug}/keys/${projectKeys[0].id}/`,
       method: 'DELETE',
     });
-    let routerContext = TestStubs.routerContext();
+    const routerContext = TestStubs.routerContext();
 
-    wrapper = mount(
+    wrapper = mountWithTheme(
       <ProjectKeys routes={[]} params={{orgId: org.slug, projectId: project.slug}} />,
       {
         ...routerContext,
@@ -50,7 +50,7 @@ describe('ProjectKeys', function() {
       body: [],
     });
 
-    wrapper = mount(
+    wrapper = mountWithTheme(
       <ProjectKeys routes={[]} params={{orgId: org.slug, projectId: project.slug}} />,
       TestStubs.routerContext()
     );
@@ -59,9 +59,9 @@ describe('ProjectKeys', function() {
   });
 
   it('has clippable box', function() {
-    expect(wrapper.find('.clip-fade .btn')).toHaveLength(1);
-    wrapper.find('.clip-fade .btn').simulate('click');
-    expect(wrapper.find('.clip-fade .btn')).toHaveLength(0);
+    expect(wrapper.find('.clip-fade Button')).toHaveLength(1);
+    wrapper.find('.clip-fade Button').simulate('click');
+    expect(wrapper.find('.clip-fade Button')).toHaveLength(0);
   });
 
   it('deletes key', function() {
@@ -78,7 +78,7 @@ describe('ProjectKeys', function() {
   });
 
   it('disable and enables key', function() {
-    let enableMock = MockApiClient.addMockResponse({
+    const enableMock = MockApiClient.addMockResponse({
       url: `/projects/${org.slug}/${project.slug}/keys/${projectKeys[0].id}/`,
       method: 'PUT',
     });

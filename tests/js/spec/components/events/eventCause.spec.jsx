@@ -1,5 +1,5 @@
 import React from 'react';
-import {mount} from 'enzyme';
+import {mount} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import EventCause from 'app/components/events/eventCause';
@@ -17,7 +17,9 @@ describe('EventCause', function() {
     project = TestStubs.Project();
     Client.addMockResponse({
       method: 'GET',
-      url: `/projects/${organization.slug}/${project.slug}/events/${event.id}/committers/`,
+      url: `/projects/${organization.slug}/${project.slug}/events/${
+        event.id
+      }/committers/`,
       body: {
         committers: [
           {

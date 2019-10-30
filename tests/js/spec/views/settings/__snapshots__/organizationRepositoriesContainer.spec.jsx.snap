@@ -2,16 +2,24 @@
 
 exports[`OrganizationRepositoriesContainer render() without any providers is loading when initially rendering 1`] = `
 <SideEffect(DocumentTitle)
-  title="Repositories - Sentry"
+  title="Repositories - org-slug - Sentry"
 >
   <OrganizationRepositories
+    api={
+      Client {
+        "_chain": [Function],
+        "_wrapRequest": [Function],
+        "bulkUpdate": [Function],
+        "handleRequestError": [Function],
+        "hasProjectBeenRenamed": [Function],
+      }
+    }
     error={false}
     errors={Object {}}
     itemList={Array []}
     loading={false}
     onAddRepo={[Function]}
-    onCancelDelete={[Function]}
-    onDeleteRepo={[Function]}
+    onRepositoryChange={[Function]}
     params={
       Object {
         "orgId": "org-slug",

@@ -1,5 +1,5 @@
 import React from 'react';
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import AccountSecurityEnroll from 'app/views/settings/account/accountSecurity/accountSecurityEnroll';
@@ -11,7 +11,7 @@ describe('AccountSecurityEnroll', function() {
 
   describe('Totp', function() {
     Client.clearMockResponses();
-    let authenticator = TestStubs.Authenticators().Totp({
+    const authenticator = TestStubs.Authenticators().Totp({
       isEnrolled: false,
       qrcode: [[1, 0]],
       secret: 'secret',
@@ -28,7 +28,7 @@ describe('AccountSecurityEnroll', function() {
         url: `${ENDPOINT}${authenticator.authId}/enroll/`,
         body: authenticator,
       });
-      wrapper = mount(
+      wrapper = mountWithTheme(
         <AccountSecurityEnroll />,
         TestStubs.routerContext([
           {
@@ -52,7 +52,7 @@ describe('AccountSecurityEnroll', function() {
     });
 
     it('can enroll', function() {
-      let enrollMock = Client.addMockResponse({
+      const enrollMock = Client.addMockResponse({
         url: `${ENDPOINT}${authenticator.authId}/enroll/`,
         method: 'POST',
       });
@@ -78,8 +78,8 @@ describe('AccountSecurityEnroll', function() {
         statusCode: 400,
       });
 
-      let pushMock = jest.fn();
-      wrapper = mount(
+      const pushMock = jest.fn();
+      wrapper = mountWithTheme(
         <AccountSecurityEnroll />,
         TestStubs.routerContext([
           {

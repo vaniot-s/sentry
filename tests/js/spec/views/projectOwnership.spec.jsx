@@ -1,5 +1,5 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import ProjectOwnership from 'app/views/settings/project/projectOwnership';
@@ -20,13 +20,17 @@ describe('ProjectTeamsSettings', function() {
     Client.addMockResponse({
       url: `/projects/${org.slug}/${project.slug}/ownership/`,
       method: 'GET',
-      body: {raw: 'url:src @dummy@example.com', fallthrough: 'false'},
+      body: {
+        raw: 'url:src @dummy@example.com',
+        fallthrough: 'false',
+        autoAssignment: 'false',
+      },
     });
   });
 
   describe('render()', function() {
     it('renders', function() {
-      let wrapper = shallow(
+      const wrapper = shallow(
         <ProjectOwnership
           params={{orgId: org.slug, projectId: project.slug}}
           organization={org}

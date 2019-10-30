@@ -1,24 +1,19 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
 import NewProject from 'app/views/projectInstall/newProject';
 
 describe('NewProjectPlatform', function() {
-  let sandbox;
-
   beforeEach(function() {
-    sandbox = sinon.sandbox.create();
-    this.stubbedApiRequest = sandbox.stub(Client.prototype, 'request');
+    this.stubbedApiRequest = jest.spyOn(Client.prototype, 'request');
   });
 
-  afterEach(function() {
-    sandbox.restore();
-  });
+  afterEach(function() {});
 
   describe('render()', function() {
     it('should render', function() {
-      let wrapper = shallow(<NewProject />, {
+      const wrapper = shallow(<NewProject />, {
         context: {
           organization: {
             id: '1337',

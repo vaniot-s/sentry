@@ -14,13 +14,14 @@ import {
   addMessage,
 } from 'app/actionCreators/indicator';
 import {t} from 'app/locale';
-import ApiMixin from 'app/mixins/apiMixin';
+import withApi from 'app/utils/withApi';
 import Button from 'app/components/button';
-import EnvironmentStore from 'app/stores/environmentStore';
 import LoadingIndicator from 'app/components/loadingIndicator';
+import SentryDocumentTitle from 'app/components/sentryDocumentTitle';
 import RuleNodeList from 'app/views/settings/projectAlerts/ruleEditor/ruleNodeList';
 import recreateRoute from 'app/utils/recreateRoute';
 import space from 'app/styles/space';
+import {getDisplayName} from 'app/utils/environment';
 
 const FREQUENCY_CHOICES = [
   ['5', t('5 minutes')],
@@ -45,24 +46,24 @@ const RuleEditor = createReactClass({
   displayName: 'RuleEditor',
 
   propTypes: {
+    api: PropTypes.object,
     actions: PropTypes.array.isRequired,
     conditions: PropTypes.array.isRequired,
     project: PropTypes.object.isRequired,
     organization: PropTypes.object.isRequired,
   },
 
-  mixins: [ApiMixin],
-
   getInitialState() {
     return {
       rule: null,
       loading: false,
       error: null,
+      environments: [],
     };
   },
 
   componentDidMount() {
-    this.fetchRule();
+    this.fetchData();
   },
 
   componentDidUpdate() {
@@ -71,30 +72,31 @@ const RuleEditor = createReactClass({
     }
   },
 
-  fetchRule() {
-    const {ruleId, projectId, orgId} = this.props.params;
+  fetchData() {
+    const {
+      api,
+      params: {ruleId, projectId, orgId},
+    } = this.props;
 
-    if (ruleId) {
-      const endpoint = `/projects/${orgId}/${projectId}/rules/${ruleId}/`;
-      this.api.request(endpoint, {
-        success: rule => {
-          this.setState({
-            rule,
-          });
-        },
-      });
-    } else {
-      const defaultRule = {
-        actionMatch: 'all',
-        actions: [],
-        conditions: [],
-        name: '',
-        frequency: 30,
-        environment: ALL_ENVIRONMENTS_KEY,
-      };
+    const defaultRule = {
+      actionMatch: 'all',
+      actions: [],
+      conditions: [],
+      name: '',
+      frequency: 30,
+      environment: ALL_ENVIRONMENTS_KEY,
+    };
 
-      this.setState({rule: defaultRule});
-    }
+    const promises = [
+      api.requestPromise(`/projects/${orgId}/${projectId}/environments/`),
+      ruleId
+        ? api.requestPromise(`/projects/${orgId}/${projectId}/rules/${ruleId}/`)
+        : Promise.resolve(defaultRule),
+    ];
+
+    Promise.all(promises).then(([environments, rule]) => {
+      this.setState({environments, rule});
+    });
   },
 
   handleSubmit(e) {
@@ -115,7 +117,7 @@ const RuleEditor = createReactClass({
 
     addMessage(t('Saving...'));
 
-    this.api.request(endpoint, {
+    this.props.api.request(endpoint, {
       method: isNew ? 'POST' : 'PUT',
       data,
       success: resp => {
@@ -140,7 +142,9 @@ const RuleEditor = createReactClass({
 
   hasError(field) {
     const {error} = this.state;
-    if (!error) return false;
+    if (!error) {
+      return false;
+    }
     return !!error[field];
   },
 
@@ -194,13 +198,16 @@ const RuleEditor = createReactClass({
   },
 
   render() {
-    const activeEnvs = EnvironmentStore.getActive() || [];
+    const {projectId} = this.props.params;
+    const {environments} = this.state;
     const environmentChoices = [
       [ALL_ENVIRONMENTS_KEY, t('All Environments')],
-      ...activeEnvs.map(env => [env.name, env.displayName]),
+      ...environments.map(env => [env.name, getDisplayName(env)]),
     ];
 
-    if (!this.state.rule) return <LoadingIndicator />;
+    if (!this.state.rule) {
+      return <LoadingIndicator />;
+    }
 
     const {rule, loading, error} = this.state;
     const {actionMatch, actions, conditions, frequency, name} = rule;
@@ -208,10 +215,13 @@ const RuleEditor = createReactClass({
     const environment =
       rule.environment === null ? ALL_ENVIRONMENTS_KEY : rule.environment;
 
+    const title = rule.id ? t('Edit Alert Rule') : t('New Alert Rule');
+
     return (
       <form onSubmit={this.handleSubmit} ref={node => (this.formNode = node)}>
+        <SentryDocumentTitle title={title} objSlug={projectId} />
         <Panel className="rule-detail">
-          <PanelHeader>{rule.id ? 'Edit Alert Rule' : 'New Alert Rule'}</PanelHeader>
+          <PanelHeader>{title}</PanelHeader>
           <PanelBody disablePadding={false}>
             {error && (
               <div className="alert alert-block alert-error">
@@ -226,7 +236,7 @@ const RuleEditor = createReactClass({
             <TextField
               name="name"
               defaultValue={name}
-              required={true}
+              required
               placeholder={t('My Rule Name')}
               onChange={val => this.handleChange('name', val)}
             />
@@ -242,7 +252,7 @@ const RuleEditor = createReactClass({
                   style={{marginBottom: 0, marginLeft: 5, marginRight: 5, width: 100}}
                   name="actionMatch"
                   value={actionMatch}
-                  required={true}
+                  required
                   choices={ACTION_MATCH_CHOICES}
                   onChange={val => this.handleChange('actionMatch', val)}
                 />
@@ -271,7 +281,7 @@ const RuleEditor = createReactClass({
               style={{marginBottom: 0, marginLeft: 5, marginRight: 5}}
               name="environment"
               value={environment}
-              required={true}
+              required
               choices={environmentChoices}
               onChange={val => this.handleEnvironmentChange(val)}
             />
@@ -303,7 +313,7 @@ const RuleEditor = createReactClass({
                   className={this.hasError('frequency') ? ' error' : ''}
                   value={frequency}
                   style={{marginBottom: 0, marginLeft: 5, marginRight: 5, width: 140}}
-                  required={true}
+                  required
                   choices={FREQUENCY_CHOICES}
                   onChange={val => this.handleChange('frequency', val)}
                 />
@@ -325,7 +335,9 @@ const RuleEditor = createReactClass({
   },
 });
 
-export default RuleEditor;
+export {RuleEditor};
+
+export default withApi(RuleEditor);
 
 const CancelButton = styled(Button)`
   margin-right: ${space(1)};

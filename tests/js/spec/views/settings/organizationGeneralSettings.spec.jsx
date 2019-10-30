@@ -1,9 +1,8 @@
 import {browserHistory} from 'react-router';
-import {mount} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import React from 'react';
 
 import OrganizationGeneralSettings from 'app/views/settings/organizationGeneralSettings';
-import recreateRoute from 'app/utils/recreateRoute';
 
 jest.mock('jquery');
 
@@ -36,7 +35,7 @@ describe('OrganizationGeneralSettings', function() {
       statusCode: 500,
       body: {},
     });
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
       TestStubs.routerContext()
     );
@@ -48,11 +47,11 @@ describe('OrganizationGeneralSettings', function() {
   });
 
   it('can enable "early adopter"', async function() {
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
       TestStubs.routerContext()
     );
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: ENDPOINT,
       method: 'PUT',
     });
@@ -70,11 +69,11 @@ describe('OrganizationGeneralSettings', function() {
   });
 
   it('changes org slug and redirects to new slug', async function() {
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
       TestStubs.routerContext()
     );
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: ENDPOINT,
       method: 'PUT',
     });
@@ -102,22 +101,31 @@ describe('OrganizationGeneralSettings', function() {
     expect(browserHistory.replace).toHaveBeenCalledWith('/settings/new-slug/');
   });
 
-  it('redirects to teams page if user does not have write access', async function() {
+  it('disables the entire form if user does not have write access', async function() {
+    const readOnlyOrg = TestStubs.Organization({access: ['org:read']});
     MockApiClient.clearMockResponses();
     MockApiClient.addMockResponse({
       url: ENDPOINT,
-      body: TestStubs.Organization({access: ['org:read']}),
+      body: readOnlyOrg,
     });
-    recreateRoute.mockReturnValueOnce('teams');
-    let wrapper = mount(
-      <OrganizationGeneralSettings routes={[]} params={{orgId: org.slug}} />,
-      TestStubs.routerContext()
+    const wrapper = mountWithTheme(
+      <OrganizationGeneralSettings routes={[]} params={{orgId: readOnlyOrg.slug}} />,
+      TestStubs.routerContext([{organization: readOnlyOrg}])
     );
 
     wrapper.setState({loading: false});
     await tick();
     wrapper.update();
-    expect(browserHistory.replace).toHaveBeenCalledWith('teams');
+
+    expect(wrapper.find('Form FormField[disabled=false]')).toHaveLength(0);
+    expect(
+      wrapper
+        .find('PermissionAlert')
+        .first()
+        .text()
+    ).toEqual(
+      'These settings can only be edited by users with the organization owner or manager role.'
+    );
   });
 
   it('does not have remove organization button', async function() {
@@ -129,7 +137,7 @@ describe('OrganizationGeneralSettings', function() {
         access: ['org:write'],
       }),
     });
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
       TestStubs.routerContext()
     );
@@ -149,11 +157,11 @@ describe('OrganizationGeneralSettings', function() {
         access: ['org:admin'],
       }),
     });
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
       TestStubs.routerContext()
     );
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: ENDPOINT,
       method: 'DELETE',
     });
@@ -177,16 +185,10 @@ describe('OrganizationGeneralSettings', function() {
     );
   });
 
-  it('shows require2fa switch w/ feature flag', async function() {
-    let wrapper = mount(
+  it('shows require2fa switch', async function() {
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
-      TestStubs.routerContext([
-        {
-          organization: TestStubs.Organization({
-            features: ['require-2fa'],
-          }),
-        },
-      ])
+      TestStubs.routerContext()
     );
 
     wrapper.setState({loading: false});
@@ -196,19 +198,13 @@ describe('OrganizationGeneralSettings', function() {
   });
 
   it('enables require2fa but cancels confirm modal', async function() {
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/',
       method: 'PUT',
     });
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
-      TestStubs.routerContext([
-        {
-          organization: TestStubs.Organization({
-            features: ['require-2fa'],
-          }),
-        },
-      ])
+      TestStubs.routerContext()
     );
 
     wrapper.setState({loading: false});
@@ -229,20 +225,14 @@ describe('OrganizationGeneralSettings', function() {
   });
 
   it('enables require2fa with confirm modal', async function() {
-    let mock = MockApiClient.addMockResponse({
+    const mock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/',
       method: 'PUT',
     });
 
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
-      TestStubs.routerContext([
-        {
-          organization: TestStubs.Organization({
-            features: ['require-2fa'],
-          }),
-        },
-      ])
+      TestStubs.routerContext()
     );
 
     wrapper.setState({loading: false});
@@ -278,15 +268,9 @@ describe('OrganizationGeneralSettings', function() {
       statusCode: 500,
     });
 
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <OrganizationGeneralSettings params={{orgId: org.slug}} />,
-      TestStubs.routerContext([
-        {
-          organization: TestStubs.Organization({
-            features: ['require-2fa'],
-          }),
-        },
-      ])
+      TestStubs.routerContext()
     );
 
     wrapper.setState({loading: false});
@@ -295,7 +279,7 @@ describe('OrganizationGeneralSettings', function() {
     wrapper.find('Switch[name="require2FA"]').simulate('click');
 
     // hide console.error for this test
-    sinon.stub(console, 'error');
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     // Confirm but has API failure
     wrapper
       .find(
@@ -307,6 +291,63 @@ describe('OrganizationGeneralSettings', function() {
     wrapper.update();
     expect(wrapper.find('Switch[name="require2FA"]').prop('isActive')).toBe(false);
     // eslint-disable-next-line no-console
-    console.error.restore();
+    console.error.mockRestore();
+  });
+
+  it('renders join request switch with experiment', async function() {
+    const organization = TestStubs.Organization({
+      experiments: {JoinRequestExperiment: 1},
+    });
+    const wrapper = mountWithTheme(
+      <OrganizationGeneralSettings params={{orgId: organization.slug}} />,
+      TestStubs.routerContext([{organization}])
+    );
+
+    wrapper.setState({loading: false});
+    await tick();
+    wrapper.update();
+    expect(wrapper.find('Switch[name="allowJoinRequests"]').exists()).toBe(true);
+  });
+
+  it('does not render join request switch not in experiment', async function() {
+    const organization = TestStubs.Organization({
+      experiments: {JoinRequestExperiment: -1},
+    });
+    const wrapper = mountWithTheme(
+      <OrganizationGeneralSettings params={{orgId: organization.slug}} />,
+      TestStubs.routerContext([{organization}])
+    );
+
+    wrapper.setState({loading: false});
+    await tick();
+    wrapper.update();
+    expect(wrapper.find('Switch[name="allowJoinRequests"]').exists()).toBe(false);
+  });
+
+  it('does not render join request switch in experiment control', async function() {
+    const organization = TestStubs.Organization({
+      experiments: {JoinRequestExperiment: 0},
+    });
+    const wrapper = mountWithTheme(
+      <OrganizationGeneralSettings params={{orgId: organization.slug}} />,
+      TestStubs.routerContext([{organization}])
+    );
+
+    wrapper.setState({loading: false});
+    await tick();
+    wrapper.update();
+    expect(wrapper.find('Switch[name="allowJoinRequests"]').exists()).toBe(false);
+  });
+
+  it('does not render join request switch without experiments', async function() {
+    const wrapper = mountWithTheme(
+      <OrganizationGeneralSettings params={{orgId: org.slug}} />,
+      TestStubs.routerContext()
+    );
+
+    wrapper.setState({loading: false});
+    await tick();
+    wrapper.update();
+    expect(wrapper.find('Switch[name="allowJoinRequests"]').exists()).toBe(false);
   });
 });

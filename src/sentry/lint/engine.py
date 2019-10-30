@@ -18,6 +18,7 @@ import json
 from subprocess import check_output, Popen
 
 os.environ['PYFLAKES_NODOCTEST'] = '1'
+os.environ['SENTRY_PRECOMMIT'] = '1'
 
 
 def get_project_root():
@@ -28,9 +29,12 @@ def get_sentry_bin(name):
     return os.path.join(get_project_root(), 'bin', name)
 
 
+def get_node_modules():
+    return os.path.join(get_project_root(), 'node_modules')
+
+
 def get_node_modules_bin(name):
-    return os.path.join(
-        get_project_root(), 'node_modules', '.bin', name)
+    return os.path.join(get_node_modules(), '.bin', name)
 
 
 def get_prettier_path():
@@ -69,9 +73,9 @@ def get_files_for_list(file_list):
 
 def get_js_files(file_list=None, snapshots=False):
     if snapshots:
-        extensions = ('.js', '.jsx', '.jsx.snap', '.js.snap')
+        extensions = ('.js', '.jsx', '.ts', '.tsx', '.jsx.snap', '.js.snap')
     else:
-        extensions = ('.js', '.jsx')
+        extensions = ('.js', '.jsx', '.ts', '.tsx')
 
     if file_list is None:
         file_list = ['tests/js', 'src/sentry/static/sentry/app']
@@ -87,19 +91,12 @@ def get_less_files(file_list=None):
     return [x for x in get_files_for_list(file_list) if x.endswith(('.less'))]
 
 
-def get_python_files(file_list=None):
-    if file_list is None:
-        file_list = ['src', 'tests']
-    return [
-        x for x in get_files_for_list(file_list)
-        if x.endswith('.py')
-    ]
-
-
 def js_lint(file_list=None, parseable=False, format=False):
 
     # We require eslint in path but we actually call an eslint wrapper
     eslint_path = get_node_modules_bin('eslint')
+
+    # Note, in CI, we run a relaxed version of our eslint rules (.eslint.relax.js)
     eslint_wrapper_path = get_sentry_bin('eslint-travis-wrapper')
 
     if not os.path.exists(eslint_path):
@@ -111,14 +108,15 @@ def js_lint(file_list=None, parseable=False, format=False):
     has_errors = False
     if js_file_list:
         if os.environ.get('CI'):
-            cmd = [eslint_wrapper_path, '--ext', '.js,.jsx']
+            cmd = [eslint_wrapper_path, '--ext', '.js,.jsx,.ts,.tsx']
         else:
-            cmd = [eslint_path, '--ext', '.js,.jsx']
+            cmd = [eslint_path, '--ext', '.js,.jsx,.ts,.tsx']
 
         if format:
             cmd.append('--fix')
         if parseable:
             cmd.append('--format=checkstyle')
+
         status = Popen(cmd + js_file_list).wait()
         has_errors = status != 0
 
@@ -156,6 +154,7 @@ def yarn_check(file_list):
     This is a user prompt right now because there ARE cases where you can touch package.json
     without a Yarn lockfile change, e.g. Jest config changes, license changes, etc.
     """
+
     if file_list is None or os.environ.get('SKIP_YARN_CHECK'):
         return False
 
@@ -206,27 +205,12 @@ def js_lint_format(file_list=None):
     of the lint engine. This uses eslint's `--fix` formatting feature.
     """
     eslint_path = get_node_modules_bin('eslint')
+    project_root = get_project_root()
+    prettier_path = get_prettier_path()
 
     if not os.path.exists(eslint_path):
         print('!! Skipping JavaScript linting and formatting because eslint is not installed.')  # noqa: B314
         return False
-
-    js_file_list = get_js_files(file_list)
-
-    # manually exclude some bad files
-    js_file_list = [x for x in js_file_list if '/javascript/example-project/' not in x]
-
-    return run_formatter([eslint_path, '--fix', ],
-                         js_file_list)
-
-
-def js_format(file_list=None):
-    """
-    We only format JavaScript code as part of this pre-commit hook. It is not part
-    of the lint engine.
-    """
-    project_root = get_project_root()
-    prettier_path = get_prettier_path()
 
     if not is_prettier_valid(project_root, prettier_path):
         return False
@@ -235,11 +219,18 @@ def js_format(file_list=None):
 
     # manually exclude some bad files
     js_file_list = [x for x in js_file_list if '/javascript/example-project/' not in x]
+    cmd = [eslint_path, '--fix', ]
 
-    return run_formatter([prettier_path,
-                          '--write',
-                          ],
-                         js_file_list)
+    has_package_json_errors = False if 'package.json' not in file_list else run_formatter(
+        [
+            prettier_path,
+            '--write',
+        ], ['package.json']
+    )
+
+    has_errors = run_formatter(cmd, js_file_list)
+
+    return has_errors or has_package_json_errors
 
 
 def js_test(file_list=None):
@@ -256,7 +247,7 @@ def js_test(file_list=None):
 
     has_errors = False
     if js_file_list:
-        status = Popen([jest_path, '--bail', '--findRelatedTests'] + js_file_list).wait()
+        status = Popen(['./bin/yarn', 'test-precommit'] + js_file_list).wait()
         has_errors = status != 0
 
     return has_errors
@@ -280,24 +271,6 @@ def less_format(file_list=None):
             '--write',
         ], less_file_list
     )
-
-
-def py_format(file_list=None):
-    try:
-        __import__('autopep8')
-    except ImportError:
-        print('[sentry.lint] Skipping Python autoformat because autopep8 is not installed.', file=sys.stderr)  # noqa: B314
-        return False
-
-    py_file_list = get_python_files(file_list)
-
-    return run_formatter([
-        'autopep8',
-        '--in-place',
-        '-j0',
-        '--ignore',
-        'E721,E722,W690',
-    ], py_file_list)
 
 
 def run_formatter(cmd, file_list, prompt_on_changes=True):
@@ -334,7 +307,6 @@ def run_formatter(cmd, file_list, prompt_on_changes=True):
 
 def run(file_list=None, format=True, lint=True, js=True, py=True,
         less=True, yarn=True, test=False, parseable=False):
-    # pep8.py uses sys.argv to find setup.cfg
     old_sysargv = sys.argv
 
     try:
@@ -354,11 +326,11 @@ def run(file_list=None, format=True, lint=True, js=True, py=True,
 
         if format:
             if py:
-                results.append(py_format(file_list))
+                # python autoformatting is now done via pre-commit (black)
+                pass
             if js:
                 # run eslint with --fix and skip these linters down below
                 results.append(js_lint_format(file_list))
-                results.append(js_format(file_list))
             if less:
                 results.append(less_format(file_list))
 

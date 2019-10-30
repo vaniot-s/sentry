@@ -1,25 +1,15 @@
 import React from 'react';
-import {shallow} from 'enzyme';
-import EventsTableRow from 'app/components/eventsTable/eventsTableRow';
-import events from '../../../mocks/events';
+import {shallow} from 'sentry-test/enzyme';
+import {EventsTableRow} from 'app/components/eventsTable/eventsTableRow';
 
 describe('EventsTableRow', function() {
-  let sandbox;
-
-  beforeEach(function() {
-    sandbox = sinon.sandbox.create();
-  });
-
-  afterEach(function() {
-    sandbox.restore();
-  });
-
   it('renders', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <EventsTableRow
+        organization={TestStubs.Organization()}
         tagList={[]}
         {...{orgId: 'orgId', projectId: 'projectId', groupId: 'groupId'}}
-        event={events[0]}
+        event={TestStubs.DetailedEvents()[0]}
       />
     );
     expect(wrapper).toMatchSnapshot();

@@ -1,20 +1,14 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 import Toolbar from 'app/components/toolbar';
 
 describe('Toolbar', function() {
-  let sandbox;
+  beforeEach(function() {});
 
-  beforeEach(function() {
-    sandbox = sinon.sandbox.create();
-  });
-
-  afterEach(function() {
-    sandbox.restore();
-  });
+  afterEach(function() {});
 
   it('renders', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <Toolbar>
         <div />
       </Toolbar>

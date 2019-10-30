@@ -1,11 +1,11 @@
 import React from 'react';
-import {shallow} from 'enzyme';
+import {mountWithTheme} from 'sentry-test/enzyme';
 import Tag from 'app/views/settings/components/tag';
 
 describe('Tag', function() {
   it('renders', function() {
-    let wrapper = shallow(
-      <Tag priority="info" border={true} size="small">
+    const wrapper = mountWithTheme(
+      <Tag priority="info" border size="small">
         Text to Copy
       </Tag>
     );

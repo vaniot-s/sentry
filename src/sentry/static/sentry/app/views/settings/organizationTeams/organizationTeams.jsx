@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 
-import {getOrganizationState} from 'app/mixins/organizationState';
 import {openCreateTeamModal} from 'app/actionCreators/modal';
+import SentryDocumentTitle from 'app/components/sentryDocumentTitle';
 import {t} from 'app/locale';
 import Button from 'app/components/button';
 import {Panel, PanelBody, PanelHeader} from 'app/components/panels';
@@ -24,7 +24,7 @@ class OrganizationTeams extends React.Component {
   };
 
   render() {
-    let {
+    const {
       allTeams,
       activeTeams,
       organization,
@@ -33,15 +33,15 @@ class OrganizationTeams extends React.Component {
       routes,
       params,
     } = this.props;
-    let org = organization;
+    const org = organization;
 
-    if (!organization) return null;
+    if (!organization) {
+      return null;
+    }
 
-    let canCreateTeams = getOrganizationState(organization)
-      .getAccess()
-      .has('project:admin');
+    const canCreateTeams = access.has('project:admin');
 
-    let action = (
+    const action = (
       <Button
         priority="primary"
         size="small"
@@ -52,22 +52,25 @@ class OrganizationTeams extends React.Component {
         onClick={() =>
           openCreateTeamModal({
             organization,
-          })}
+          })
+        }
         icon="icon-circle-add"
       >
         {t('Create Team')}
       </Button>
     );
 
-    let teamRoute = routes.find(({path}) => path === 'teams/');
-    let urlPrefix = recreateRoute(teamRoute, {routes, params, stepBack: -1});
+    const teamRoute = routes.find(({path}) => path === 'teams/');
+    const urlPrefix = recreateRoute(teamRoute, {routes, params, stepBack: -2});
 
-    let activeTeamIds = new Set(activeTeams.map(team => team.id));
-    let otherTeams = allTeams.filter(team => !activeTeamIds.has(team.id));
+    const activeTeamIds = new Set(activeTeams.map(team => team.id));
+    const otherTeams = allTeams.filter(team => !activeTeamIds.has(team.id));
+    const title = t('Teams');
 
     return (
-      <div className="team-list">
-        <SettingsPageHeader title={t('Teams')} action={action} />
+      <div data-test-id="team-list">
+        <SentryDocumentTitle title={title} objSlug={organization.slug} />
+        <SettingsPageHeader title={title} action={action} />
         <Panel>
           <PanelHeader>{t('Your Teams')}</PanelHeader>
           <PanelBody>

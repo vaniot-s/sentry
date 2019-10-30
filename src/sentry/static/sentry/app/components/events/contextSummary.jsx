@@ -3,6 +3,7 @@ import React from 'react';
 
 import Avatar from 'app/components/avatar';
 import DeviceName from 'app/components/deviceName';
+import {removeFilterMaskedEntries} from 'app/components/events/interfaces/utils';
 import SentryTypes from 'app/sentryTypes';
 import {t} from 'app/locale';
 import {objectIsEmpty} from 'app/utils';
@@ -25,7 +26,7 @@ class NoSummary extends React.Component {
     return (
       <div className="context-item">
         <span className="context-item-icon" />
-        <h3>{this.props.title}</h3>
+        <h3 data-test-id="no-summary-title">{this.props.title}</h3>
       </div>
     );
   }
@@ -38,13 +39,13 @@ class GenericSummary extends React.Component {
   };
 
   render() {
-    let data = this.props.data;
+    const data = this.props.data;
 
     if (objectIsEmpty(data) || !data.name) {
       return <NoSummary title={this.props.unknownTitle} />;
     }
 
-    let className = generateClassName(data.name);
+    const className = generateClassName(data.name);
 
     return (
       <div className={`context-item ${className}`}>
@@ -64,13 +65,13 @@ export class OsSummary extends React.Component {
   };
 
   render() {
-    let data = this.props.data;
+    const data = this.props.data;
 
     if (objectIsEmpty(data) || !data.name) {
       return <NoSummary title={t('Unknown OS')} />;
     }
 
-    let className = generateClassName(data.name);
+    const className = generateClassName(data.name);
     let versionElement = null;
 
     if (data.version) {
@@ -103,19 +104,21 @@ export class OsSummary extends React.Component {
   }
 }
 
-class UserSummary extends React.Component {
+export class UserSummary extends React.Component {
   static propTypes = {
     data: PropTypes.object.isRequired,
   };
 
   render() {
-    let user = this.props.data;
+    const user = removeFilterMaskedEntries(this.props.data);
 
     if (objectIsEmpty(user)) {
       return <NoSummary title={t('Unknown User')} />;
     }
 
-    let userTitle = user.email ? user.email : user.ip_address || user.id || user.username;
+    const userTitle = user.email
+      ? user.email
+      : user.ip_address || user.id || user.username;
 
     if (!userTitle) {
       return <NoSummary title={t('Unknown User')} />;
@@ -128,7 +131,7 @@ class UserSummary extends React.Component {
         ) : (
           <span className="context-item-icon" />
         )}
-        <h3>{userTitle}</h3>
+        <h3 data-test-id="user-title">{userTitle}</h3>
         {user.id && user.id !== userTitle ? (
           <p>
             <strong>{t('ID:')}</strong> {user.id}
@@ -152,14 +155,14 @@ class DeviceSummary extends React.Component {
   };
 
   render() {
-    let data = this.props.data;
+    const data = this.props.data;
 
     if (objectIsEmpty(data)) {
       return <NoSummary title={t('Unknown Device')} />;
     }
 
     // TODO(dcramer): we need a better way to parse it
-    let className = data.model && generateClassName(data.model);
+    const className = data.model && generateClassName(data.model);
 
     let subTitle = <p />;
 
@@ -195,7 +198,7 @@ export class GpuSummary extends React.Component {
   };
 
   render() {
-    let data = this.props.data;
+    const data = this.props.data;
 
     if (objectIsEmpty(data) || !data.name) {
       return <NoSummary title={t('Unknown GPU')} />;
@@ -232,12 +235,12 @@ export class GpuSummary extends React.Component {
 const MIN_CONTEXTS = 3;
 const MAX_CONTEXTS = 4;
 const KNOWN_CONTEXTS = [
-  {key: 'user', Component: UserSummary},
-  {key: 'browser', Component: GenericSummary, unknownTitle: t('Unknown Browser')},
-  {key: 'runtime', Component: GenericSummary, unknownTitle: t('Unknown Runtime')},
-  {key: 'os', Component: OsSummary},
-  {key: 'device', Component: DeviceSummary},
-  {key: 'gpu', Component: GpuSummary},
+  {keys: ['user'], Component: UserSummary},
+  {keys: ['browser'], Component: GenericSummary, unknownTitle: t('Unknown Browser')},
+  {keys: ['runtime'], Component: GenericSummary, unknownTitle: t('Unknown Runtime')},
+  {keys: ['client_os', 'os'], Component: OsSummary},
+  {keys: ['device'], Component: DeviceSummary},
+  {keys: ['gpu'], Component: GpuSummary},
 ];
 
 class EventContextSummary extends React.Component {
@@ -246,15 +249,24 @@ class EventContextSummary extends React.Component {
   };
 
   render() {
-    let evt = this.props.event;
+    const evt = this.props.event;
     let contextCount = 0;
 
     // Add defined contexts in the declared order, until we reach the limit
     // defined by MAX_CONTEXTS.
-    let contexts = KNOWN_CONTEXTS.map(({key, Component, ...props}) => {
-      if (contextCount >= MAX_CONTEXTS) return null;
-      let data = evt.contexts[key] || evt[key];
-      if (objectIsEmpty(data)) return null;
+    let contexts = KNOWN_CONTEXTS.map(({keys, Component, ...props}) => {
+      if (contextCount >= MAX_CONTEXTS) {
+        return null;
+      }
+
+      const [key, data] = keys
+        .map(k => [k, evt.contexts[k] || evt[k]])
+        .find(([_k, d]) => !objectIsEmpty(d)) || [null, null];
+
+      if (!key) {
+        return null;
+      }
+
       contextCount += 1;
       return <Component key={key} data={data} {...props} />;
     });
@@ -267,11 +279,15 @@ class EventContextSummary extends React.Component {
     if (contextCount < MIN_CONTEXTS) {
       // Add contents in the declared order until we have at least MIN_CONTEXTS
       // contexts in our list.
-      contexts = KNOWN_CONTEXTS.map(({key, Component, ...props}, index) => {
-        if (contexts[index]) return contexts[index];
-        if (contextCount >= MIN_CONTEXTS) return null;
+      contexts = KNOWN_CONTEXTS.map(({keys, Component, ...props}, index) => {
+        if (contexts[index]) {
+          return contexts[index];
+        }
+        if (contextCount >= MIN_CONTEXTS) {
+          return null;
+        }
         contextCount += 1;
-        return <Component key={key} data={{}} {...props} />;
+        return <Component key={keys[0]} data={{}} {...props} />;
       });
     }
 

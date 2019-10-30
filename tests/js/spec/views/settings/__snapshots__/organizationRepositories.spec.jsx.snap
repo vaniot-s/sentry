@@ -2,7 +2,8 @@
 
 exports[`OrganizationRepositories renders with a repository 1`] = `
 <div>
-  <SettingsPageHeading
+  <StyledSettingsPageHeading
+    noTitleStyles={false}
     title="Repositories"
   />
   <AlertLink
@@ -29,60 +30,30 @@ exports[`OrganizationRepositories renders with a repository 1`] = `
       flex={false}
     >
       <Box>
-        <RepoRow
+        <RepositoryRow
+          api={
+            Client {
+              "_chain": [Function],
+              "_wrapRequest": [Function],
+              "bulkUpdate": [Function],
+              "handleRequestError": [Function],
+              "hasProjectBeenRenamed": [Function],
+            }
+          }
           key="4"
-        >
-          <Box
-            flex="1"
-            p={2}
-            style={Object {}}
-          >
-            <Flex
-              direction="column"
-            >
-              <Box
-                pb={1}
-              >
-                <strong>
-                  repo-name
-                </strong>
-              </Box>
-              <Box
-                style={Object {}}
-              >
-                <small />
-                <small>
-                   
-                  — 
-                  <a
-                    href="https://github.com/example/repo-name"
-                  >
-                    https://github.com/example/repo-name
-                  </a>
-                </small>
-              </Box>
-            </Flex>
-          </Box>
-          <Box
-            p={2}
-          >
-            <Confirm
-              cancelText="Cancel"
-              confirmText="Confirm"
-              disableConfirmButton={false}
-              disabled={false}
-              message="Are you sure you want to remove this repository?"
-              onConfirm={[Function]}
-              priority="primary"
-            >
-              <Button
-                disabled={false}
-                icon="icon-trash"
-                size="xsmall"
-              />
-            </Confirm>
-          </Box>
-        </RepoRow>
+          orgId="org-slug"
+          repository={
+            Object {
+              "externalSlug": "example/repo-name",
+              "id": "4",
+              "name": "example/repo-name",
+              "provider": "github",
+              "status": "active",
+              "url": "https://github.com/example/repo-name",
+            }
+          }
+          showProvider={true}
+        />
       </Box>
     </PanelBody>
   </Panel>
@@ -91,7 +62,8 @@ exports[`OrganizationRepositories renders with a repository 1`] = `
 
 exports[`OrganizationRepositories renders with github provider 1`] = `
 <div>
-  <SettingsPageHeading
+  <StyledSettingsPageHeading
+    noTitleStyles={false}
     title="Repositories"
   />
   <AlertLink
@@ -153,6 +125,7 @@ exports[`OrganizationRepositories renders with github provider 1`] = `
       mb={1}
     >
       <Button
+        align="center"
         disabled={false}
         href="https://docs.sentry.io/learn/releases/"
       >
@@ -165,7 +138,8 @@ exports[`OrganizationRepositories renders with github provider 1`] = `
 
 exports[`OrganizationRepositories renders without providers 1`] = `
 <div>
-  <SettingsPageHeading
+  <StyledSettingsPageHeading
+    noTitleStyles={false}
     title="Repositories"
   />
   <AlertLink
@@ -227,6 +201,7 @@ exports[`OrganizationRepositories renders without providers 1`] = `
       mb={1}
     >
       <Button
+        align="center"
         disabled={false}
         href="https://docs.sentry.io/learn/releases/"
       >

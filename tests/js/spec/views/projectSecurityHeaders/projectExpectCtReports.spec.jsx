@@ -1,12 +1,12 @@
 import React from 'react';
 
-import {shallow} from 'enzyme';
+import {shallow} from 'sentry-test/enzyme';
 import ProjectExpectCtReports from 'app/views/settings/projectSecurityHeaders/expectCt';
 
 describe('ProjectExpectCtReports', function() {
-  let org = TestStubs.Organization();
-  let project = TestStubs.Project();
-  let url = `/projects/${org.slug}/${project.slug}/expect-ct/`;
+  const org = TestStubs.Organization();
+  const project = TestStubs.Project();
+  const url = `/projects/${org.slug}/${project.slug}/expect-ct/`;
 
   beforeEach(function() {
     MockApiClient.clearMockResponses();
@@ -18,7 +18,7 @@ describe('ProjectExpectCtReports', function() {
   });
 
   it('renders', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <ProjectExpectCtReports
         organization={org}
         project={project}

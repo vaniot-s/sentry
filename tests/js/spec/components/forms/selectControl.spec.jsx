@@ -1,11 +1,11 @@
 import React from 'react';
-import {mount, shallow} from 'enzyme';
+import {mountWithTheme, shallow} from 'sentry-test/enzyme';
 
 import SelectControl from 'app/components/forms/selectControl';
 
 describe('SelectControl', function() {
   it('renders with react-select "options"', function() {
-    let wrapper = shallow(<SelectControl options={[{value: 'foo', label: 'Foo'}]} />);
+    const wrapper = shallow(<SelectControl options={[{value: 'foo', label: 'Foo'}]} />);
 
     expect(wrapper.find('StyledSelect').prop('options')).toEqual([
       {value: 'foo', label: 'Foo'},
@@ -27,7 +27,7 @@ describe('SelectControl', function() {
   });
 
   it('renders with select2 flat "choices"', function() {
-    let wrapper = shallow(<SelectControl choices={['a', 'b', 'c']} name="fieldName" />);
+    const wrapper = shallow(<SelectControl choices={['a', 'b', 'c']} name="fieldName" />);
     expect(wrapper.find('StyledSelect').prop('options')).toEqual([
       {value: 'a', label: 'a'},
       {value: 'b', label: 'b'},
@@ -36,7 +36,7 @@ describe('SelectControl', function() {
   });
 
   it('renders with select2 paired "choices"', function() {
-    let wrapper = shallow(
+    const wrapper = shallow(
       <SelectControl
         choices={[['a', 'abc'], ['b', 'bcd'], ['c', 'cde']]}
         name="fieldName"
@@ -50,16 +50,17 @@ describe('SelectControl', function() {
   });
 
   it('renders with complex objects with paired "choices"', function() {
-    let mock = jest.fn();
-    let Foo = <div>Foo</div>;
-    let Bar = <div>Bar</div>;
+    const mock = jest.fn();
+    const Foo = <div>Foo</div>;
+    const Bar = <div>Bar</div>;
 
-    let wrapper = mount(
+    const wrapper = mountWithTheme(
       <SelectControl
         choices={[[{id: 'foo', name: 'Foo'}, Foo], [{id: 'bar', name: 'Bar'}, Bar]]}
         name="fieldName"
         onChange={mock}
-      />
+      />,
+      TestStubs.routerContext()
     );
     expect(wrapper.find('StyledSelect').prop('options')).toEqual([
       {value: {id: 'foo', name: 'Foo'}, label: Foo},

@@ -23,7 +23,11 @@ class RuleNode extends React.Component {
 
     let initialVal;
     if (this.props.data[name] === undefined && !!data.choices.length) {
-      initialVal = data.choices[0][0];
+      if (data.initial) {
+        initialVal = data.initial;
+      } else {
+        initialVal = data.choices[0][0];
+      }
       this.props.handlePropertyChange(name, initialVal);
     } else {
       initialVal = this.props.data[name];
@@ -88,6 +92,16 @@ class RuleNode extends React.Component {
       }
 
       const key = part.slice(1, -1);
+
+      // If matcher is "is set" or "is not set", then we do not want to show the value input
+      // because it is not required
+      if (
+        key === 'value' &&
+        (this.props.data.match === 'is' || this.props.data.match === 'ns')
+      ) {
+        return null;
+      }
+
       return formFields[key] ? this.getField(key, formFields[key]) : part;
     });
   }
@@ -107,7 +121,6 @@ class RuleNode extends React.Component {
           <Button
             onClick={this.props.handleDelete}
             type="button"
-            tabIndex="-1"
             size="small"
             icon="icon-trash"
           />
@@ -119,7 +132,7 @@ class RuleNode extends React.Component {
 
 export default RuleNode;
 
-const RuleNodeRow = styled.div`
+const RuleNodeRow = styled('div')`
   display: flex;
   align-items: center;
   padding: 0 15px;
@@ -168,6 +181,6 @@ const RuleNodeForm = styled('div')`
   }
 `;
 
-const RuleNodeControls = styled.div`
+const RuleNodeControls = styled('div')`
   margin-left: 6px;
 `;
