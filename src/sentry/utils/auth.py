@@ -7,10 +7,11 @@ from django.conf import settings
 from django.contrib.auth import login as _login
 from django.contrib.auth.backends import ModelBackend
 from django.core.urlresolvers import reverse, resolve
-from sudo.utils import is_safe_url
+from django.utils.http import is_safe_url
 from time import time
 
 from sentry.models import User, Authenticator
+from sentry.utils.compat import map
 
 logger = logging.getLogger("sentry.auth")
 
@@ -186,7 +187,7 @@ def find_users(username, with_valid_password=True, is_active=None):
 
 def login(request, user, passed_2fa=None, after_2fa=None, organization_id=None, source=None):
     """
-    This logs a user in for the sesion and current request.
+    This logs a user in for the session and current request.
 
     If 2FA is enabled this method will start the MFA flow and return False as
     required.  If `passed_2fa` is set to `True` then the 2FA flow is set to be
@@ -298,3 +299,10 @@ class EmailAuthBackend(ModelBackend):
                 except ValueError:
                     continue
         return None
+
+    # TODO(joshuarli): When we're fully on Django 1.10, we should switch to
+    # subclassing AllowAllUsersModelBackend (this isn't available in 1.9 and
+    # simply overriding user_can_authenticate here is a lot less verbose than
+    # conditionally importing).
+    def user_can_authenticate(self, user):
+        return True

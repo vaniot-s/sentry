@@ -4,7 +4,7 @@ import React from 'react';
 import Reflux from 'reflux';
 import * as Sentry from '@sentry/browser';
 import createReactClass from 'create-react-class';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {ORGANIZATION_FETCH_ERROR_TYPES} from 'app/constants';
 import {fetchOrganizationDetails} from 'app/actionCreators/organization';
@@ -13,7 +13,6 @@ import {openSudo} from 'app/actionCreators/modal';
 import {t} from 'app/locale';
 import Alert from 'app/components/alert';
 import ConfigStore from 'app/stores/configStore';
-import GlobalSelectionStore from 'app/stores/globalSelectionStore';
 import HookStore from 'app/stores/hookStore';
 import LoadingError from 'app/components/loadingError';
 import LoadingIndicator from 'app/components/loadingIndicator';
@@ -22,10 +21,10 @@ import ProjectActions from 'app/actions/projectActions';
 import SentryTypes from 'app/sentryTypes';
 import Sidebar from 'app/components/sidebar';
 import getRouteStringFromRoutes from 'app/utils/getRouteStringFromRoutes';
-import profiler from 'app/utils/profiler';
 import space from 'app/styles/space';
 import withApi from 'app/utils/withApi';
 import withOrganizations from 'app/utils/withOrganizations';
+import withProfiler from 'app/utils/withProfiler';
 
 const OrganizationContext = createReactClass({
   displayName: 'OrganizationContext',
@@ -38,6 +37,7 @@ const OrganizationContext = createReactClass({
     organizationsLoading: PropTypes.bool,
     organizations: PropTypes.arrayOf(SentryTypes.Organization),
     finishProfile: PropTypes.func,
+    detailed: PropTypes.bool,
   },
 
   childContextTypes: {
@@ -49,9 +49,23 @@ const OrganizationContext = createReactClass({
     Reflux.listenTo(OrganizationStore, 'loadOrganization'),
   ],
 
+  getDefaultProps() {
+    return {
+      detailed: true,
+    };
+  },
+
   getInitialState() {
-    // retrieve initial state from store
-    return OrganizationStore.get();
+    if (this.isOrgStorePopulatedCorrectly()) {
+      // retrieve initial state from store
+      return OrganizationStore.get();
+    }
+    return {
+      loading: true,
+      error: null,
+      errorType: null,
+      organization: null,
+    };
   },
 
   getChildContext() {
@@ -69,17 +83,23 @@ const OrganizationContext = createReactClass({
       prevProps.params.orgId &&
       this.props.params.orgId &&
       prevProps.params.orgId !== this.props.params.orgId;
+    const hasOrgId =
+      this.props.params.orgId ||
+      (this.props.useLastOrganization && ConfigStore.get('lastOrganization'));
 
     // protect against the case where we finish fetching org details
     // and then `OrganizationsStore` finishes loading:
     // only fetch in the case where we don't have an orgId
+    //
+    // Compare `getOrganizationSlug`  because we may have a last used org from server
+    // if there is no orgId in the URL
     const organizationLoadingChanged =
       prevProps.organizationsLoading !== this.props.organizationsLoading &&
       this.props.organizationsLoading === false;
 
     if (
       hasOrgIdAndChanged ||
-      (!this.props.params.orgId && organizationLoadingChanged) ||
+      (!hasOrgId && organizationLoadingChanged) ||
       (this.props.location.state === 'refresh' && prevProps.location.state !== 'refresh')
     ) {
       this.remountComponent();
@@ -112,24 +132,57 @@ const OrganizationContext = createReactClass({
     );
   },
 
+  isOrgChanging() {
+    const {organization} = OrganizationStore.get();
+    return organization && organization.slug !== this.getOrganizationSlug();
+  },
+
+  isOrgStorePopulatedCorrectly() {
+    const {detailed} = this.props;
+    const {organization, dirty} = OrganizationStore.get();
+
+    return (
+      !dirty &&
+      organization &&
+      !this.isOrgChanging() &&
+      (!detailed || (detailed && organization.projects && organization.teams))
+    );
+  },
+
+  isLoading() {
+    // In the absence of an organization slug, the loading state should be
+    // derived from this.props.organizationsLoading from OrganizationsStore
+    if (!this.getOrganizationSlug()) {
+      return this.props.organizationsLoading;
+    }
+    // The following loading logic exists because we could either be waiting for
+    // the whole organization object to come in or just the teams and projects.
+    const {loading, error, organization} = this.state;
+    const {detailed} = this.props;
+    return (
+      loading ||
+      (!error &&
+        detailed &&
+        (!organization || !organization.projects || !organization.teams))
+    );
+  },
+
   fetchData() {
     if (!this.getOrganizationSlug()) {
-      this.setState({loading: this.props.organizationsLoading});
       return;
     }
     // fetch from the store, then fetch from the API if necessary
-    const {organization, dirty} = OrganizationStore.get();
-    if (
-      !dirty &&
-      organization &&
-      organization.slug === this.getOrganizationSlug() &&
-      organization.projects &&
-      organization.teams
-    ) {
+    if (this.isOrgStorePopulatedCorrectly()) {
       return;
     }
-    metric.mark('organization-details-fetch-start');
-    fetchOrganizationDetails(this.props.api, this.getOrganizationSlug(), true);
+
+    metric.mark({name: 'organization-details-fetch-start'});
+    fetchOrganizationDetails(
+      this.props.api,
+      this.getOrganizationSlug(),
+      this.props.detailed,
+      !this.isOrgChanging() // if true, will preserve a lightweight org that was fetched
+    );
   },
 
   loadOrganization(orgData) {
@@ -143,18 +196,11 @@ const OrganizationContext = createReactClass({
 
       // Configure scope to have organization tag
       Sentry.configureScope(scope => {
+        // XXX(dcramer): this is duplicated in sdk.py on the backend
         scope.setTag('organization', organization.id);
+        scope.setTag('organization.slug', organization.slug);
+        scope.setContext('organization', {id: organization.id, slug: organization.slug});
       });
-      // Make an exception for issue details in the case where it is accessed directly (e.g. from email)
-      // We do not want to load the user's last used env/project in this case, otherwise will
-      // lead to very confusing behavior.
-      if (
-        !this.props.routes.find(
-          ({path}) => path && path.includes('/organizations/:orgId/issues/:groupId/')
-        )
-      ) {
-        GlobalSelectionStore.loadInitialData(organization, this.props.location.query);
-      }
     } else if (error) {
       // If user is superuser, open sudo window
       const user = ConfigStore.get('user');
@@ -224,7 +270,7 @@ const OrganizationContext = createReactClass({
   },
 
   render() {
-    if (this.state.loading) {
+    if (this.isLoading()) {
       return (
         <LoadingIndicator triangle>
           {t('Loading data for your organization.')}
@@ -253,7 +299,7 @@ const OrganizationContext = createReactClass({
   },
 });
 
-export default withApi(withOrganizations(profiler()(OrganizationContext)));
+export default withApi(withOrganizations(withProfiler(OrganizationContext)));
 export {OrganizationContext};
 
 const ErrorWrapper = styled('div')`

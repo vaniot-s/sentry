@@ -52,6 +52,10 @@ describe('marked', function() {
         `<a href="http://example.com"><img src="">"&gt;test</a>
 <img alt="test" src="http://example.com">`,
       ],
+      [
+        '<script> <img <script> src=x onerror=alert(1) />',
+        '&lt;script&gt; &lt;img &lt;script&gt; src=x onerror=alert(1) /&gt;',
+      ],
     ].forEach(expectMarkdown);
   });
 });

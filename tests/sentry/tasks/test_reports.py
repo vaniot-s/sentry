@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import functools
 from datetime import datetime, timedelta
 
-import mock
+from sentry.utils.compat import mock
 import pytest
 import pytz
 import copy
@@ -40,6 +40,7 @@ from sentry.utils.dates import to_datetime, to_timestamp, floor_to_utc_day
 from sentry.testutils.helpers.datetime import iso_format
 
 from six.moves import xrange
+from sentry.utils.compat import map
 
 
 @pytest.yield_fixture(scope="module")

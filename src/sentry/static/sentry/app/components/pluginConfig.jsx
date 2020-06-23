@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import _ from 'lodash';
-import styled from 'react-emotion';
+import isEqual from 'lodash/isEqual';
+import styled from '@emotion/styled';
 
 import {Panel, PanelAlert, PanelBody, PanelHeader} from 'app/components/panels';
 import {
@@ -45,9 +45,7 @@ class PluginConfig extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return (
-      !_.isEqual(nextState, this.state) || !_.isEqual(nextProps.data, this.props.data)
-    );
+    return !isEqual(nextState, this.state) || !isEqual(nextProps.data, this.props.data);
   }
 
   loadPlugin(data) {
@@ -73,6 +71,7 @@ class PluginConfig extends React.Component {
   };
 
   handleTestPlugin = async () => {
+    this.setState({testResults: ''});
     addLoadingMessage(t('Sending test...'));
 
     try {

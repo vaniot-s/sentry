@@ -6,11 +6,12 @@ import os
 import datetime
 import json
 import logging
-import mock
 import six
 from time import sleep
 import zlib
+import pytest
 
+from sentry.utils.compat import mock
 from sentry import eventstore, tagstore
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -24,7 +25,7 @@ from sentry_sdk.integrations.django import DjangoIntegration
 from six import StringIO
 from werkzeug.test import Client as WerkzeugClient
 
-from sentry.models import Group, Event
+from sentry.models import Group
 from sentry.testutils import SnubaTestCase, TestCase, TransactionTestCase
 from sentry.testutils.helpers import get_auth_header
 from sentry.testutils.helpers.datetime import iso_format, before_now
@@ -32,7 +33,6 @@ from sentry.utils.settings import validate_settings, ConfigurationError, import_
 from sentry.utils.sdk import configure_scope
 from sentry.web.api import disable_transaction_events
 from sentry.wsgi import application
-
 
 DEPENDENCY_TEST_DATA = {
     "postgresql": (
@@ -46,7 +46,7 @@ DEPENDENCY_TEST_DATA = {
                 "NAME": "test",
                 "USER": "root",
                 "PASSWORD": "",
-                "HOST": "localhost",
+                "HOST": "127.0.0.1",
                 "PORT": "",
             }
         },
@@ -87,6 +87,7 @@ def load_fixture(name):
         return fp.read()
 
 
+@pytest.mark.obsolete("Remove, behaviour changed, new behaviour tested in Relay")
 class RavenIntegrationTest(TransactionTestCase):
     """
     This mocks the test server and specifically tests behavior that would
@@ -170,29 +171,26 @@ class RavenIntegrationTest(TransactionTestCase):
         assert group.data["title"] == "foo"
 
 
-class SentryRemoteTest(SnubaTestCase):
+class SentryRemoteTest(TestCase):
     @fixture
     def path(self):
         return reverse("sentry-api-store")
 
     def get_event(self, event_id):
-        instance = eventstore.get_event_by_id(self.project.id, event_id, eventstore.full_columns)
-        Event.objects.bind_nodes([instance], "data")
+        instance = eventstore.get_event_by_id(self.project.id, event_id)
         return instance
 
     def test_minimal(self):
-        kwargs = {
+        event_data = {
             "message": "hello",
             "tags": {"foo": "bar"},
             "timestamp": iso_format(before_now(seconds=1)),
         }
 
-        resp = self._postWithHeader(kwargs)
+        event = self.store_event(event_data, self.project.id)
 
-        assert resp.status_code == 200, resp.content
-
-        event_id = json.loads(resp.content)["id"]
-        instance = self.get_event(event_id)
+        assert event is not None
+        instance = self.get_event(event.event_id)
 
         assert instance.message == "hello"
         assert instance.data["logentry"] == {"formatted": "hello"}
@@ -210,7 +208,7 @@ class SentryRemoteTest(SnubaTestCase):
         )
 
     def test_exception(self):
-        kwargs = {
+        event_data = {
             "exception": {
                 "type": "ZeroDivisionError",
                 "value": "cannot divide by zero",
@@ -235,12 +233,10 @@ class SentryRemoteTest(SnubaTestCase):
             "timestamp": iso_format(before_now(seconds=1)),
         }
 
-        resp = self._postWithHeader(kwargs)
+        event = self.store_event(event_data, self.project.id)
 
-        assert resp.status_code == 200, resp.content
-
-        event_id = json.loads(resp.content)["id"]
-        instance = self.get_event(event_id)
+        assert event is not None
+        instance = self.get_event(event.event_id)
 
         assert len(instance.data["exception"]) == 1
         assert (
@@ -263,40 +259,20 @@ class SentryRemoteTest(SnubaTestCase):
         timestamp = timezone.now().replace(microsecond=0, tzinfo=timezone.utc) - datetime.timedelta(
             hours=1
         )
-        kwargs = {u"message": "hello", "timestamp": float(timestamp.strftime("%s.%f"))}
-        resp = self._postWithSignature(kwargs)
-        assert resp.status_code == 200, resp.content
-        event_id = json.loads(resp.content)["id"]
-        instance = self.get_event(event_id)
+        event_data = {u"message": "hello", "timestamp": float(timestamp.strftime("%s.%f"))}
+
+        event = self.store_event(event_data, self.project.id)
+
+        assert event is not None
+        instance = self.get_event(event.event_id)
+
         assert instance.message == "hello"
         assert instance.datetime == timestamp
         group = instance.group
         assert group.first_seen == timestamp
         assert group.last_seen == timestamp
 
-    def test_timestamp_as_iso(self):
-        timestamp = timezone.now().replace(microsecond=0, tzinfo=timezone.utc) - datetime.timedelta(
-            hours=1
-        )
-        kwargs = {u"message": "hello", "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f")}
-        resp = self._postWithSignature(kwargs)
-        assert resp.status_code == 200, resp.content
-        event_id = json.loads(resp.content)["id"]
-        instance = self.get_event(event_id)
-        assert instance.message == "hello"
-        assert instance.datetime == timestamp
-        group = instance.group
-        assert group.first_seen == timestamp
-        assert group.last_seen == timestamp
-
-    def test_ungzipped_data(self):
-        kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
-        resp = self._postWithSignature(kwargs)
-        assert resp.status_code == 200
-        event_id = json.loads(resp.content)["id"]
-        instance = self.get_event(event_id)
-        assert instance.message == "hello"
-
+    @pytest.mark.obsolete("Test in relay")
     @override_settings(SENTRY_ALLOW_ORIGIN="sentry.io")
     def test_correct_data_with_get(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
@@ -306,6 +282,7 @@ class SentryRemoteTest(SnubaTestCase):
         instance = self.get_event(event_id)
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     @override_settings(SENTRY_ALLOW_ORIGIN="*")
     def test_get_without_referer_allowed(self):
         self.project.update_option("sentry:origins", "")
@@ -313,6 +290,7 @@ class SentryRemoteTest(SnubaTestCase):
         resp = self._getWithReferer(kwargs, referer=None, protocol="4")
         assert resp.status_code == 200, resp.content
 
+    @pytest.mark.obsolete("Test in relay")
     @override_settings(SENTRY_ALLOW_ORIGIN="sentry.io")
     def test_correct_data_with_post_referer(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
@@ -322,6 +300,7 @@ class SentryRemoteTest(SnubaTestCase):
         instance = self.get_event(event_id)
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     @override_settings(SENTRY_ALLOW_ORIGIN="sentry.io")
     def test_post_without_referer(self):
         self.project.update_option("sentry:origins", "")
@@ -329,6 +308,7 @@ class SentryRemoteTest(SnubaTestCase):
         resp = self._postWithReferer(kwargs, referer=None, protocol="4")
         assert resp.status_code == 200, resp.content
 
+    @pytest.mark.obsolete("Test in relay")
     @override_settings(SENTRY_ALLOW_ORIGIN="*")
     def test_post_without_referer_allowed(self):
         self.project.update_option("sentry:origins", "")
@@ -336,6 +316,7 @@ class SentryRemoteTest(SnubaTestCase):
         resp = self._postWithReferer(kwargs, referer=None, protocol="4")
         assert resp.status_code == 200, resp.content
 
+    @pytest.mark.obsolete("Test in relay")
     @override_settings(SENTRY_ALLOW_ORIGIN="google.com")
     def test_post_with_invalid_origin(self):
         self.project.update_option("sentry:origins", "sentry.io")
@@ -343,17 +324,7 @@ class SentryRemoteTest(SnubaTestCase):
         resp = self._postWithReferer(kwargs, referer="https://getsentry.net", protocol="4")
         assert resp.status_code == 403, resp.content
 
-    def test_signature(self):
-        kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
-        resp = self._postWithSignature(kwargs)
-
-        assert resp.status_code == 200, resp.content
-
-        event_id = json.loads(resp.content)["id"]
-        instance = self.get_event(event_id)
-
-        assert instance.message == "hello"
-
+    @pytest.mark.obsolete("Test in relay")
     def test_content_encoding_deflate(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
         message = zlib.compress(json.dumps(kwargs))
@@ -377,6 +348,7 @@ class SentryRemoteTest(SnubaTestCase):
 
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     def test_content_encoding_gzip(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
 
@@ -409,6 +381,7 @@ class SentryRemoteTest(SnubaTestCase):
 
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     def test_protocol_v2_0_without_secret_key(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
 
@@ -421,6 +394,7 @@ class SentryRemoteTest(SnubaTestCase):
 
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     def test_protocol_v3(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
 
@@ -438,6 +412,7 @@ class SentryRemoteTest(SnubaTestCase):
 
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     def test_protocol_v4(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
 
@@ -455,6 +430,7 @@ class SentryRemoteTest(SnubaTestCase):
 
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     def test_protocol_v5(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
 
@@ -472,6 +448,7 @@ class SentryRemoteTest(SnubaTestCase):
 
         assert instance.message == "hello"
 
+    @pytest.mark.obsolete("Test in relay")
     def test_protocol_v6(self):
         kwargs = {"message": "hello", "timestamp": iso_format(before_now(seconds=1))}
 
@@ -490,7 +467,9 @@ class SentryRemoteTest(SnubaTestCase):
         assert instance.message == "hello"
 
 
+@pytest.mark.obsolete("Functionality not relevant in Relay store")
 class SentryWsgiRemoteTest(TransactionTestCase):
+    @override_settings(ALLOWED_HOSTS=["localhost"])
     def test_traceparent_header_wsgi(self):
         # Assert that posting something to store will not create another
         # (transaction) event under any circumstances.
@@ -546,7 +525,9 @@ class SentryWsgiRemoteTest(TransactionTestCase):
                     body = "".join(app_iter)
 
         assert status == "200 OK", body
-        assert not events
+        assert set((e.get("type"), e.get("transaction")) for e in events) == {
+            ("transaction", "rule_processor_apply")
+        }
         assert calls == [1]
 
 
@@ -564,7 +545,6 @@ class DependencyTest(TestCase):
     def validate_dependency(
         self, key, package, dependency_type, dependency, setting_value, import_string
     ):
-
         import_string.side_effect = self.raise_import_error(package)
 
         with self.settings(**{key: setting_value}):
@@ -614,7 +594,6 @@ class CspReportTest(TestCase, SnubaTestCase):
         )
         assert len(events) == 1
         e = events[0]
-        Event.objects.bind_nodes([e], "data")
         assert output["message"] == e.data["logentry"]["formatted"]
         for key, value in six.iteritems(output["tags"]):
             assert e.get_tag(key) == value

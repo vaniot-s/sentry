@@ -1,6 +1,8 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
+import ProjectsStore from 'app/stores/projectsStore';
 import ReleaseList from 'app/views/releases/list/';
 
 describe('ReleaseList', function() {
@@ -8,7 +10,7 @@ describe('ReleaseList', function() {
   let props;
   let wrapper;
 
-  beforeEach(function() {
+  beforeEach(async function() {
     organization = TestStubs.Organization({
       projects: [TestStubs.Project()],
       features: ['global-views'],
@@ -22,6 +24,11 @@ describe('ReleaseList', function() {
     MockApiClient.addMockResponse({
       url: '/organizations/org-slug/environments/',
       body: TestStubs.Environments(),
+    });
+
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/projects/',
+      body: [],
     });
 
     MockApiClient.addMockResponse({
@@ -39,10 +46,13 @@ describe('ReleaseList', function() {
       location: {query: {per_page: 0, query: 'derp'}},
     };
 
+    ProjectsStore.loadInitialData(organization.projects);
     wrapper = mountWithTheme(
       <ReleaseList {...props} />,
       TestStubs.routerContext([{organization}])
     );
+    await tick();
+    wrapper.update();
   });
 
   afterEach(function() {

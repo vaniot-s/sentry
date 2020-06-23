@@ -3,47 +3,61 @@ import color from 'color';
 import CHART_PALETTE from 'app/constants/chartPalette';
 
 const colors = {
-  // Colors
-  offWhite: '#FAF9FB',
-  offWhiteLight: '#F2F0F5',
-  offWhite2: '#E7E1EC',
-
   white: '#FFFFFF',
-  whiteDark: '#fbfbfc',
-  foreground: '#493E54',
 
-  gray1: '#BDB4C7',
-  gray2: '#9585A3',
-  gray3: '#645574',
-  gray4: '#4A3E56',
-  gray5: '#302839',
-  gray6: '#AFA3BB', // form disabled
+  gray100: '#FAF9FB',
+  gray200: '#F2F0F5',
+  gray300: '#E7E1EC',
+  gray400: '#C6BECF',
+  gray500: '#9585A3',
+  gray600: '#645574',
+  gray700: '#4A3E56',
+  gray800: '#302839',
 
-  blue: '#3B6ECC',
-  blueLight: '#628BD6',
-  blueLightest: '#F5FAFE',
-  blueDark: '#2F58A3',
+  yellow100: '#FFFDF5',
+  yellow200: '#FFF8C4',
+  yellow300: '#FFF492',
+  yellow400: '#FFC227',
+  yellow500: '#E2A301',
 
-  green: '#57be8c',
-  greenLight: '#71D8A6',
-  greenLightest: '#f8fcf7',
-  greenDark: '#3EA573',
-  greenTransparent: 'rgba(87, 190, 140, 0.5)',
+  purple100: '#FAF5FF',
+  purple200: '#E7D3FF',
+  purple300: '#B9A2FD',
+  purple400: '#6C5FC7',
+  purple500: '#3E2C73',
 
-  yellow: '#ecc844',
-  yellowLightest: '#FFFDF7',
-  yellowLight: '#FFF15E',
-  yellowDark: '#e6bc23',
-  yellowDarkest: '#ecbb08',
+  blue100: '#F5F9FF',
+  blue200: '#AFC7EE',
+  blue300: '#7199DD',
+  blue400: '#3D74DB',
+  blue500: '#194591',
 
-  yellowOrange: '#f9a66d',
-  yellowOrangeLight: '#FFC087',
-  yellowOrangeDark: '#E08D54',
+  orange100: '#FCF8F7',
+  orange200: '#F9C7B9',
+  orange300: '#F69C7D',
+  orange400: '#FF7738',
+  orange500: '#BA4A23',
 
-  orange: '#ec5e44',
-  orangeLight: '#FF785E',
-  orangeDark: '#D3452B',
+  red100: '#FFF5F7',
+  red200: '#F4B1BB',
+  red300: '#EA7282',
+  red400: '#FA4747',
+  red500: '#AC1025',
 
+  green100: '#F5FFFB',
+  green200: '#C0F3DD',
+  green300: '#8FE7BF',
+  green400: '#4DC771',
+  green500: '#1C8952',
+
+  pink100: '#FFF5F9',
+  pink200: '#FFCEE4',
+  pink300: '#FF99BC',
+  pink400: '#E1567C',
+  pink500: '#902D4C',
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Old Colors
   red: '#e03e2f',
   redLight: '#FA5849',
   redLightest: '#FDF6F5',
@@ -65,6 +79,7 @@ const colors = {
   borderDark: '#D1CAD8',
   borderRadius: '4px',
   borderRadiusBottom: '0 0 4px 4px',
+  borderRadiusTop: '4px 4px 0 0',
   headerSelectorRowHeight: 44,
   headerSelectorLabelHeight: 28,
 
@@ -74,91 +89,66 @@ const colors = {
 
   background: '#fff',
   placeholderBackground: '#f5f5f5',
-};
-
-// from the Sentry design system: most useful for showing a transition
-// from one extreme, through a neutral middle, to an opposite extreme.
-export const divergentColorScale = {
-  blue: '#444674',
-  maroon: '#955389',
-  magenta: '#C15584',
-  salmon: '#E65D73',
-  purple: '#694E86',
-  orange: '#F27A58',
-  marigold: '#F6983B',
-  yellow: '#F2B712',
-  softBlue: '#535577',
-  softMaroon: '#805567',
-  softMagenta: '#99628F',
-  softSalmon: '#96545E',
-  softPurple: '#6B597E',
-  softOrange: '#D17D65',
-  softMarigold: '#E4944E',
-  softYellow: '#EDC658',
-  darkOrange: '#98361B',
-  darkBlue: '#1E1F33',
-  darkMaroon: '#382947',
-  darkMagenta: '#522E4B',
-  darkSalmon: '#833054',
-  darkPurple: '#AF2C41',
-  darkMarigold: '#C36609',
-  darkYellow: '#E2B22E',
-};
-
-// you can link span operation types to specific colors here
-export const spanColors = {
-  default: divergentColorScale.blue,
-  transaction: divergentColorScale.softBlue,
-  db: divergentColorScale.magenta,
-  http: divergentColorScale.marigold,
-};
+} as const;
 
 const warning = {
-  backgroundLight: colors.yellowLightest,
-  background: colors.yellowDarkest,
-  border: colors.yellowDark,
-  iconColor: colors.yellowDark,
-};
+  background: colors.yellow500,
+  backgroundLight: colors.yellow100,
+  border: colors.yellow400,
+  iconColor: colors.yellow500,
+} as const;
 
 const alert = {
   muted: {
-    backgroundLight: colors.offWhite,
-    background: colors.gray1,
-    border: colors.gray6,
+    background: colors.gray400,
+    backgroundLight: colors.gray100,
+    border: colors.gray400,
+    iconColor: 'inherit',
   },
   info: {
-    backgroundLight: colors.blueLightest,
-    border: colors.blueLight,
-    iconColor: colors.blue,
-    background: colors.blue,
+    background: colors.blue400,
+    backgroundLight: colors.blue100,
+    border: colors.blue200,
+    iconColor: colors.blue400,
   },
   warning,
-  //alias warn to warning
   warn: warning,
   success: {
-    backgroundLight: colors.greenLightest,
-    border: colors.green,
-    iconColor: colors.greenDark,
-    background: colors.green,
+    background: colors.green400,
+    backgroundLight: colors.green100,
+    border: colors.green300,
+    iconColor: colors.green500,
   },
   error: {
-    backgroundLight: colors.redLightest,
-    border: colors.redLight,
-    textLight: colors.redLight,
-    iconColor: colors.red,
-    background: colors.red,
+    background: colors.red400,
+    backgroundLight: colors.red100,
+    border: colors.red200,
+    iconColor: colors.red400,
+    textLight: colors.red200,
+  },
+} as const;
+
+const badge = {
+  alpha: {
+    background: `linear-gradient(90deg, ${colors.orange300}, ${colors.orange500})`,
+    indicatorColor: colors.orange400,
   },
   beta: {
     background: `linear-gradient(90deg, ${colors.pink}, ${colors.purple})`,
+    indicatorColor: colors.purple,
+  },
+  new: {
+    background: `linear-gradient(90deg, ${colors.green400}, ${colors.green500})`,
+    indicatorColor: colors.green400,
   },
 };
 
 const aliases = {
-  textColor: colors.gray5,
-  success: colors.green,
+  textColor: colors.gray800,
+  success: colors.green400,
   error: colors.red,
-  disabled: colors.gray1,
-};
+  disabled: colors.gray400,
+} as const;
 
 const button = {
   borderRadius: '3px',
@@ -176,6 +166,7 @@ const button = {
   },
   primary: {
     color: colors.white,
+    colorActive: colors.white,
     background: colors.purple,
     backgroundActive: '#4e3fb4',
     border: '#3d328e',
@@ -186,16 +177,18 @@ const button = {
   },
   success: {
     color: colors.white,
+    colorActive: colors.white,
     background: '#3fa372',
-    backgroundActive: colors.green,
+    backgroundActive: colors.green400,
     border: '#7ccca5',
     borderActive: '#7ccca5',
-    focusShadow: color(colors.green)
+    focusShadow: color(colors.green400)
       .alpha(0.5)
       .string(),
   },
   danger: {
     color: colors.white,
+    colorActive: colors.white,
     background: colors.red,
     backgroundActive: '#bf2a1d',
     border: '#bf2a1d',
@@ -205,28 +198,65 @@ const button = {
       .string(),
   },
   link: {
-    color: colors.blue,
+    color: colors.blue400,
+    colorActive: colors.blue400,
     background: 'transparent',
-    // border: '#3d328e',
+    border: false,
+    borderActive: false,
     backgroundActive: 'transparent',
-    // borderActive: '#352b7b',
+    focusShadow: false,
   },
   disabled: {
     color: aliases.disabled,
+    colorActive: aliases.disabled,
     border: '#e3e5e6',
     borderActive: '#e3e5e6',
     background: colors.white,
     backgroundActive: colors.white,
+    focusShadow: false,
   },
+} as const;
+
+const iconSizes = {
+  xs: '12px',
+  sm: '16px',
+  md: '20px',
+  lg: '24px',
+  xl: '32px',
 };
 
 const theme = {
-  breakpoints: ['768px', '992px', '1200px'],
+  breakpoints: ['768px', '992px', '1200px', '1440px', '2560px'],
 
   ...colors,
 
+  iconSizes,
+
+  iconDirections: {
+    up: '0',
+    right: '90',
+    down: '180',
+    left: '270',
+  },
+
   // Try to keep these ordered plz
   zIndex: {
+    // Generic z-index when you hope your component is isolated and
+    // does not need to battle others for z-index priority
+    initial: 1,
+
+    breadcrumbs: {
+      header: 2,
+      gridCellError: 1,
+      iconWrapper: 1,
+    },
+    traceView: {
+      spanTreeToggler: 900,
+      rowInfoMessage: 900,
+      dividerLine: 909,
+      minimapContainer: 999,
+    },
+
     header: 1000,
     errorMessage: 1000,
     dropdown: 1001,
@@ -242,8 +272,9 @@ const theme = {
     },
 
     globalSelectionHeader: 1009,
-    sidebar: 1010,
-    orgAndUserMenu: 1011,
+    sidebarPanel: 1019,
+    sidebar: 1020,
+    orgAndUserMenu: 1030,
 
     // Sentry user feedback modal
     sentryErrorEmbed: 1090,
@@ -254,7 +285,8 @@ const theme = {
     toast: 10001,
 
     // tooltips and hovercards can be inside modals sometimes.
-    tooltip: 10002,
+    hovercard: 10002,
+    tooltip: 10003,
   },
 
   grid: 8,
@@ -289,10 +321,6 @@ const theme = {
     expandedWidth: '220px',
     mobileHeight: '54px',
     menuSpacing: '15px',
-    panel: {
-      width: '320px',
-      headerHeight: '62px',
-    },
   },
 
   text: {
@@ -306,6 +334,7 @@ const theme = {
   ...aliases,
 
   alert,
+  badge,
   button,
 
   charts: {
@@ -315,7 +344,7 @@ const theme = {
     getColorPalette: (length: number) =>
       CHART_PALETTE[Math.min(CHART_PALETTE.length - 1, length + 1)],
 
-    previousPeriod: colors.gray1,
+    previousPeriod: colors.gray400,
     symbolSize: 6,
   },
 
@@ -331,6 +360,12 @@ const theme = {
     empty: '#e2dee6',
     colors: ['#ec5e44', '#f38259', '#f9a66d', '#98b480', '#57be8c'],
   },
-};
+
+  space: [0, 8, 16, 20, 30],
+} as const;
+
+export type Theme = typeof theme;
+export type Color = keyof typeof colors;
+export type IconSize = keyof typeof iconSizes;
 
 export default theme;

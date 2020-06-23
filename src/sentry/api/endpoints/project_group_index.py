@@ -18,7 +18,6 @@ from sentry.api.helpers.group_index import (
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models.group import StreamGroupSerializer
 from sentry.models import Environment, Group, GroupStatus
-from sentry.models.event import Event
 from sentry.models.savedsearch import DEFAULT_SAVED_SEARCH_QUERIES
 from sentry.signals import advanced_search
 from sentry.utils.apidocs import attach_scenarios, scenario
@@ -101,8 +100,8 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint, EnvironmentMixin):
         results).
 
         The ``statsPeriod`` parameter can be used to select the timeline
-        stats which should be present. Possible values are: '' (disable),
-        '24h', '14d'
+        stats which should be present. Possible values are: ``""`` (disable),
+        ``"24h"``, ``"14d"``
 
         :qparam string statsPeriod: an optional stat period (can be one of
                                     ``"24h"``, ``"14d"``, and ``""``).
@@ -115,6 +114,8 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint, EnvironmentMixin):
         :qparam querystring query: an optional Sentry structured search
                                    query.  If not provided an implied
                                    ``"is:unresolved"`` is assumed.)
+        :qparam string environment: this restricts the issues to ones containing
+                                    events from this environment
         :pparam string organization_slug: the slug of the organization the
                                           issues belong to.
         :pparam string project_slug: the slug of the project the issues
@@ -150,8 +151,6 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint, EnvironmentMixin):
                     pass
                 else:
                     matching_event = eventstore.get_event_by_id(project.id, event_id)
-                    if matching_event is not None:
-                        Event.objects.bind_nodes([matching_event], "data")
             elif matching_group is None:
                 matching_group = get_by_short_id(
                     project.organization_id, request.GET.get("shortIdLookup"), query
@@ -174,7 +173,7 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint, EnvironmentMixin):
                         [matching_group],
                         request.user,
                         serializer(
-                            matching_event_id=getattr(matching_event, "id", None),
+                            matching_event_id=getattr(matching_event, "event_id", None),
                             matching_event_environment=matching_event_environment,
                         ),
                     )
@@ -263,8 +262,10 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint, EnvironmentMixin):
         :param int ignoreDuration: the number of minutes to ignore this issue.
         :param boolean isPublic: sets the issue to public or private.
         :param boolean merge: allows to merge or unmerge different issues.
-        :param string assignedTo: the actor id (or username) of the user or team that should be
-                                  assigned to this issue.
+        :param string assignedTo: the user or team that should be assigned to
+                                  this issue. Can be of the form ``"<user_id>"``,
+                                  ``"user:<user_id>"``, ``"<username>"``,
+                                  ``"<user_primary_email>"``, or ``"team:<team_id>"``.
         :param boolean hasSeen: in case this API call is invoked with a user
                                 context this allows changing of the flag
                                 that indicates if the user has seen the
@@ -278,6 +279,7 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint, EnvironmentMixin):
         search_fn = functools.partial(self._search, request, project)
         return update_groups(request, [project], project.organization_id, search_fn)
 
+    @attach_scenarios([bulk_remove_issues_scenario])
     def delete(self, request, project):
         """
         Bulk Remove a List of Issues

@@ -5,7 +5,12 @@ from django.core.urlresolvers import reverse
 from exam import fixture
 
 from sentry.testutils import APITestCase
-from sentry.models import OrganizationMember, OrganizationMemberTeam, InviteStatus
+from sentry.models import (
+    OrganizationMember,
+    OrganizationMemberTeam,
+    OrganizationOption,
+    InviteStatus,
+)
 
 
 class OrganizationInviteRequestListTest(APITestCase):
@@ -39,6 +44,19 @@ class OrganizationInviteRequestListTest(APITestCase):
         assert resp.data[0]["inviteStatus"] == "requested_to_be_invited"
         assert resp.data[1]["email"] == self.request_to_join.email
         assert resp.data[1]["inviteStatus"] == "requested_to_join"
+
+    def test_join_requests_disabled(self):
+        OrganizationOption.objects.create(
+            organization_id=self.org.id, key="sentry:join_requests", value=False
+        )
+
+        self.login_as(user=self.user)
+        resp = self.get_response(self.org.slug)
+
+        assert resp.status_code == 200
+        assert len(resp.data) == 1
+        assert resp.data[0]["email"] == self.invite_request.email
+        assert resp.data[0]["inviteStatus"] == "requested_to_be_invited"
 
 
 class OrganizationInviteRequestCreateTest(APITestCase):
@@ -104,7 +122,7 @@ class OrganizationInviteRequestCreateTest(APITestCase):
         )
 
         assert resp.status_code == 400
-        assert "The user %s is already a member" % user2.email in resp.content
+        assert (u"The user %s is already a member" % user2.email).encode("utf-8") in resp.content
 
     def test_existing_invite_request(self):
         self.login_as(user=self.user)
@@ -120,4 +138,6 @@ class OrganizationInviteRequestCreateTest(APITestCase):
         )
 
         assert resp.status_code == 400
-        assert "There is an existing invite request for %s" % invite_request.email in resp.content
+        assert (u"There is an existing invite request for %s" % invite_request.email).encode(
+            "utf-8"
+        ) in resp.content

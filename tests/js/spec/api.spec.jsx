@@ -1,9 +1,9 @@
 import $ from 'jquery';
+import * as Sentry from '@sentry/browser';
 
 import {Client, Request, paramsToQueryArgs} from 'app/api';
 import GroupActions from 'app/actions/groupActions';
 import {PROJECT_MOVED} from 'app/constants/apiErrorCodes';
-import * as Sentry from '@sentry/browser';
 
 jest.unmock('app/api');
 
@@ -114,7 +114,10 @@ describe('api', function() {
   it('does not call success callback if 302 was returned because of a project slug change', function() {
     const successCb = jest.fn();
     api.activeRequests = {id: {alive: true}};
-    api.wrapCallback('id', successCb)({
+    api.wrapCallback(
+      'id',
+      successCb
+    )({
       responseJSON: {
         detail: {
           code: PROJECT_MOVED,
@@ -129,7 +132,7 @@ describe('api', function() {
   });
 
   it('handles error callback', function() {
-    jest.spyOn(api, 'wrapCallback').mockImplementation((id, func) => func);
+    jest.spyOn(api, 'wrapCallback').mockImplementation((_id, func) => func);
     const errorCb = jest.fn();
     const args = ['test', true, 1];
     api.handleRequestError(
@@ -268,32 +271,13 @@ describe('api', function() {
       $.ajax.mockImplementation(async ({error}) => {
         await tick();
         error({
-          status: 404,
-          statusText: 'Not Found',
+          status: 500,
+          statusText: 'Internal server error',
           responseJSON: {detail: 'Item was not found'},
         });
 
         return {};
       });
-    });
-
-    it('reports correct error and stacktrace to Sentry', async function() {
-      api.request('/some/url/');
-      await tick();
-
-      const errorObjectSentryCalled = Sentry.captureException.mock.calls[0][0];
-      expect(errorObjectSentryCalled.name).toBe('NotFoundError');
-      expect(errorObjectSentryCalled.message).toBe('GET /some/url/ 404');
-
-      // First line of stack should be this test case
-      expect(errorObjectSentryCalled.stack.split('\n')[1]).toContain('api.spec.jsx');
-    });
-
-    it('reports correct error and stacktrace to Sentry when using promises', async function() {
-      await expect(
-        api.requestPromise('/some/url/')
-      ).rejects.toThrowErrorMatchingInlineSnapshot('"GET /some/url/ 404"');
-      expect(Sentry.captureException).toHaveBeenCalled();
     });
   });
 });

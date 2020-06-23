@@ -8,6 +8,7 @@ import logging
 import os.path
 import six
 from datetime import timedelta
+from enum import IntEnum, unique
 
 from collections import OrderedDict, namedtuple
 from django.conf import settings
@@ -15,6 +16,8 @@ from django.utils.translation import ugettext_lazy as _
 
 from sentry.utils.integrationdocs import load_doc
 from sentry.utils.geo import rust_geoip
+
+import sentry_relay
 
 
 def get_all_languages():
@@ -77,6 +80,11 @@ ENVIRONMENT_NAME_PATTERN = r"^[^\n\r\f\/]*$"
 ENVIRONMENT_NAME_MAX_LENGTH = 64
 
 SENTRY_APP_SLUG_MAX_LENGTH = 64
+
+# Maximum number of results we are willing to fetch when calculating rollup
+# Clients should adapt the interval width based on their display width.
+MAX_ROLLUP_POINTS = 4500
+
 
 # Team slugs which may not be used. Generally these are top level URL patterns
 # which we don't want to worry about conflicts on.
@@ -208,6 +216,7 @@ PROTECTED_TAG_KEYS = frozenset(["environment", "release", "sentry:release"])
 
 # TODO(dcramer): once this is more flushed out we want this to be extendable
 SENTRY_RULES = (
+    "sentry.mail.actions.NotifyEmailAction",
     "sentry.rules.actions.notify_event.NotifyEventAction",
     "sentry.rules.actions.notify_event_service.NotifyEventServiceAction",
     "sentry.rules.conditions.every_event.EveryEventCondition",
@@ -224,46 +233,8 @@ SENTRY_RULES = (
 # methods as defined by http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html + PATCH
 HTTP_METHODS = ("GET", "POST", "PUT", "OPTIONS", "HEAD", "DELETE", "TRACE", "CONNECT", "PATCH")
 
-# XXX: Must be all lowercase
-DEFAULT_SCRUBBED_FIELDS = (
-    "password",
-    "secret",
-    "passwd",
-    "api_key",
-    "apikey",
-    "access_token",
-    "auth",
-    "credentials",
-    "mysql_pwd",
-    "stripetoken",
-    "card[number]",
-)
-
-NOT_SCRUBBED_VALUES = set([True, False, "true", "false", "null", "undefined"])
-
-VALID_PLATFORMS = set(
-    [
-        "as3",
-        "c",
-        "cfml",
-        "cocoa",
-        "csharp",
-        "go",
-        "java",
-        "javascript",
-        "node",
-        "objc",
-        "other",
-        "perl",
-        "php",
-        "python",
-        "ruby",
-        "elixir",
-        "haskell",
-        "groovy",
-        "native",
-    ]
-)
+# See https://github.com/getsentry/relay/blob/master/relay-general/src/protocol/constants.rs
+VALID_PLATFORMS = sentry_relay.VALID_PLATFORMS
 
 OK_PLUGIN_ENABLED = _("The {name} integration has been enabled.")
 
@@ -272,11 +243,6 @@ OK_PLUGIN_DISABLED = _("The {name} integration has been disabled.")
 OK_PLUGIN_SAVED = _("Configuration for the {name} integration has been saved.")
 
 WARN_SESSION_EXPIRED = "Your session has expired."  # TODO: translate this
-
-# If this value changes, also change it in src/sentry/static/sentry/app/constants/index.tsx
-# TODO(kmclb): once relay is doing the filtering, this will change, at minimum to become
-# "DEFAULT_FILTER_MASK" or some such, since the mask value will be dynamic
-FILTER_MASK = "[Filtered]"
 
 # Maximum length of a symbol
 MAX_SYM = 256
@@ -476,6 +442,38 @@ class SentryAppInstallationStatus(object):
             return cls.INSTALLED_STR
 
 
+class ExportQueryType(object):
+    ISSUES_BY_TAG = 0
+    DISCOVER = 1
+    ISSUES_BY_TAG_STR = "Issues-by-Tag"
+    DISCOVER_STR = "Discover"
+
+    @classmethod
+    def as_choices(cls):
+        return ((cls.ISSUES_BY_TAG, cls.ISSUES_BY_TAG_STR), (cls.DISCOVER, cls.DISCOVER_STR))
+
+    @classmethod
+    def as_str_choices(cls):
+        return (
+            (cls.ISSUES_BY_TAG_STR, cls.ISSUES_BY_TAG_STR),
+            (cls.DISCOVER_STR, cls.DISCOVER_STR),
+        )
+
+    @classmethod
+    def as_str(cls, integer):
+        if integer == cls.ISSUES_BY_TAG:
+            return cls.ISSUES_BY_TAG_STR
+        elif integer == cls.DISCOVER:
+            return cls.DISCOVER_STR
+
+    @classmethod
+    def from_str(cls, string):
+        if string == cls.ISSUES_BY_TAG_STR:
+            return cls.ISSUES_BY_TAG
+        elif string == cls.DISCOVER_STR:
+            return cls.DISCOVER
+
+
 StatsPeriod = namedtuple("StatsPeriod", ("segments", "interval"))
 
 LEGACY_RATE_LIMIT_OPTIONS = frozenset(("sentry:project-rate-limit", "sentry:account-rate-limit"))
@@ -489,12 +487,68 @@ ALLOWED_FUTURE_DELTA = timedelta(seconds=MAX_SECS_IN_FUTURE)
 
 DEFAULT_STORE_NORMALIZER_ARGS = dict(
     geoip_lookup=rust_geoip,
-    stacktrace_frames_hard_limit=settings.SENTRY_STACKTRACE_FRAMES_HARD_LIMIT,
-    max_stacktrace_frames=settings.SENTRY_MAX_STACKTRACE_FRAMES,
-    valid_platforms=list(VALID_PLATFORMS),
     max_secs_in_future=MAX_SECS_IN_FUTURE,
     max_secs_in_past=MAX_SECS_IN_PAST,
     enable_trimming=True,
 )
 
 INTERNAL_INTEGRATION_TOKEN_COUNT_MAX = 20
+
+ALL_ACCESS_PROJECTS = {-1}
+
+# Most number of events for the top-n graph
+MAX_TOP_EVENTS = 5
+
+
+@unique
+class DataCategory(IntEnum):
+    DEFAULT = 0
+    ERROR = 1
+    TRANSACTION = 2
+    SECURITY = 3
+    ATTACHMENT = 4
+    SESSION = 5
+
+    @classmethod
+    def from_event_type(cls, event_type):
+        if event_type == "error":
+            return DataCategory.ERROR
+        elif event_type == "transaction":
+            return DataCategory.TRANSACTION
+        elif event_type in ("csp", "hpkp", "expectct", "expectstaple"):
+            return DataCategory.SECURITY
+        return DataCategory.DEFAULT
+
+    @classmethod
+    def event_categories(cls):
+        return [
+            DataCategory.DEFAULT,
+            DataCategory.ERROR,
+            DataCategory.TRANSACTION,
+            DataCategory.SECURITY,
+        ]
+
+    @classmethod
+    def error_categories(cls):
+        return [DataCategory.DEFAULT, DataCategory.ERROR]
+
+    def api_name(self):
+        return self.name.lower()
+
+
+# org option default values
+PROJECT_RATE_LIMIT_DEFAULT = 100
+ACCOUNT_RATE_LIMIT_DEFAULT = 0
+REQUIRE_SCRUB_DATA_DEFAULT = False
+REQUIRE_SCRUB_DEFAULTS_DEFAULT = False
+SENSITIVE_FIELDS_DEFAULT = None
+SAFE_FIELDS_DEFAULT = None
+ATTACHMENTS_ROLE_DEFAULT = settings.SENTRY_DEFAULT_ROLE
+EVENTS_ADMIN_ROLE_DEFAULT = settings.SENTRY_DEFAULT_ROLE
+REQUIRE_SCRUB_IP_ADDRESS_DEFAULT = False
+SCRAPE_JAVASCRIPT_DEFAULT = True
+TRUSTED_RELAYS_DEFAULT = None
+JOIN_REQUESTS_DEFAULT = True
+
+# `sentry:events_member_admin` - controls whether the 'member' role gets the event:admin scope
+EVENTS_MEMBER_ADMIN_DEFAULT = True

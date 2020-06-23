@@ -1,6 +1,6 @@
 import {Location} from 'history';
 import {PlainRoute} from 'react-router/lib/Route';
-import {findLastIndex} from 'lodash';
+import findLastIndex from 'lodash/findLastIndex';
 
 import replaceRouterParams from 'app/utils/replaceRouterParams';
 
@@ -10,7 +10,7 @@ type Options = {
 
   // parameters to replace any route string parameters (e.g. if route is `:orgId`,
   // params should have `{orgId: slug}`
-  params: {[key: string]: string};
+  params: {[key: string]: string | undefined};
 
   /**
    * The number of routes to to pop off of `routes
@@ -47,9 +47,12 @@ export default function recreateRoute(to: string | PlainRoute, options: Options)
     baseRoute = baseRoute.slice(0, stepBack);
   }
 
-  const query = typeof location !== 'undefined' && location.search ? location.search : '';
+  const search = location?.search ?? '';
+  const hash = location?.hash ?? '';
 
-  const fullRoute = `${baseRoute.join('')}${typeof to !== 'string' ? '' : to}${query}`;
+  const fullRoute = `${baseRoute.join('')}${
+    typeof to !== 'string' ? '' : to
+  }${search}${hash}`;
 
   return replaceRouterParams(fullRoute, params);
 }

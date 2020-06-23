@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import Conditions from 'app/views/discover/conditions';
@@ -6,9 +7,15 @@ import Conditions from 'app/views/discover/conditions';
 describe('Conditions', function() {
   let wrapper, onChangeMock, conditions;
   beforeEach(function() {
-    conditions = [['col1', 'IS NOT NULL', null], ['col2', '=', 2]];
+    conditions = [
+      ['col1', 'IS NOT NULL', null],
+      ['col2', '=', 2],
+    ];
     onChangeMock = jest.fn();
-    const columns = [{name: 'col1', type: 'string'}, {name: 'col2', type: 'number'}];
+    const columns = [
+      {name: 'col1', type: 'string'},
+      {name: 'col2', type: 'number'},
+    ];
     const value = [];
     wrapper = mountWithTheme(
       <Conditions columns={columns} onChange={onChangeMock} value={value} />,
@@ -29,7 +36,8 @@ describe('Conditions', function() {
   it('addRow()', function() {
     wrapper
       .find('AddText')
-      .find('Link')
+      .find("[data-test-id='conditions-add-text-link']")
+      .hostNodes()
       .simulate('click');
     expect(onChangeMock).toHaveBeenCalledWith([[null, null, null]]);
   });

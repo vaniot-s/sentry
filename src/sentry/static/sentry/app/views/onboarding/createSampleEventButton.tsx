@@ -20,7 +20,7 @@ import withOrganization from 'app/utils/withOrganization';
 type Props = React.ComponentProps<typeof Button> & {
   api: Client;
   organization: Organization;
-  project: Project;
+  project?: Project;
   source: string;
 };
 
@@ -82,6 +82,10 @@ class CreateSampleEventButton extends React.Component<Props, State> {
     const {api, organization, project, source} = this.props;
     let eventData;
 
+    if (!project) {
+      return;
+    }
+
     addLoadingMessage(t('Processing sample event...'));
     this.setState({creating: true});
 
@@ -122,8 +126,13 @@ class CreateSampleEventButton extends React.Component<Props, State> {
   };
 
   render() {
-    // eslint-disable-next-line no-unused-vars
-    const {api, organization, project, source, ...props} = this.props;
+    const {
+      api: _api,
+      organization: _organization,
+      project: _project,
+      source: _source,
+      ...props
+    } = this.props;
     const {creating} = this.state;
 
     return (

@@ -1,5 +1,7 @@
 import React from 'react';
+
 import {shallow, mount} from 'sentry-test/enzyme';
+
 import IssueSyncListElement from 'app/components/issueSyncListElement';
 
 describe('AlertLink', function() {
@@ -10,7 +12,7 @@ describe('AlertLink', function() {
 
   it('can open', function() {
     const onOpen = jest.fn();
-    const wrapper = shallow(
+    const wrapper = mount(
       <IssueSyncListElement integrationType="github" onOpen={onOpen} />
     );
     expect(onOpen).not.toHaveBeenCalled();

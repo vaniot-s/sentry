@@ -1,20 +1,23 @@
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 import PropTypes from 'prop-types';
 
 import {t} from 'app/locale';
-import {Organization} from 'app/types';
+import {LightWeightOrganization, Organization, Project} from 'app/types';
 import Button from 'app/components/button';
 import PageHeading from 'app/components/pageHeading';
 import Tooltip from 'app/components/tooltip';
 import SentryTypes from 'app/sentryTypes';
 import space from 'app/styles/space';
 import ConfigStore from 'app/stores/configStore';
+
 /* TODO: replace with I/O when finished */
-import img from '../../images/dashboard/hair-on-fire.svg';
+import img from '../../images/spot/hair-on-fire.svg';
 
 type Props = {
-  organization: Organization;
+  organization: LightWeightOrganization | Organization;
+  projects?: Project[];
+  loadingProjects?: boolean;
 };
 
 export default class NoProjectMessage extends React.Component<Props> {
@@ -23,21 +26,28 @@ export default class NoProjectMessage extends React.Component<Props> {
     children are included. Otherwise we show the message */
     children: PropTypes.node,
     organization: SentryTypes.Organization,
+    projects: PropTypes.arrayOf(SentryTypes.Project),
+    loadingProjects: PropTypes.bool,
   };
 
   render() {
-    const {children, organization} = this.props;
+    const {children, organization, projects, loadingProjects} = this.props;
     const orgId = organization.slug;
     const canCreateProject = organization.access.includes('project:write');
     const canJoinTeam = organization.access.includes('team:read');
 
-    const {isSuperuser} = ConfigStore.get('user');
+    let hasProjects;
+    if ('projects' in organization) {
+      const {isSuperuser} = ConfigStore.get('user');
 
-    const hasProjects = isSuperuser
-      ? organization.projects.some(p => p.hasAccess)
-      : organization.projects.some(p => p.isMember && p.hasAccess);
+      hasProjects = isSuperuser
+        ? organization.projects.some(p => p.hasAccess)
+        : organization.projects.some(p => p.isMember && p.hasAccess);
+    } else {
+      hasProjects = projects && projects.length > 0;
+    }
 
-    return hasProjects ? (
+    return hasProjects || loadingProjects ? (
       children
     ) : (
       <Wrapper>

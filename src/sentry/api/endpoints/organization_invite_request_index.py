@@ -4,12 +4,13 @@ from django.db import transaction
 from django.db.models import Q
 from rest_framework.response import Response
 
-from sentry import roles, features
+from sentry import roles
 from sentry.app import locks
 from sentry.api.bases.organization import OrganizationEndpoint, OrganizationPermission
 from sentry.api.paginator import OffsetPaginator
 from sentry.api.serializers import serialize, OrganizationMemberWithTeamsSerializer
 from sentry.models import AuditLogEntryEvent, OrganizationMember, InviteStatus
+from sentry.tasks.members import send_invite_request_notification_email
 from sentry.utils.retries import TimedRetryPolicy
 
 from .organization_member_index import OrganizationMemberSerializer, save_team_assignments
@@ -32,6 +33,9 @@ class OrganizationInviteRequestIndexEndpoint(OrganizationEndpoint):
             | Q(invite_status=InviteStatus.REQUESTED_TO_JOIN.value),
             organization=organization,
         ).order_by("invite_status", "email")
+
+        if organization.get_option("sentry:join_requests") is False:
+            queryset = queryset.filter(invite_status=InviteStatus.REQUESTED_TO_BE_INVITED.value)
 
         return self.paginate(
             request=request,
@@ -56,11 +60,6 @@ class OrganizationInviteRequestIndexEndpoint(OrganizationEndpoint):
 
         :auth: required
         """
-        if not features.has("organizations:invite-members", organization, actor=request.user):
-            return Response(
-                {"organization": "Your organization is not allowed to invite members"}, status=403
-            )
-
         serializer = OrganizationMemberSerializer(
             data=request.data,
             context={"organization": organization, "allowed_roles": roles.get_all()},
@@ -93,6 +92,6 @@ class OrganizationInviteRequestIndexEndpoint(OrganizationEndpoint):
                 event=AuditLogEntryEvent.INVITE_REQUEST_ADD,
             )
 
-        om.send_request_notification_email()
+        send_invite_request_notification_email.delay(om.id)
 
         return Response(serialize(om), status=201)

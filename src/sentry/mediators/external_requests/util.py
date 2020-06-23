@@ -1,6 +1,11 @@
 from __future__ import absolute_import
 
 from jsonschema import Draft4Validator
+from requests.exceptions import Timeout
+
+from sentry.utils.sentryappwebhookrequests import SentryAppWebhookRequestsBuffer
+from sentry.http import safe_urlopen
+from sentry.models.sentryapp import track_response_code
 
 SELECT_OPTIONS_SCHEMA = {
     "type": "array",
@@ -35,3 +40,39 @@ def validate(instance, schema_type):
         return False
 
     return True
+
+
+def send_and_save_sentry_app_request(url, sentry_app, org_id, event, **kwargs):
+    """
+    Send a webhook request, and save the request into the Redis buffer for the app dashboard request log
+    Returns the response of the request
+
+    kwargs ends up being the arguments passed into safe_urlopen
+    """
+
+    buffer = SentryAppWebhookRequestsBuffer(sentry_app)
+
+    slug = sentry_app.slug_for_metrics
+
+    try:
+        resp = safe_urlopen(url=url, **kwargs)
+
+    except Timeout:
+        track_response_code("timeout", slug, event)
+        # Response code of 0 represents timeout
+        buffer.add_request(response_code=0, org_id=org_id, event=event, url=url)
+        # Re-raise the exception because some of these tasks might retry on the exception
+        raise
+
+    else:
+        track_response_code(resp.status_code, slug, event)
+        buffer.add_request(
+            response_code=resp.status_code,
+            org_id=org_id,
+            event=event,
+            url=url,
+            error_id=resp.headers.get("Sentry-Hook-Error"),
+            project_id=resp.headers.get("Sentry-Hook-Project"),
+        )
+        resp.raise_for_status()
+        return resp

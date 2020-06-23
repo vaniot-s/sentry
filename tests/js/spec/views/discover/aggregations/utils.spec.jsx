@@ -3,7 +3,6 @@ import {
   getExternal,
   isValidAggregation,
 } from 'app/views/discover/aggregations/utils';
-
 import {COLUMNS} from 'app/views/discover/data';
 
 const aggregationList = [
@@ -26,6 +25,10 @@ const aggregationList = [
   {
     internal: 'uniq(browser.name)',
     external: ['uniq', 'browser.name', 'uniq_browser_name'],
+  },
+  {
+    internal: 'sum(device.battery_level)',
+    external: ['sum', 'device.battery_level', 'sum_device_battery_level'],
   },
 ];
 
@@ -71,6 +74,19 @@ describe('Aggregations', function() {
 
       expect(
         isValidAggregation(['avg', 'user.email', 'avg_user_email'], COLUMNS)
+      ).toEqual(false);
+    });
+
+    it('validates sum', function() {
+      expect(
+        isValidAggregation(
+          ['sum', 'device.battery_level', 'sum_device_battery_level'],
+          COLUMNS
+        )
+      ).toEqual(true);
+
+      expect(
+        isValidAggregation(['sum', 'user.email', 'sum_user_email'], COLUMNS)
       ).toEqual(false);
     });
   });

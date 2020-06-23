@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {
   Panel,
@@ -61,11 +61,10 @@ class AccountClose extends AsyncView {
   }
 
   // Returns an array of single owners
-  getSingleOwners = () => {
-    return this.state.organizations
+  getSingleOwners = () =>
+    this.state.organizations
       .filter(({singleOwner}) => singleOwner)
       .map(({organization}) => organization.slug);
-  };
 
   handleChange = ({slug}, isSingle, event) => {
     const checked = event.target.checked;

@@ -16,6 +16,8 @@ from sentry.api.serializers import serialize
 from sentry.api.serializers.models import organization as org_serializers
 from sentry.api.serializers.rest_framework import ListField
 from sentry.constants import LEGACY_RATE_LIMIT_OPTIONS, RESERVED_ORGANIZATION_SLUGS
+from sentry.datascrubbing import validate_pii_config_update
+from sentry.lang.native.utils import STORE_CRASH_REPORTS_DEFAULT, convert_crashreport_count
 from sentry.models import (
     AuditLogEntryEvent,
     Authenticator,
@@ -29,10 +31,10 @@ from sentry.tasks.deletion import delete_organization
 from sentry.utils.apidocs import scenario, attach_scenarios
 from sentry.utils.cache import memoize
 
-ERR_DEFAULT_ORG = "You cannot remove the default organization."
-ERR_NO_USER = "This request requires an authenticated user."
-ERR_NO_2FA = "Cannot require two-factor authentication without personal two-factor enabled."
-ERR_SSO_ENABLED = "Cannot require two-factor authentication with SSO enabled"
+ERR_DEFAULT_ORG = u"You cannot remove the default organization."
+ERR_NO_USER = u"This request requires an authenticated user."
+ERR_NO_2FA = u"Cannot require two-factor authentication without personal two-factor enabled."
+ERR_SSO_ENABLED = u"Cannot require two-factor authentication with SSO enabled"
 
 ORG_OPTIONS = (
     # serializer field name, option key name, type, default value
@@ -66,8 +68,8 @@ ORG_OPTIONS = (
     (
         "storeCrashReports",
         "sentry:store_crash_reports",
-        bool,
-        org_serializers.STORE_CRASH_REPORTS_DEFAULT,
+        convert_crashreport_count,
+        STORE_CRASH_REPORTS_DEFAULT,
     ),
     (
         "attachmentsRole",
@@ -76,11 +78,18 @@ ORG_OPTIONS = (
         org_serializers.ATTACHMENTS_ROLE_DEFAULT,
     ),
     (
+        "eventsMemberAdmin",
+        "sentry:events_member_admin",
+        bool,
+        org_serializers.EVENTS_MEMBER_ADMIN_DEFAULT,
+    ),
+    (
         "scrubIPAddresses",
         "sentry:require_scrub_ip_address",
         bool,
         org_serializers.REQUIRE_SCRUB_IP_ADDRESS_DEFAULT,
     ),
+    ("relayPiiConfig", "sentry:relay_pii_config", six.text_type, None),
     ("trustedRelays", "sentry:trusted-relays", list, org_serializers.TRUSTED_RELAYS_DEFAULT),
     ("allowJoinRequests", "sentry:join_requests", bool, org_serializers.JOIN_REQUESTS_DEFAULT),
 )
@@ -130,14 +139,16 @@ class OrganizationSerializer(serializers.Serializer):
     dataScrubberDefaults = serializers.BooleanField(required=False)
     sensitiveFields = ListField(child=serializers.CharField(), required=False)
     safeFields = ListField(child=serializers.CharField(), required=False)
-    storeCrashReports = serializers.BooleanField(required=False)
+    storeCrashReports = serializers.IntegerField(min_value=-1, max_value=20, required=False)
     attachmentsRole = serializers.CharField(required=True)
+    eventsMemberAdmin = serializers.BooleanField(required=False)
     scrubIPAddresses = serializers.BooleanField(required=False)
     scrapeJavaScript = serializers.BooleanField(required=False)
     isEarlyAdopter = serializers.BooleanField(required=False)
     require2FA = serializers.BooleanField(required=False)
     trustedRelays = ListField(child=serializers.CharField(), required=False)
     allowJoinRequests = serializers.BooleanField(required=False)
+    relayPiiConfig = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     @memoize
     def _has_legacy_rate_limits(self):
@@ -167,6 +178,10 @@ class OrganizationSerializer(serializers.Serializer):
         if qs.exists():
             raise serializers.ValidationError('The slug "%s" is already in use.' % (value,))
         return value
+
+    def validate_relayPiiConfig(self, value):
+        organization = self.context["organization"]
+        return validate_pii_config_update(organization, value)
 
     def validate_sensitiveFields(self, value):
         if value and not all(value):
@@ -413,38 +428,20 @@ class OrganizationDetailsEndpoint(OrganizationEndpoint):
             )
         return self.respond(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @sudo_required
-    def delete(self, request, organization):
+    def handle_delete(self, request, organization):
         """
-        Delete an Organization
-        ``````````````````````
-
-        Schedules an organization for deletion.  This API endpoint cannot
-        be invoked without a user context for security reasons.  This means
-        that at present an organization can only be deleted from the
-        Sentry UI.
-
-        Deletion happens asynchronously and therefor is not immediate.
-        However once deletion has begun the state of a project changes and
-        will be hidden from most public views.
-
-        :pparam string organization_slug: the slug of the organization the
-                                          team should be created for.
-        :auth: required, user-context-needed
+        This method exists as a way for getsentry to override this endpoint with less duplication.
         """
         if not request.user.is_authenticated():
             return self.respond({"detail": ERR_NO_USER}, status=401)
-
         if organization.is_default:
             return self.respond({"detail": ERR_DEFAULT_ORG}, status=400)
-
         updated = Organization.objects.filter(
             id=organization.id, status=OrganizationStatus.VISIBLE
         ).update(status=OrganizationStatus.PENDING_DELETION)
         if updated:
             transaction_id = uuid4().hex
             countdown = 86400
-
             entry = self.create_audit_entry(
                 request=request,
                 organization=organization,
@@ -453,9 +450,7 @@ class OrganizationDetailsEndpoint(OrganizationEndpoint):
                 data=organization.get_audit_log_data(),
                 transaction_id=transaction_id,
             )
-
             organization.send_delete_confirmation(entry, countdown)
-
             delete_organization.apply_async(
                 kwargs={
                     "object_id": organization.id,
@@ -464,7 +459,6 @@ class OrganizationDetailsEndpoint(OrganizationEndpoint):
                 },
                 countdown=countdown,
             )
-
             delete_logger.info(
                 "object.delete.queued",
                 extra={
@@ -473,7 +467,6 @@ class OrganizationDetailsEndpoint(OrganizationEndpoint):
                     "model": Organization.__name__,
                 },
             )
-
         context = serialize(
             organization,
             request.user,
@@ -481,3 +474,21 @@ class OrganizationDetailsEndpoint(OrganizationEndpoint):
             access=request.access,
         )
         return self.respond(context, status=202)
+
+    @sudo_required
+    def delete(self, request, organization):
+        """
+        Delete an Organization
+        ``````````````````````
+        Schedules an organization for deletion.  This API endpoint cannot
+        be invoked without a user context for security reasons.  This means
+        that at present an organization can only be deleted from the
+        Sentry UI.
+        Deletion happens asynchronously and therefore is not immediate.
+        However once deletion has begun the state of an organization changes and
+        will be hidden from most public views.
+        :pparam string organization_slug: the slug of the organization the
+                                          team should be created for.
+        :auth: required, user-context-needed
+        """
+        return self.handle_delete(request, organization)

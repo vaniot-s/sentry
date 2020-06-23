@@ -5,7 +5,7 @@ import six
 from base64 import b64encode
 from django.core.urlresolvers import reverse
 from django.core import mail
-from mock import patch
+from sentry.utils.compat.mock import patch
 from exam import fixture
 from pprint import pprint
 
@@ -131,7 +131,7 @@ class OrganizationDetailsTest(APITestCase):
         url = reverse("sentry-api-0-organization-details", kwargs={"organization_slug": org.slug})
         response = self.client.get(url, format="json")
         assert len(response.data["onboardingTasks"]) == 1
-        assert response.data["onboardingTasks"][0]["task"] == 1
+        assert response.data["onboardingTasks"][0]["task"] == "create_project"
 
 
 class OrganizationUpdateTest(APITestCase):
@@ -198,8 +198,9 @@ class OrganizationUpdateTest(APITestCase):
             "dataScrubber": True,
             "dataScrubberDefaults": True,
             "sensitiveFields": [u"password"],
+            "eventsMemberAdmin": False,
             "safeFields": [u"email"],
-            "storeCrashReports": True,
+            "storeCrashReports": 10,
             "scrubIPAddresses": True,
             "scrapeJavaScript": False,
             "defaultRole": "owner",
@@ -231,9 +232,10 @@ class OrganizationUpdateTest(APITestCase):
         assert options.get("sentry:require_scrub_ip_address")
         assert options.get("sentry:sensitive_fields") == ["password"]
         assert options.get("sentry:safe_fields") == ["email"]
-        assert options.get("sentry:store_crash_reports") is True
+        assert options.get("sentry:store_crash_reports") == 10
         assert options.get("sentry:scrape_javascript") is False
         assert options.get("sentry:join_requests") is False
+        assert options.get("sentry:events_member_admin") is False
 
         # log created
         log = AuditLogEntry.objects.get(organization=org)
@@ -250,9 +252,11 @@ class OrganizationUpdateTest(APITestCase):
         assert u"to {}".format(data["dataScrubberDefaults"]) in log.data["dataScrubberDefaults"]
         assert u"to {}".format(data["sensitiveFields"]) in log.data["sensitiveFields"]
         assert u"to {}".format(data["safeFields"]) in log.data["safeFields"]
+        assert u"to {}".format(data["storeCrashReports"]) in log.data["storeCrashReports"]
         assert u"to {}".format(data["scrubIPAddresses"]) in log.data["scrubIPAddresses"]
         assert u"to {}".format(data["scrapeJavaScript"]) in log.data["scrapeJavaScript"]
         assert u"to {}".format(data["allowJoinRequests"]) in log.data["allowJoinRequests"]
+        assert u"to {}".format(data["eventsMemberAdmin"]) in log.data["eventsMemberAdmin"]
 
     def test_setting_trusted_relays_forbidden(self):
         org = self.create_organization(owner=self.user)
@@ -263,7 +267,7 @@ class OrganizationUpdateTest(APITestCase):
 
         response = self.client.put(url, data=data)
         assert response.status_code == 400
-        assert "feature" in response.content
+        assert b"feature" in response.content
 
     def test_setting_trusted_relays(self):
         org = self.create_organization(owner=self.user)
@@ -277,7 +281,7 @@ class OrganizationUpdateTest(APITestCase):
             response = self.client.put(url, data=data)
             assert response.status_code == 200
 
-        option, = OrganizationOption.objects.filter(organization=org, key="sentry:trusted-relays")
+        (option,) = OrganizationOption.objects.filter(organization=org, key="sentry:trusted-relays")
 
         assert option.value == data["trustedRelays"]
         log = AuditLogEntry.objects.get(organization=org)
@@ -375,6 +379,28 @@ class OrganizationUpdateTest(APITestCase):
         assert response.status_code == 200, (response.status_code, response.content)
         org = Organization.objects.get(id=org.id)
         assert org.status == OrganizationStatus.VISIBLE
+
+    def test_relay_pii_config(self):
+        org = self.create_organization(owner=self.user)
+        url = reverse("sentry-api-0-organization-details", kwargs={"organization_slug": org.slug})
+        self.login_as(user=self.user)
+        with self.feature("organizations:datascrubbers-v2"):
+            value = '{"applications": {"freeform": []}}'
+            resp = self.client.put(url, data={"relayPiiConfig": value})
+            assert resp.status_code == 200, resp.content
+            assert org.get_option("sentry:relay_pii_config") == value
+            assert resp.data["relayPiiConfig"] == value
+
+    def test_relay_pii_config_forbidden(self):
+        org = self.create_organization(owner=self.user)
+        url = reverse("sentry-api-0-organization-details", kwargs={"organization_slug": org.slug})
+        self.login_as(user=self.user)
+
+        value = '{"applications": {"freeform": []}}'
+        resp = self.client.put(url, data={"relayPiiConfig": value})
+        assert resp.status_code == 400
+        assert b"feature" in resp.content
+        assert org.get_option("sentry:relay_pii_config") is None
 
 
 class OrganizationDeleteTest(APITestCase):

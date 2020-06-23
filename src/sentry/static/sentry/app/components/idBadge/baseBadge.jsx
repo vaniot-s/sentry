@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import Avatar from 'app/components/avatar';
 import space from 'app/styles/space';
@@ -77,7 +77,7 @@ class BaseBadge extends React.PureComponent {
             css={avatarClassName}
             size={avatarSize}
             hideName={hideName}
-            {...avatarProps || {}}
+            {...(avatarProps || {})}
             {...data}
           />
         )}
@@ -121,7 +121,7 @@ const DisplayName = styled('span')`
 const Description = styled('div')`
   font-size: 0.875em;
   margin-top: ${space(0.25)};
-  color: ${p => p.theme.gray2};
+  color: ${p => p.theme.gray500};
   line-height: 14px;
   ${overflowEllipsis};
 `;

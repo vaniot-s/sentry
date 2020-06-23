@@ -26,12 +26,17 @@ class OrganizationSerializerTest(TestCase):
                 "open-membership",
                 "integrations-issue-basic",
                 "integrations-issue-sync",
+                "data-forwarding",
                 "invite-members",
                 "sso-saml2",
                 "sso-basic",
                 "symbol-sources",
                 "custom-symbol-sources",
                 "tweak-grouping-config",
+                "grouping-info",
+                "releases-v2",
+                "discover-basic",
+                "discover-query",
             ]
         )
 
@@ -48,3 +53,4 @@ class DetailedOrganizationSerializerTest(TestCase):
         assert result["id"] == six.text_type(organization.id)
         assert result["role"] == "owner"
         assert result["access"] == settings.SENTRY_SCOPES
+        assert result["relayPiiConfig"] is None

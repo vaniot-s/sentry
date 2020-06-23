@@ -2,13 +2,13 @@
 
 from __future__ import absolute_import
 
-import mock
+from sentry.utils.compat import mock
 import six
 
 from datetime import timedelta
 
 from django.utils import timezone
-from mock import patch
+from sentry.utils.compat.mock import patch
 
 from sentry.api.serializers import serialize
 from sentry.api.serializers.models.group import (
@@ -40,14 +40,14 @@ class GroupSerializerSnubaTest(APITestCase, SnubaTestCase):
         self.week_ago = before_now(days=7)
 
     def test_permalink(self):
-        group = self.create_group(title="Oh no")
+        group = self.create_group()
         result = serialize(group, self.user, serializer=GroupSerializerSnuba())
         assert "http://" in result["permalink"]
         assert "{}/issues/{}".format(group.organization.slug, group.id) in result["permalink"]
 
     def test_permalink_outside_org(self):
         outside_user = self.create_user()
-        group = self.create_group(title="Oh no")
+        group = self.create_group()
         result = serialize(group, outside_user, serializer=GroupSerializerSnuba())
         assert result["permalink"] is None
 
@@ -301,17 +301,18 @@ class GroupSerializerSnubaTest(APITestCase, SnubaTestCase):
             )
 
         # Assert all events are in the same group
-        group_id, = set(e.group.id for e in events)
+        (group_id,) = set(e.group.id for e in events)
 
         group = Group.objects.get(id=group_id)
-        group.times_seen = 5
-        group.first_seen = self.week_ago
+        group.times_seen = 3
+        group.first_seen = self.week_ago - timedelta(days=5)
+        group.last_seen = self.week_ago
         group.save()
 
         # should use group columns when no environments arg passed
         result = serialize(group, serializer=GroupSerializerSnuba(environment_ids=[]))
-        assert result["count"] == "5"
-        assert result["lastSeen"] == group.last_seen
+        assert result["count"] == "3"
+        assert iso_format(result["lastSeen"]) == iso_format(self.min_ago)
         assert result["firstSeen"] == group.first_seen
 
         # update this to something different to make sure it's being used

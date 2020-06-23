@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import {Client} from 'app/api';
@@ -11,11 +12,17 @@ const AUTH_ENDPOINT = '/auth/';
 
 describe('AccountSecurity', function() {
   beforeEach(function() {
+    jest.spyOn(window.location, 'assign').mockImplementation(() => {});
+
     Client.clearMockResponses();
     Client.addMockResponse({
       url: ORG_ENDPOINT,
       body: TestStubs.Organizations(),
     });
+  });
+
+  afterEach(function() {
+    window.location.assign.mockRestore();
   });
 
   it('renders empty', function() {
@@ -59,13 +66,13 @@ describe('AccountSecurity', function() {
     ).toBe('Info');
 
     // Remove button
-    expect(wrapper.find('Button[icon="icon-trash"]')).toHaveLength(1);
-    expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(true);
+    expect(wrapper.find('button[aria-label="delete"]')).toHaveLength(1);
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(true);
 
     expect(wrapper.find('TwoFactorRequired')).toHaveLength(0);
   });
 
-  it('can delete enrolled authenticator', function() {
+  it('can delete enrolled authenticator', async function() {
     Client.addMockResponse({
       url: ENDPOINT,
       body: [
@@ -89,24 +96,41 @@ describe('AccountSecurity', function() {
       </AccountSecurityWrapper>,
       TestStubs.routerContext()
     );
-    expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(true);
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(true);
+
+    // next authenticators request should have totp disabled
+    const authenticatorsMock = Client.addMockResponse({
+      url: ENDPOINT,
+      body: [
+        TestStubs.Authenticators().Totp({
+          isEnrolled: false,
+          authId: '15',
+          configureButton: 'Info',
+        }),
+      ],
+    });
 
     // This will open confirm modal
-    wrapper.find('Button[icon="icon-trash"]').simulate('click');
+    wrapper.find('button[aria-label="delete"]').simulate('click');
+
     // Confirm
     wrapper
       .find('Modal Button')
       .last()
       .simulate('click');
 
+    await tick();
+    wrapper.update();
+
     expect(deleteMock).toHaveBeenCalled();
 
-    setTimeout(() => {
-      wrapper.update();
-      expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(false);
-    }, 1);
-    // still has another 2fa method
-    expect(wrapper.find('TwoFactorRequired')).toHaveLength(0);
+    // Should only have been called once
+    expect(authenticatorsMock).toHaveBeenCalledTimes(1);
+
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(false);
+
+    // No enrolled authenticators
+    expect(wrapper.find('TwoFactorRequired')).toHaveLength(1);
   });
 
   it('can remove one of multiple 2fa methods when org requires 2fa', function() {
@@ -140,7 +164,7 @@ describe('AccountSecurity', function() {
 
     expect(
       wrapper
-        .find('CircleIndicator')
+        .find('AuthenticatorStatus')
         .first()
         .prop('enabled')
     ).toBe(true);
@@ -160,7 +184,7 @@ describe('AccountSecurity', function() {
 
     // This will open confirm modal
     wrapper
-      .find('Button[icon="icon-trash"]')
+      .find('button[aria-label="delete"]')
       .first()
       .simulate('click');
 
@@ -199,14 +223,14 @@ describe('AccountSecurity', function() {
       </AccountSecurityWrapper>,
       TestStubs.routerContext()
     );
-    expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(true);
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(true);
 
     expect(wrapper.find('RemoveConfirm').prop('disabled')).toBe(true);
     expect(wrapper.find('Tooltip').prop('disabled')).toBe(false);
     expect(wrapper.find('Tooltip').prop('title')).toContain('test 1 and test 2');
 
     // This will open confirm modal
-    wrapper.find('Button[icon="icon-trash"]').simulate('click');
+    wrapper.find('button[aria-label="delete"]').simulate('click');
     // Confirm
     expect(wrapper.find('Modal Button')).toHaveLength(0);
     expect(deleteMock).not.toHaveBeenCalled();
@@ -233,7 +257,7 @@ describe('AccountSecurity', function() {
         .first()
         .prop('children')
     ).toBe('Add');
-    expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(false);
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(false);
     // user is not 2fa enrolled
     expect(wrapper.find('TwoFactorRequired')).toHaveLength(1);
   });
@@ -255,7 +279,7 @@ describe('AccountSecurity', function() {
 
     // There should be an View Codes button
     expect(wrapper.find('Button[className="details-button"]')).toHaveLength(0);
-    expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(false);
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(false);
     // user is not 2fa enrolled
     expect(wrapper.find('TwoFactorRequired')).toHaveLength(1);
   });
@@ -281,7 +305,7 @@ describe('AccountSecurity', function() {
         .first()
         .prop('children')
     ).toBe('View Codes');
-    expect(wrapper.find('CircleIndicator').prop('enabled')).toBe(true);
+    expect(wrapper.find('AuthenticatorStatus').prop('enabled')).toBe(true);
   });
 
   it('can change password', function() {
@@ -360,7 +384,7 @@ describe('AccountSecurity', function() {
     expect(wrapper.find('TwoFactorRequired')).toHaveLength(1);
   });
 
-  it('can expire all sessions', function() {
+  it('can expire all sessions', async function() {
     Client.addMockResponse({
       url: ENDPOINT,
       body: [TestStubs.Authenticators().Recovery({isEnrolled: false})],
@@ -381,6 +405,8 @@ describe('AccountSecurity', function() {
 
     wrapper.find('Button[data-test-id="signoutAll"]').simulate('click');
 
+    await tick();
+    expect(window.location.assign).toHaveBeenCalledWith('/auth/login/');
     expect(mock).toHaveBeenCalled();
   });
 });

@@ -13,9 +13,12 @@ export function Events(params = []) {
   ];
 }
 
-export function EventsStats(query = {}, params) {
+export function EventsStats(_query = {}, params) {
   return {
-    data: [[new Date(), [{count: 321}, {count: 79}]], [new Date(), [{count: 123}]]],
+    data: [
+      [new Date(), [{count: 321}, {count: 79}]],
+      [new Date(), [{count: 123}]],
+    ],
     ...params,
   };
 }

@@ -1,7 +1,8 @@
 import PropTypes from 'prop-types';
 import React from 'react';
+import classNames from 'classnames';
 import posed from 'react-pose';
-import styled, {cx} from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {t} from 'app/locale';
 import InlineSvg from 'app/components/inlineSvg';
@@ -33,7 +34,7 @@ const Toast = styled(posed.div(toastAnimation))`
   height: 40px;
   padding: 0 15px 0 10px;
   margin-top: 15px;
-  background: ${p => p.theme.gray5};
+  background: ${p => p.theme.gray800};
   color: #fff;
   border-radius: 44px 7px 7px 44px;
   box-shadow: 0 4px 12px 0 rgba(47, 40, 55, 0.16);
@@ -46,7 +47,7 @@ const Icon = styled('div')`
     display: block;
   }
 
-  color: ${p => (p.type === 'success' ? p.theme.green : p.theme.red)};
+  color: ${p => (p.type === 'success' ? p.theme.green400 : p.theme.red)};
 `;
 
 const Message = styled('div')`
@@ -55,20 +56,20 @@ const Message = styled('div')`
 
 const Undo = styled('div')`
   display: inline-block;
-  color: ${p => p.theme.gray2};
+  color: ${p => p.theme.gray500};
   padding-left: 16px;
   margin-left: 16px;
   border-left: 1px solid ${p => p.theme.gray3};
   cursor: pointer;
 
   &:hover {
-    color: ${p => p.theme.gray1};
+    color: ${p => p.theme.gray400};
   }
 `;
 
 const StyledLoadingIndicator = styled(LoadingIndicator)`
   .loading-indicator {
-    border-color: ${p => p.theme.gray4};
+    border-color: ${p => p.theme.gray700};
     border-left-color: ${p => p.theme.purple};
   }
 `;
@@ -99,7 +100,7 @@ function ToastIndicator({indicator, onDismiss, className, ...props}) {
     <Toast
       onClick={handleClick}
       data-test-id={type ? `toast-${type}` : 'toast'}
-      className={cx(className, 'ref-toast', `ref-${type}`)}
+      className={classNames(className, 'ref-toast', `ref-${type}`)}
       {...props}
     >
       {type === 'loading' ? (

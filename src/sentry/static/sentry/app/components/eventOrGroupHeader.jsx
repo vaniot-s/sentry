@@ -1,9 +1,9 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {withRouter} from 'react-router';
-import styled, {css} from 'react-emotion';
-import classNames from 'classnames';
-import {capitalize} from 'lodash';
+import styled from '@emotion/styled';
+import {css} from '@emotion/core';
+import capitalize from 'lodash/capitalize';
 
 import SentryTypes from 'app/sentryTypes';
 import EventOrGroupTitle from 'app/components/eventOrGroupTitle';
@@ -32,8 +32,8 @@ class EventOrGroupHeader extends React.Component {
   };
 
   getTitle() {
-    const {hideIcons, hideLevel, includeLink, data, params} = this.props;
-    const {orgId} = params;
+    const {hideIcons, hideLevel, includeLink, data, params, location} = this.props;
+    const orgId = params?.orgId;
 
     const {id, level, groupID} = data || {};
     const isEvent = !!data.eventID;
@@ -44,13 +44,11 @@ class EventOrGroupHeader extends React.Component {
     const basePath = `/organizations/${orgId}/issues/`;
 
     if (includeLink) {
-      const locationWithProject = {...this.props.location};
-      const query =
-        locationWithProject.query.project !== undefined
-          ? {
-              query: this.props.query,
-            }
-          : {query: this.props.query, _allp: 1}; //This appends _allp to the URL parameters if they have no project selected ("all" projects included in results). This is so that when we enter the issue details page and lock them to a project, we can properly take them back to the issue list page with no project selected (and not the locked project selected)
+      const query = {
+        query: this.props.query,
+        ...(location.query.sort !== undefined ? {sort: location.query.sort} : {}), // This adds sort to the query if one was selected from the issues list page
+        ...(location.query.project !== undefined ? {} : {_allp: 1}), //This appends _allp to the URL parameters if they have no project selected ("all" projects included in results). This is so that when we enter the issue details page and lock them to a project, we can properly take them back to the issue list page with no project selected (and not the locked project selected)
+      };
 
       props.to = {
         pathname: `${basePath}${isEvent ? groupID : id}/${
@@ -89,12 +87,11 @@ class EventOrGroupHeader extends React.Component {
 
   render() {
     const {className, size, data} = this.props;
-    const cx = classNames('event-issue-header', className);
     const location = getLocation(data);
     const message = getMessage(data);
 
     return (
-      <div className={cx}>
+      <div className={className} data-test-id="event-issue-header">
         <Title size={size}>{this.getTitle()}</Title>
         {location && <Location size={size}>{location}</Location>}
         {message && <Message size={size}>{message}</Message>}
@@ -125,7 +122,7 @@ const Title = styled('div')`
     font-size: 14px;
     font-style: normal;
     font-weight: 300;
-    color: ${p => p.theme.gray3};
+    color: ${p => p.theme.gray600};
   }
 `;
 
@@ -135,7 +132,7 @@ const LocationWrapper = styled('div')`
   direction: rtl;
   text-align: left;
   font-size: 14px;
-  color: ${p => p.theme.gray3};
+  color: ${p => p.theme.gray600};
   span {
     direction: ltr;
   }
@@ -168,7 +165,7 @@ const Muted = styled('span')`
 
 const Starred = styled('span')`
   ${iconStyles};
-  color: ${p => p.theme.yellowOrange};
+  color: ${p => p.theme.orange300};
 `;
 
 const GroupLevel = styled('div')`
@@ -183,15 +180,15 @@ const GroupLevel = styled('div')`
       case 'sample':
         return p.theme.purple;
       case 'info':
-        return p.theme.blue;
+        return p.theme.blue400;
       case 'warning':
-        return p.theme.yellowOrange;
+        return p.theme.orange300;
       case 'error':
-        return p.theme.orange;
+        return p.theme.orange400;
       case 'fatal':
         return p.theme.red;
       default:
-        return p.theme.gray2;
+        return p.theme.gray500;
     }
   }};
 

@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import {updateMember} from 'app/actionCreators/members';
@@ -140,7 +141,7 @@ describe('OrganizationMemberDetail', function() {
       await wrapper.update();
 
       // Should have one team enabled
-      expect(wrapper.find('TeamSelect PanelItem')).toHaveLength(1);
+      expect(wrapper.find('TeamPanelItem')).toHaveLength(1);
 
       // Select new team to join
       // Open the dropdown
@@ -188,9 +189,9 @@ describe('OrganizationMemberDetail', function() {
           .first()
           .prop('disabled')
       ).toBe(true);
-      expect(
-        wrapper.find('Button[className="invite-member-submit"]').prop('disabled')
-      ).toBe(true);
+
+      // Save Member
+      expect(wrapper.find('Button[priority="primary"]').prop('disabled')).toBe(true);
     });
   });
 
@@ -367,12 +368,12 @@ describe('OrganizationMemberDetail', function() {
     });
 
     it('can reset member 2FA', function() {
-      const deleteMocks = has2fa.user.authenticators.map(auth => {
-        return MockApiClient.addMockResponse({
+      const deleteMocks = has2fa.user.authenticators.map(auth =>
+        MockApiClient.addMockResponse({
           url: `/users/${has2fa.user.id}/authenticators/${auth.id}/`,
           method: 'DELETE',
-        });
-      });
+        })
+      );
 
       wrapper = mountWithTheme(
         <OrganizationMemberDetail params={{memberId: has2fa.id}} />,

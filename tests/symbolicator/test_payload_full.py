@@ -2,12 +2,13 @@ from __future__ import absolute_import
 
 import pytest
 import zipfile
-from mock import patch
+from sentry.utils.compat.mock import patch
 
 from six import BytesIO
 
 from django.core.urlresolvers import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 
 from sentry import eventstore
 from sentry.testutils import TransactionTestCase
@@ -16,6 +17,12 @@ from sentry.testutils.helpers.datetime import iso_format, before_now
 from sentry.utils import json
 
 from tests.symbolicator import get_fixture_path, insta_snapshot_stacktrace_data
+
+
+# IMPORTANT:
+# For these tests to run, write `symbolicator.enabled: true` into your
+# `~/.sentry/config.yml` and run `sentry devservices up`
+
 
 REAL_RESOLVING_EVENT_DATA = {
     "platform": "cocoa",
@@ -182,6 +189,7 @@ class ResolvingIntegrationTestBase(object):
         insta_snapshot_stacktrace_data(self, event.data)
 
 
+@override_settings(ALLOWED_HOSTS=["localhost", "testserver", "host.docker.internal"])
 class SymbolicatorResolvingIntegrationTest(ResolvingIntegrationTestBase, TransactionTestCase):
     # For these tests to run, write `symbolicator.enabled: true` into your
     # `~/.sentry/config.yml` and run `sentry devservices up`
@@ -194,6 +202,5 @@ class SymbolicatorResolvingIntegrationTest(ResolvingIntegrationTestBase, Transac
         with patch("sentry.auth.system.is_internal_ip", return_value=True), self.options(
             {"system.url-prefix": new_prefix}
         ):
-
             # Run test case:
             yield

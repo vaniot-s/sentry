@@ -4,8 +4,8 @@ import {t} from 'app/locale';
 import {Team, MemberRole} from 'app/types';
 import Button from 'app/components/button';
 import SelectControl from 'app/components/forms/selectControl';
+import RoleSelectControl from 'app/components/roleSelectControl';
 
-import RoleSelectControl from './roleSelectControl';
 import renderEmailValue from './renderEmailValue';
 import {InviteStatus} from './types';
 
@@ -47,6 +47,8 @@ const InviteRowControl = ({
   <div className={className}>
     <div>
       <SelectControl
+        deprecatedSelectControl
+        data-test-id="select-emails"
         disabled={disabled}
         placeholder={t('Enter one or more email')}
         value={emails}
@@ -74,6 +76,8 @@ const InviteRowControl = ({
     </div>
     <div>
       <RoleSelectControl
+        deprecatedSelectControl
+        data-test-id="select-role"
         disabled={disabled}
         value={role}
         roles={roleOptions}
@@ -83,6 +87,8 @@ const InviteRowControl = ({
     </div>
     <div>
       <SelectControl
+        deprecatedSelectControl
+        data-test-id="select-teams"
         disabled={disabled}
         placeholder={t('Add to teams...')}
         value={teams}
@@ -98,7 +104,7 @@ const InviteRowControl = ({
     <Button
       borderless
       icon="icon-close"
-      size="micro"
+      size="zero"
       onClick={onRemove}
       disabled={disableRemove}
     />

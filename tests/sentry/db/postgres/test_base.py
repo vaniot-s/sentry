@@ -2,10 +2,10 @@
 from __future__ import absolute_import
 
 import pytest
-from sentry.utils.db import is_postgres
 from sentry.testutils import TestCase
 from sentry.constants import MAX_CULPRIT_LENGTH
 from django.utils.encoding import force_text
+from sentry.utils.compat import map
 
 
 def psycopg2_version():
@@ -15,10 +15,7 @@ def psycopg2_version():
     return tuple(map(int, version))
 
 
-@pytest.mark.skipif(
-    not is_postgres() or psycopg2_version() < (2, 7),
-    reason="Test requires Postgres and psycopg 2.7+",
-)
+@pytest.mark.skipif(psycopg2_version() < (2, 7), reason="Test requires psycopg 2.7+")
 class CursorWrapperTestCase(TestCase):
     def test_null_bytes(self):
         from django.db import connection

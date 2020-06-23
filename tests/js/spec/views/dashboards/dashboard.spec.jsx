@@ -1,11 +1,12 @@
-import {mountWithTheme} from 'sentry-test/enzyme';
 import React from 'react';
 
 import {initializeOrg} from 'sentry-test/initializeOrg';
 import {mockRouterPush} from 'sentry-test/mockRouterPush';
+import {mountWithTheme} from 'sentry-test/enzyme';
 
 import Dashboard from 'app/views/dashboards/dashboard';
 import OrganizationDashboardContainer from 'app/views/dashboards';
+import ProjectsStore from 'app/stores/projectsStore';
 
 jest.mock('app/utils/withLatestContext');
 
@@ -13,7 +14,7 @@ describe('OrganizationDashboard', function() {
   let wrapper;
   let discoverMock;
 
-  const {organization, router, routerContext} = initializeOrg({
+  const {organization, projects, router, routerContext} = initializeOrg({
     projects: [{isMember: true}, {isMember: true, slug: 'new-project', id: 3}],
     organization: {
       features: ['discover', 'global-views'],
@@ -38,10 +39,17 @@ describe('OrganizationDashboard', function() {
     mockRouterPush(wrapper, router);
   };
 
-  beforeEach(function() {
+  beforeEach(async function() {
+    ProjectsStore.loadInitialData(projects);
+    await tick();
+
     MockApiClient.addMockResponse({
       url: `/organizations/${org.slug}/environments/`,
       body: TestStubs.Environments(),
+    });
+    MockApiClient.addMockResponse({
+      url: `/organizations/${org.slug}/projects/`,
+      body: [],
     });
     discoverMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/discover/query/',
@@ -65,6 +73,8 @@ describe('OrganizationDashboard', function() {
 
   it('queries and renders discover-based widgets grouped by time', async function() {
     createWrapper(TestStubs.Dashboard());
+    await tick();
+    wrapper.update();
 
     expect(discoverMock).toHaveBeenCalledTimes(2);
     expect(discoverMock).toHaveBeenCalledWith(
@@ -72,7 +82,7 @@ describe('OrganizationDashboard', function() {
       expect.objectContaining({
         data: expect.objectContaining({
           environments: [],
-          projects: [2, 3],
+          projects: expect.arrayContaining([2, 3]),
           range: '14d',
 
           fields: [],
@@ -90,7 +100,7 @@ describe('OrganizationDashboard', function() {
       expect.objectContaining({
         data: expect.objectContaining({
           environments: [],
-          projects: [2, 3],
+          projects: expect.arrayContaining([2, 3]),
           range: '14d',
 
           fields: [],
@@ -143,7 +153,7 @@ describe('OrganizationDashboard', function() {
       expect.objectContaining({
         data: expect.objectContaining({
           environments: [],
-          projects: [2, 3],
+          projects: expect.arrayContaining([2, 3]),
           range: '14d',
 
           fields: ['browser.name'],

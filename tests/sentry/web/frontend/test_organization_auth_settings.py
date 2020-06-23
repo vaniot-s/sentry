@@ -2,8 +2,9 @@ from __future__ import absolute_import
 
 from django.core.urlresolvers import reverse
 from django.db import models
-from mock import patch
+from sentry.utils.compat.mock import patch
 
+from sentry.auth.exceptions import IdentityNotValid
 from sentry.models import (
     AuditLogEntry,
     AuditLogEntryEvent,
@@ -39,6 +40,17 @@ class OrganizationAuthSettingsPermissionTest(PermissionTestCase):
         om.save()
         return user
 
+    def create_manager_and_attach_identity(self):
+        user = self.create_user(is_superuser=False)
+        self.create_member(
+            user=user, organization=self.organization, role="manager", teams=[self.team]
+        )
+        AuthIdentity.objects.create(user=user, ident="foo3", auth_provider=self.auth_provider)
+        om = OrganizationMember.objects.get(user=user, organization=self.organization)
+        setattr(om.flags, "sso:linked", True)
+        om.save()
+        return user
+
     def test_teamless_admin_cannot_load(self):
         with self.feature("organizations:sso-basic"):
             self.assert_teamless_admin_cannot_access(self.path)
@@ -50,6 +62,14 @@ class OrganizationAuthSettingsPermissionTest(PermissionTestCase):
     def test_manager_cannot_load(self):
         with self.feature("organizations:sso-basic"):
             self.assert_role_cannot_access(self.path, "manager")
+
+    def test_manager_can_load(self):
+        manager = self.create_manager_and_attach_identity()
+
+        self.login_as(manager, organization_id=self.organization.id)
+        with self.feature("organizations:sso-basic"):
+            resp = self.client.get(self.path)
+            assert resp.status_code == 200
 
     def test_owner_can_load(self):
         owner = self.create_owner_and_attach_identity()
@@ -94,7 +114,7 @@ class OrganizationAuthSettingsTest(AuthProviderTestCase):
             "Require 2fa disabled during sso setup", extra={"organization_id": organization.id}
         )
 
-    def assert_basic_flow(self, user, organization):
+    def assert_basic_flow(self, user, organization, expect_error=False):
         configure_path = reverse(
             "sentry-organization-auth-provider-settings", args=[organization.slug]
         )
@@ -107,8 +127,13 @@ class OrganizationAuthSettingsTest(AuthProviderTestCase):
             path = reverse("sentry-auth-sso")
             resp = self.client.post(path, {"email": user.email})
 
-        assert resp.status_code == 302
-        assert resp["Location"] == u"http://testserver{}".format(configure_path)
+        settings_path = reverse("sentry-organization-auth-settings", args=[organization.slug])
+
+        if expect_error:
+            self.assertRedirects(resp, settings_path)
+            return
+        else:
+            self.assertRedirects(resp, configure_path)
 
         auth_provider = AuthProvider.objects.get(organization=organization, provider="dummy")
         auth_identity = AuthIdentity.objects.get(auth_provider=auth_provider)
@@ -160,6 +185,17 @@ class OrganizationAuthSettingsTest(AuthProviderTestCase):
             target_object=organization.id, event=AuditLogEntryEvent.ORG_EDIT, actor=user
         ).exists()
         assert not logger.info.called
+
+    @patch("sentry.auth.helper.logger")
+    @patch("sentry.auth.providers.dummy.DummyProvider.build_identity")
+    def test_basic_flow_error(self, build_identity, logger):
+        build_identity.side_effect = IdentityNotValid()
+
+        user = self.create_user("bar@example.com")
+        organization = self.create_organization(name="foo", owner=user)
+
+        self.login_as(user)
+        self.assert_basic_flow(user, organization, expect_error=True)
 
     @patch("sentry.auth.helper.logger")
     def test_basic_flow__disable_require_2fa(self, logger):

@@ -2,10 +2,10 @@ import React from 'react';
 
 import SentryTypes from 'app/sentryTypes';
 import getDisplayName from 'app/utils/getDisplayName';
-import {Organization} from 'app/types';
+import {Organization, LightWeightOrganization} from 'app/types';
 
 type InjectedOrganizationProps = {
-  organization: Organization;
+  organization: Organization | LightWeightOrganization;
 };
 
 const withOrganization = <P extends InjectedOrganizationProps>(
@@ -23,10 +23,17 @@ const withOrganization = <P extends InjectedOrganizationProps>(
       return (
         <WrappedComponent
           organization={this.context.organization as Organization}
-          {...this.props as P}
+          {...(this.props as P)}
         />
       );
     }
   };
+
+export function isLightweightOrganization(
+  organization: Organization | LightWeightOrganization
+): organization is LightWeightOrganization {
+  const castedOrg = organization as Organization;
+  return !(castedOrg.projects && castedOrg.teams);
+}
 
 export default withOrganization;

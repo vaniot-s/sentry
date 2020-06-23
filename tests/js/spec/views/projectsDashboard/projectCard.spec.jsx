@@ -1,5 +1,6 @@
-import {mountWithTheme} from 'sentry-test/enzyme';
 import React from 'react';
+
+import {mountWithTheme} from 'sentry-test/enzyme';
 
 import {ProjectCard} from 'app/views/projectsDashboard/projectCard';
 
@@ -14,7 +15,10 @@ describe('ProjectCard', function() {
       <ProjectCard
         organization={TestStubs.Organization()}
         project={TestStubs.Project({
-          stats: [[1525042800, 1], [1525046400, 2]],
+          stats: [
+            [1525042800, 1],
+            [1525046400, 2],
+          ],
           platform: 'javascript',
         })}
         params={{orgId: 'org-slug'}}
@@ -54,7 +58,10 @@ describe('ProjectCard', function() {
       <ProjectCard
         organization={TestStubs.Organization()}
         project={TestStubs.Project({
-          stats: [[1525042800, 1], [1525046400, 2]],
+          stats: [
+            [1525042800, 1],
+            [1525046400, 2],
+          ],
           platform: 'javascript',
           latestDeploys,
         })}

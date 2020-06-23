@@ -19,7 +19,7 @@ class BaseAlertRuleTriggerSerializerTest(object):
         assert result["thresholdType"] == trigger.threshold_type
         assert result["alertThreshold"] == trigger.alert_threshold
         assert result["resolveThreshold"] == trigger.resolve_threshold
-        assert result["dateAdded"] == trigger.date_added
+        assert result["dateCreated"] == trigger.date_added
 
 
 class AlertRuleTriggerSerializerTest(BaseAlertRuleTriggerSerializerTest, TestCase):
@@ -27,6 +27,14 @@ class AlertRuleTriggerSerializerTest(BaseAlertRuleTriggerSerializerTest, TestCas
         alert_rule = self.create_alert_rule()
         trigger = create_alert_rule_trigger(
             alert_rule, "hi", AlertRuleThresholdType.ABOVE, 1000, 200
+        )
+        result = serialize(trigger)
+        self.assert_alert_rule_trigger_serialized(trigger, result)
+
+    def test_decimal(self):
+        alert_rule = self.create_alert_rule()
+        trigger = create_alert_rule_trigger(
+            alert_rule, "hi", AlertRuleThresholdType.ABOVE, 1000.50, 200.70
         )
         result = serialize(trigger)
         self.assert_alert_rule_trigger_serialized(trigger, result)

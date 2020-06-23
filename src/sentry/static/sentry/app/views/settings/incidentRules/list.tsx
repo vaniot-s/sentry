@@ -1,7 +1,8 @@
 import {Link} from 'react-router';
 import {RouteComponentProps} from 'react-router/lib/Router';
 import React from 'react';
-import styled, {css} from 'react-emotion';
+import styled from '@emotion/styled';
+import {css} from '@emotion/core';
 
 import {Panel, PanelBody, PanelHeader, PanelItem} from 'app/components/panels';
 import {t} from 'app/locale';
@@ -10,19 +11,20 @@ import Button from 'app/components/button';
 import Confirm from 'app/components/confirm';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
 import LoadingIndicator from 'app/components/loadingIndicator';
-import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
+import {IconDelete, IconEdit} from 'app/icons';
+import recreateRoute from 'app/utils/recreateRoute';
 import space from 'app/styles/space';
 
-import {IncidentRule} from './types';
+import {SavedIncidentRule} from './types';
 import {deleteRule} from './actions';
-import getMetricDisplayName from './utils/getMetricDisplayName';
 
 type State = {
-  rules: IncidentRule[];
+  rules: SavedIncidentRule[];
 } & AsyncView['state'];
 
 type RouteParams = {
   orgId: string;
+  projectId: string;
 };
 
 type Props = RouteComponentProps<RouteParams, {}>;
@@ -34,7 +36,7 @@ class IncidentRulesList extends AsyncView<Props, State> {
     return [['rules', `/organizations/${orgId}/alert-rules/`] as [string, string]];
   }
 
-  handleRemoveRule = async (rule: IncidentRule) => {
+  handleRemoveRule = async (rule: SavedIncidentRule) => {
     const {orgId} = this.props.params;
 
     // Optimistic update
@@ -60,46 +62,31 @@ class IncidentRulesList extends AsyncView<Props, State> {
   }
 
   renderBody() {
-    const {orgId} = this.props.params;
-    const action = (
-      <Button
-        priority="primary"
-        size="small"
-        to={`/settings/${orgId}/incident-rules/new/`}
-        icon="icon-circle-add"
-      >
-        {t('Create New Rule')}
-      </Button>
-    );
-
     const isLoading = this.state.loading;
-
     const isEmpty = !isLoading && !this.state.rules.length;
 
     return (
-      <div>
-        <SettingsPageHeader title={t('Incident Rules')} action={action} />
-        <Panel>
-          <GridPanelHeader>
-            <NameColumn>{t('Name')}</NameColumn>
+      <Panel>
+        <GridPanelHeader>
+          <NameColumn>{t('Name')}</NameColumn>
 
-            <div>{t('Metric')}</div>
+          <div>{t('Metric')}</div>
 
-            <div>{t('Threshold')}</div>
-          </GridPanelHeader>
+          <div>{t('Threshold')}</div>
+        </GridPanelHeader>
 
-          <PanelBody>
-            {isLoading && <LoadingIndicator />}
+        <PanelBody>
+          {isLoading && <LoadingIndicator />}
 
-            {!isLoading &&
-              !isEmpty &&
-              this.state.rules.map(rule => (
+          {!isLoading &&
+            !isEmpty &&
+            this.state.rules.map(rule => {
+              const ruleLink = recreateRoute(`${rule.id}/`, this.props);
+              return (
                 <RuleRow key={rule.id}>
-                  <RuleLink to={`/settings/${orgId}/incident-rules/${rule.id}/`}>
-                    {rule.name}
-                  </RuleLink>
+                  <RuleLink to={ruleLink}>{rule.name}</RuleLink>
 
-                  <MetricName>{getMetricDisplayName(rule.aggregations[0])}</MetricName>
+                  <MetricName>{rule.aggregate}</MetricName>
 
                   <ThresholdColumn>
                     <Thresholds>
@@ -107,12 +94,9 @@ class IncidentRulesList extends AsyncView<Props, State> {
                     </Thresholds>
 
                     <Actions>
-                      <Button
-                        to={`/settings/${orgId}/incident-rules/${rule.id}/`}
-                        size="small"
-                        icon="icon-edit"
-                        aria-label={t('Edit Rule')}
-                      >
+                      <Button to={ruleLink} size="small" aria-label={t('Edit Rule')}>
+                        <IconEdit size="xs" />
+                        &nbsp;
                         {t('Edit')}
                       </Button>
 
@@ -124,21 +108,21 @@ class IncidentRulesList extends AsyncView<Props, State> {
                         <Button
                           type="button"
                           size="small"
-                          icon="icon-trash"
+                          icon={<IconDelete />}
                           label={t('Remove Rule')}
                         />
                       </Confirm>
                     </Actions>
                   </ThresholdColumn>
                 </RuleRow>
-              ))}
+              );
+            })}
 
-            {!isLoading && isEmpty && (
-              <EmptyMessage>{t('No Incident rules have been created yet.')}</EmptyMessage>
-            )}
-          </PanelBody>
-        </Panel>
-      </div>
+          {!isLoading && isEmpty && (
+            <EmptyMessage>{t('No Alert Rules have been created yet.')}</EmptyMessage>
+          )}
+        </PanelBody>
+      </Panel>
     );
   }
 }

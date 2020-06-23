@@ -12,7 +12,7 @@ exports[`Issues Similar View renders initially with loading component 1`] = `
      
     This is an experimental feature. Data may not be immediately available while we process merges.
   </div>
-  <LoadingIndicator />
+  <profiler(LoadingIndicator) />
 </div>
 `;
 
@@ -306,9 +306,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
         className="similar-list-container"
       >
         <SpreadLayout
-          center={true}
           className="similar-list-header"
-          responsive={false}
         >
           <div
             className="spread-layout similar-list-header center"
@@ -319,8 +317,6 @@ exports[`Issues Similar View renders with mocked data 1`] = `
               </span>
               <QueryCount
                 count={4}
-                hideIfEmpty={true}
-                inline={true}
               >
                 <div
                   className="query-count inline"
@@ -341,10 +337,10 @@ exports[`Issues Similar View renders with mocked data 1`] = `
             </h2>
             <StyledSimilarSpectrum>
               <SimilarSpectrum
-                className="css-j2x47e-StyledSimilarSpectrum e1hn3xkk0"
+                className="css-4unnmj-StyledSimilarSpectrum enx6bph0"
               >
                 <div
-                  className="css-j2x47e-StyledSimilarSpectrum e1hn3xkk0"
+                  className="css-4unnmj-StyledSimilarSpectrum enx6bph0"
                 >
                   <span>
                     Similar
@@ -353,35 +349,35 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                     colorIndex={4}
                   >
                     <span
-                      className="css-1m9e7bp-SpectrumItem e1hn3xkk1"
+                      className="css-h1r3gt-SpectrumItem enx6bph1"
                     />
                   </SpectrumItem>
                   <SpectrumItem
                     colorIndex={3}
                   >
                     <span
-                      className="css-1tn9u0a-SpectrumItem e1hn3xkk1"
+                      className="css-1j6o86h-SpectrumItem enx6bph1"
                     />
                   </SpectrumItem>
                   <SpectrumItem
                     colorIndex={2}
                   >
                     <span
-                      className="css-zgizhk-SpectrumItem e1hn3xkk1"
+                      className="css-1pl5ll-SpectrumItem enx6bph1"
                     />
                   </SpectrumItem>
                   <SpectrumItem
                     colorIndex={1}
                   >
                     <span
-                      className="css-1p9s53a-SpectrumItem e1hn3xkk1"
+                      className="css-w9x78l-SpectrumItem enx6bph1"
                     />
                   </SpectrumItem>
                   <SpectrumItem
                     colorIndex={0}
                   >
                     <span
-                      className="css-pvajr0-SpectrumItem e1hn3xkk1"
+                      className="css-arcd4a-SpectrumItem enx6bph1"
                     />
                   </SpectrumItem>
                   <span>
@@ -399,10 +395,9 @@ exports[`Issues Similar View renders with mocked data 1`] = `
             className="similar-toolbar"
           >
             <div
-              className="similar-toolbar css-o93ry2-Toolbar ehkx0bi0"
+              className="similar-toolbar css-1drcb0e-Toolbar e1pdx9kr0"
             >
               <SpreadLayout
-                center={true}
                 responsive={true}
               >
                 <div
@@ -417,7 +412,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                     truncate={true}
                   >
                     <div
-                      className="css-gmt0em-FlowLayout envzszi0"
+                      className="css-dk1sds-FlowLayout e1uibv5p0"
                       style={
                         Object {
                           "flex": 1,
@@ -428,7 +423,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                         truncate={true}
                       >
                         <div
-                          className="css-gmt0em-FlowLayout envzszi0"
+                          className="css-dk1sds-FlowLayout e1uibv5p0"
                         >
                           <div
                             className="similar-toolbar-actions"
@@ -455,6 +450,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                 <a
                                   className="btn btn-sm btn-default disabled"
                                   disabled={true}
+                                  href="#"
                                   onClick={[Function]}
                                   title="Merging 0 issues"
                                 >
@@ -529,7 +525,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                       className="similar-score-column event-count-header"
                     >
                       <div
-                        className="similar-score-column event-count-header css-j72n3c-ToolbarHeader eiwl27k0"
+                        className="similar-score-column event-count-header css-1rwwmm2-ToolbarHeader e8n6jt30"
                       >
                         Events
                       </div>
@@ -538,7 +534,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                       className="similar-score-column event-similar-header"
                     >
                       <div
-                        className="similar-score-column event-similar-header css-j72n3c-ToolbarHeader eiwl27k0"
+                        className="similar-score-column event-similar-header css-1rwwmm2-ToolbarHeader e8n6jt30"
                       >
                         Exception
                       </div>
@@ -547,7 +543,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                       className="similar-score-column event-similar-header"
                     >
                       <div
-                        className="similar-score-column event-similar-header css-j72n3c-ToolbarHeader eiwl27k0"
+                        className="similar-score-column event-similar-header css-1rwwmm2-ToolbarHeader e8n6jt30"
                       >
                         Message
                       </div>
@@ -624,7 +620,6 @@ exports[`Issues Similar View renders with mocked data 1`] = `
             }
           >
             <SpreadLayout
-              center={true}
               className="group similar-issue isResolved"
               data-test-id="similar-item-row"
               onClick={[Function]}
@@ -639,13 +634,13 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                   truncate={true}
                 >
                   <div
-                    className="css-gmt0em-FlowLayout envzszi0"
+                    className="css-dk1sds-FlowLayout e1uibv5p0"
                   >
                     <FlowLayout
                       truncate={true}
                     >
                       <div
-                        className="css-gmt0em-FlowLayout envzszi0"
+                        className="css-dk1sds-FlowLayout e1uibv5p0"
                       >
                         <div
                           className="action-column"
@@ -840,13 +835,13 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                               size="normal"
                             >
                               <div
-                                className="event-issue-header"
+                                data-test-id="event-issue-header"
                               >
                                 <Title
                                   size="normal"
                                 >
                                   <div
-                                    className="css-10b3zgy-Title-truncateStyles eex8od0"
+                                    className="css-xfcjv1-Title-truncateStyles eex8od0"
                                     size="normal"
                                   >
                                     <GlobalSelectionLink
@@ -897,7 +892,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                             level="error"
                                           >
                                             <div
-                                              className="css-1oawdkn-GroupLevel eex8od5"
+                                              className="css-10kyqk5-GroupLevel eex8od5"
                                             >
                                               <Tooltip
                                                 containerDisplayMode="inline-block"
@@ -1062,15 +1057,27 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                                 }
                                               }
                                             >
-                                              <span
-                                                style={
-                                                  Object {
-                                                    "marginRight": 10,
-                                                  }
-                                                }
+                                              <GuideAnchor
+                                                disabled={true}
+                                                position="bottom"
+                                                target="issue_title"
                                               >
-                                                TypeError
-                                              </span>
+                                                <span>
+                                                  TypeError
+                                                </span>
+                                              </GuideAnchor>
+                                              <Spacer>
+                                                <span
+                                                  style={
+                                                    Object {
+                                                      "display": "inline-block",
+                                                      "width": 10,
+                                                    }
+                                                  }
+                                                >
+                                                   
+                                                </span>
+                                              </Spacer>
                                               <em
                                                 title="length(app/views/groupSimilar/groupSimilarView)"
                                               >
@@ -1088,7 +1095,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                   size="normal"
                                 >
                                   <div
-                                    className="css-brsp21-Message-truncateStyles eex8od2"
+                                    className="css-1ls6xj9-Message-truncateStyles eex8od2"
                                     size="normal"
                                   >
                                     Cannot read property 'length' of undefined
@@ -1265,15 +1272,13 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                             >
                               <GroupExtra>
                                 <div
-                                  className="css-5nsonj-GroupExtra eec9orn0"
+                                  className="css-q0ziu0-GroupExtra eec9orn0"
                                 >
                                   <GroupShortId
                                     avatar={
                                       <ProjectBadge
                                         avatarSize={14}
-                                        hideAvatar={false}
                                         hideName={true}
-                                        hideOverflow={true}
                                         project={
                                           Object {
                                             "id": "123",
@@ -1289,9 +1294,7 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                       avatar={
                                         <ProjectBadge
                                           avatarSize={14}
-                                          hideAvatar={false}
                                           hideName={true}
-                                          hideOverflow={true}
                                           project={
                                             Object {
                                               "id": "123",
@@ -1301,16 +1304,14 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                           }
                                         />
                                       }
-                                      className="css-1r3d0zi-GroupShortId eec9orn3"
+                                      className="css-1fj2cf7-GroupShortId eec9orn3"
                                       shortId="INTERNAL-4G"
                                     >
                                       <StyledShortId
                                         avatar={
                                           <ProjectBadge
                                             avatarSize={14}
-                                            hideAvatar={false}
                                             hideName={true}
-                                            hideOverflow={true}
                                             project={
                                               Object {
                                                 "id": "123",
@@ -1320,19 +1321,17 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                             }
                                           />
                                         }
-                                        className="css-1r3d0zi-GroupShortId eec9orn3"
+                                        className="css-1fj2cf7-GroupShortId eec9orn3"
                                         onClick={[Function]}
                                         shortId="INTERNAL-4G"
                                       >
                                         <div
-                                          className="eec9orn3 css-h7na88-StyledShortId-GroupShortId ebuncw00"
+                                          className="eec9orn3 css-dcccbj-StyledShortId-GroupShortId e10rcxf30"
                                           onClick={[Function]}
                                         >
                                           <ProjectBadge
                                             avatarSize={14}
-                                            hideAvatar={false}
                                             hideName={true}
-                                            hideOverflow={true}
                                             project={
                                               Object {
                                                 "id": "123",
@@ -1345,11 +1344,11 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                               avatarProps={Object {}}
                                               avatarSize={14}
                                               displayName={
-                                                <BadgeDisplayName
+                                                <ForwardRef(render)
                                                   hideOverflow={true}
                                                 >
                                                   project-slug
-                                                </BadgeDisplayName>
+                                                </ForwardRef(render)>
                                               }
                                               hideAvatar={false}
                                               hideName={true}
@@ -1363,11 +1362,30 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                             >
                                               <BaseBadgeWrapper>
                                                 <div
-                                                  className="css-td6t8v-BaseBadgeWrapper e165dl3i0"
+                                                  className="css-7m3eov-BaseBadgeWrapper e165dl3i0"
                                                 >
-                                                  <StyledAvatar
-                                                    className="css-0"
-                                                    hasTooltip={false}
+                                                  <EmotionCssPropInternal
+                                                    __EMOTION_TYPE_PLEASE_DO_NOT_USE__={
+                                                      Object {
+                                                        "$$typeof": Symbol(react.forward_ref),
+                                                        "__emotion_base": Object {
+                                                          "$$typeof": Symbol(react.forward_ref),
+                                                          "render": [Function],
+                                                        },
+                                                        "__emotion_forwardProp": undefined,
+                                                        "__emotion_real": [Circular],
+                                                        "__emotion_styles": Array [
+                                                          "label:StyledAvatar;",
+                                                          "margin-right:",
+                                                          [Function],
+                                                          ";flex-shrink:0;",
+                                                        ],
+                                                        "defaultProps": undefined,
+                                                        "displayName": "StyledAvatar",
+                                                        "render": [Function],
+                                                        "withComponent": [Function],
+                                                      }
+                                                    }
                                                     hideName={true}
                                                     project={
                                                       Object {
@@ -1378,9 +1396,8 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                                     }
                                                     size={14}
                                                   >
-                                                    <Avatar
-                                                      className="css-f5iyic-StyledAvatar e165dl3i1"
-                                                      hasTooltip={false}
+                                                    <StyledAvatar
+                                                      className="css-0"
                                                       hideName={true}
                                                       project={
                                                         Object {
@@ -1391,9 +1408,8 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                                       }
                                                       size={14}
                                                     >
-                                                      <ProjectAvatar
-                                                        className="css-f5iyic-StyledAvatar e165dl3i1"
-                                                        hasTooltip={false}
+                                                      <ForwardRef
+                                                        className="css-7c3lwm-StyledAvatar e165dl3i1"
                                                         hideName={true}
                                                         project={
                                                           Object {
@@ -1404,68 +1420,104 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                                         }
                                                         size={14}
                                                       >
-                                                        <PlatformList
-                                                          className="css-f5iyic-StyledAvatar e165dl3i1"
-                                                          consistentWidth={false}
-                                                          direction="right"
+                                                        <Avatar
+                                                          className="css-7c3lwm-StyledAvatar e165dl3i1"
+                                                          forwardedRef={null}
                                                           hasTooltip={false}
                                                           hideName={true}
-                                                          max={1}
-                                                          platforms={Array []}
+                                                          project={
+                                                            Object {
+                                                              "id": "123",
+                                                              "name": "Internal",
+                                                              "slug": "project-slug",
+                                                            }
+                                                          }
                                                           size={14}
                                                         >
-                                                          <PlatformIcons
-                                                            className="css-f5iyic-StyledAvatar e165dl3i1"
-                                                            consistentWidth={false}
-                                                            direction="right"
-                                                            max={1}
+                                                          <ProjectAvatar
+                                                            className="css-7c3lwm-StyledAvatar e165dl3i1"
+                                                            forwardedRef={null}
+                                                            hasTooltip={false}
+                                                            hideName={true}
+                                                            project={
+                                                              Object {
+                                                                "id": "123",
+                                                                "name": "Internal",
+                                                                "slug": "project-slug",
+                                                              }
+                                                            }
                                                             size={14}
                                                           >
-                                                            <div
-                                                              className="e165dl3i1 css-7hp7lr-PlatformIcons-StyledAvatar ezvce7z0"
-                                                              direction="right"
-                                                              max={1}
-                                                              size={14}
+                                                            <Tooltip
+                                                              containerDisplayMode="inline-block"
+                                                              disabled={true}
+                                                              position="top"
                                                             >
-                                                              <StyledPlatformIcon
-                                                                platform="default"
+                                                              <PlatformList
+                                                                className="css-7c3lwm-StyledAvatar e165dl3i1"
+                                                                consistentWidth={false}
+                                                                direction="right"
+                                                                forwardedRef={null}
+                                                                hideName={true}
+                                                                max={1}
+                                                                platforms={Array []}
                                                                 size={14}
                                                               >
-                                                                <Component
-                                                                  className="css-15yyc0n-StyledPlatformIcon ezvce7z1"
-                                                                  platform="default"
+                                                                <PlatformIcons
+                                                                  className="css-7c3lwm-StyledAvatar e165dl3i1"
+                                                                  consistentWidth={false}
+                                                                  direction="right"
+                                                                  max={1}
                                                                   size={14}
                                                                 >
-                                                                  <Platformicon
-                                                                    className="css-15yyc0n-StyledPlatformIcon ezvce7z1"
-                                                                    platform="default"
-                                                                    size="14px"
+                                                                  <div
+                                                                    className="e165dl3i1 css-dyodzz-PlatformIcons-StyledAvatar ezvce7z0"
+                                                                    direction="right"
+                                                                    max={1}
+                                                                    size={14}
                                                                   >
-                                                                    <img
-                                                                      className="css-15yyc0n-StyledPlatformIcon ezvce7z1"
-                                                                      height="14px"
-                                                                      src={
-                                                                        Object {
-                                                                          "default": Object {
-                                                                            "id": "test",
-                                                                            "viewBox": Object {},
-                                                                          },
-                                                                        }
-                                                                      }
-                                                                      width="14px"
-                                                                    />
-                                                                  </Platformicon>
-                                                                </Component>
-                                                              </StyledPlatformIcon>
-                                                            </div>
-                                                          </PlatformIcons>
-                                                        </PlatformList>
-                                                      </ProjectAvatar>
-                                                    </Avatar>
-                                                  </StyledAvatar>
+                                                                    <StyledPlatformIcon
+                                                                      platform="default"
+                                                                      size={14}
+                                                                    >
+                                                                      <Component
+                                                                        className="css-7okses-StyledPlatformIcon ezvce7z1"
+                                                                        platform="default"
+                                                                        size={14}
+                                                                      >
+                                                                        <PlatformIcon
+                                                                          className="css-7okses-StyledPlatformIcon ezvce7z1"
+                                                                          platform="default"
+                                                                          size="14px"
+                                                                        >
+                                                                          <img
+                                                                            className="css-7okses-StyledPlatformIcon ezvce7z1"
+                                                                            height="14px"
+                                                                            src={
+                                                                              Object {
+                                                                                "default": Object {
+                                                                                  "id": "test",
+                                                                                  "viewBox": Object {},
+                                                                                },
+                                                                              }
+                                                                            }
+                                                                            width="14px"
+                                                                          />
+                                                                        </PlatformIcon>
+                                                                      </Component>
+                                                                    </StyledPlatformIcon>
+                                                                  </div>
+                                                                </PlatformIcons>
+                                                              </PlatformList>
+                                                            </Tooltip>
+                                                          </ProjectAvatar>
+                                                        </Avatar>
+                                                      </ForwardRef>
+                                                    </StyledAvatar>
+                                                  </EmotionCssPropInternal>
                                                   <DisplayNameAndDescription>
                                                     <div
-                                                      className="css-1yzfvrt-DisplayNameAndDescription e165dl3i2"
+                                                      className="css-1d2tk0c-DisplayNameAndDescription e165dl3i2"
                                                     />
                                                   </DisplayNameAndDescription>
                                                 </div>
@@ -1476,10 +1528,10 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                             avatar={true}
                                           >
                                             <AutoSelectText
-                                              className="css-1m1w4wi-StyledAutoSelectText ebuncw01"
+                                              className="css-xnqjkz-StyledAutoSelectText e10rcxf31"
                                             >
                                               <div
-                                                className="auto-select-text css-1m1w4wi-StyledAutoSelectText ebuncw01"
+                                                className="auto-select-text css-xnqjkz-StyledAutoSelectText e10rcxf31"
                                                 onClick={[Function]}
                                               >
                                                 <span>
@@ -1497,38 +1549,40 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                                     lastSeen={null}
                                   >
                                     <Times
-                                      className="css-fmy35b-StyledTimes eec9orn1"
+                                      className="css-2hucfb-StyledTimes eec9orn1"
                                       firstSeen="2017-07-10T18:32:43Z"
                                       lastSeen={null}
                                     >
                                       <Container>
                                         <div
-                                          className="css-46qufz-Container e1f1on0q0"
+                                          className="css-1lz86t0-Container e1fmxtba0"
                                         >
-                                          <div
-                                            className="css-77t6iv"
-                                          >
-                                            <TimeSince
-                                              className="hidden-xs hidden-sm"
-                                              date="2017-07-10T18:32:43Z"
-                                              suffix="old"
+                                          <FlexWrapper>
+                                            <div
+                                              className="css-13zgepw-FlexWrapper e1fmxtba1"
                                             >
-                                              <time
+                                              <TimeSince
                                                 className="hidden-xs hidden-sm"
-                                                dateTime="2017-07-10T18:32:43.000Z"
-                                                title="July 10, 2017 6:32 PM UTC"
+                                                date="2017-07-10T18:32:43Z"
+                                                suffix="old"
                                               >
-                                                3 months old
-                                              </time>
-                                            </TimeSince>
-                                          </div>
+                                                <time
+                                                  className="hidden-xs hidden-sm"
+                                                  dateTime="2017-07-10T18:32:43.000Z"
+                                                  title="July 10, 2017 6:32 PM UTC"
+                                                >
+                                                  3 months old
+                                                </time>
+                                              </TimeSince>
+                                            </div>
+                                          </FlexWrapper>
                                         </div>
                                       </Container>
                                     </Times>
                                   </StyledTimes>
                                   <LoggerAnnotation>
                                     <span
-                                      className="css-1qmgstz-EventAnnotation-AnnotationNoMargin-LoggerAnnotation eec9orn6"
+                                      className="css-ixgywj-EventAnnotation-AnnotationNoMargin-LoggerAnnotation eec9orn5"
                                     >
                                       <Link
                                         onlyActiveOnIndex={false}
@@ -1615,100 +1669,88 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                               onMouseLeave={[Function]}
                             >
                               <StyledScoreBar
-                                palette={
-                                  Array [
-                                    "#ec5e44",
-                                    "#f38259",
-                                    "#f9a66d",
-                                    "#98b480",
-                                    "#57be8c",
-                                  ]
-                                }
                                 score={4}
-                                size={40}
-                                thickness={4}
                                 vertical={true}
                               >
                                 <ScoreBar
-                                  className="css-omtyju-StyledScoreBar eecxaw40"
-                                  palette={
-                                    Array [
-                                      "#ec5e44",
-                                      "#f38259",
-                                      "#f9a66d",
-                                      "#98b480",
-                                      "#57be8c",
-                                    ]
-                                  }
+                                  className="css-tics7q-StyledScoreBar e1h9dyli0"
                                   score={4}
-                                  size={40}
-                                  thickness={4}
                                   vertical={true}
                                 >
                                   <div
-                                    className="css-omtyju-StyledScoreBar eecxaw40"
+                                    className="css-tics7q-StyledScoreBar e1h9dyli0"
                                   >
                                     <Bar
                                       color="#98b480"
                                       key="0"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-1jrlewc-Bar eecxaw41"
+                                        className="css-1gui0xz-Bar e1h9dyli1"
                                         color="#98b480"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       color="#98b480"
                                       key="1"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-1jrlewc-Bar eecxaw41"
+                                        className="css-1gui0xz-Bar e1h9dyli1"
                                         color="#98b480"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       color="#98b480"
                                       key="2"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-1jrlewc-Bar eecxaw41"
+                                        className="css-1gui0xz-Bar e1h9dyli1"
                                         color="#98b480"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       color="#98b480"
                                       key="3"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-1jrlewc-Bar eecxaw41"
+                                        className="css-1gui0xz-Bar e1h9dyli1"
                                         color="#98b480"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       empty={true}
                                       key="empty-0"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-15vxee-Bar eecxaw41"
+                                        className="css-3fvo9r-Bar e1h9dyli1"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
@@ -1741,96 +1783,84 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                               onMouseLeave={[Function]}
                             >
                               <StyledScoreBar
-                                palette={
-                                  Array [
-                                    "#ec5e44",
-                                    "#f38259",
-                                    "#f9a66d",
-                                    "#98b480",
-                                    "#57be8c",
-                                  ]
-                                }
                                 score={0}
-                                size={40}
-                                thickness={4}
                                 vertical={true}
                               >
                                 <ScoreBar
-                                  className="css-omtyju-StyledScoreBar eecxaw40"
-                                  palette={
-                                    Array [
-                                      "#ec5e44",
-                                      "#f38259",
-                                      "#f9a66d",
-                                      "#98b480",
-                                      "#57be8c",
-                                    ]
-                                  }
+                                  className="css-tics7q-StyledScoreBar e1h9dyli0"
                                   score={0}
-                                  size={40}
-                                  thickness={4}
                                   vertical={true}
                                 >
                                   <div
-                                    className="css-omtyju-StyledScoreBar eecxaw40"
+                                    className="css-tics7q-StyledScoreBar e1h9dyli0"
                                   >
                                     <Bar
                                       empty={true}
                                       key="empty-0"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-15vxee-Bar eecxaw41"
+                                        className="css-3fvo9r-Bar e1h9dyli1"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       empty={true}
                                       key="empty-1"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-15vxee-Bar eecxaw41"
+                                        className="css-3fvo9r-Bar e1h9dyli1"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       empty={true}
                                       key="empty-2"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-15vxee-Bar eecxaw41"
+                                        className="css-3fvo9r-Bar e1h9dyli1"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       empty={true}
                                       key="empty-3"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-15vxee-Bar eecxaw41"
+                                        className="css-3fvo9r-Bar e1h9dyli1"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
                                     <Bar
                                       empty={true}
                                       key="empty-4"
+                                      radius={3}
                                       size={40}
                                       thickness={4}
                                       vertical={true}
                                     >
                                       <div
-                                        className="css-15vxee-Bar eecxaw41"
+                                        className="css-3fvo9r-Bar e1h9dyli1"
+                                        radius={3}
                                         size={40}
                                       />
                                     </Bar>
@@ -1860,10 +1890,14 @@ exports[`Issues Similar View renders with mocked data 1`] = `
             </button>
           </div>
         </div>
-        <Pagination
-          className="css-1yt0wm7-streamCss"
+        <Styled(Pagination)
           onCursor={[Function]}
-        />
+        >
+          <Pagination
+            className="css-yneqnx e1vkspke0"
+            onCursor={[Function]}
+          />
+        </Styled(Pagination)>
       </div>
     </SimilarList>
   </div>

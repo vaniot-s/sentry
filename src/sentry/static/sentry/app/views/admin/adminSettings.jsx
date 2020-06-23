@@ -1,10 +1,11 @@
 import React from 'react';
-import _ from 'lodash';
+import isUndefined from 'lodash/isUndefined';
 
 import AsyncView from 'app/views/asyncView';
 import {t} from 'app/locale';
-import {getOption, getOptionField} from 'app/options';
 import {ApiForm} from 'app/components/forms';
+
+import {getOption, getOptionField} from './options';
 
 const optionsAvailable = [
   'system.url-prefix',
@@ -36,7 +37,7 @@ export default class AdminSettings extends AsyncView {
     for (const key of optionsAvailable) {
       // TODO(dcramer): we should not be mutating options
       const option = data[key] || {field: {}};
-      if (_.isUndefined(option.value) || option.value === '') {
+      if (isUndefined(option.value) || option.value === '') {
         const defn = getOption(key);
         initialData[key] = defn.defaultValue ? defn.defaultValue() : '';
       } else {

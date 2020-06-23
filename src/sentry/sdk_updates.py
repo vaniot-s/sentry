@@ -7,6 +7,7 @@ from django.core.cache import cache
 
 from sentry.net.http import Session
 from sentry.utils.safe import get_path
+from sentry.utils.compat import zip
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +261,15 @@ SDK_SUPPORTED_MODULES = [
         "module_version_min": "2.12.0",
         "suggestion": EnableIntegrationSuggestion(
             "beam", "https://docs.sentry.io/platforms/python/beam/"
+        ),
+    },
+    {
+        "sdk_name": "sentry.python",
+        "sdk_version_added": "0.13.0",
+        "module_name": "pyspark",
+        "module_version_min": "2.0.0",
+        "suggestion": EnableIntegrationSuggestion(
+            "spark", "https://docs.sentry.io/platforms/python/pyspark/"
         ),
     },
     {

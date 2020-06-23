@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 import pytest
-import mock
+from sentry.utils.compat import mock
 from datetime import datetime, timedelta
 from django.utils import timezone
 
@@ -20,6 +20,8 @@ from sentry.search.utils import (
     parse_query,
     get_latest_release,
     get_numeric_field_value,
+    convert_user_tag_to_query,
+    tokenize_query,
     InvalidQuery,
 )
 
@@ -44,6 +46,10 @@ def test_get_numeric_field_value():
         "foo_upper": -3.5,
         "foo_upper_inclusive": True,
     }
+
+
+def test_tokenize_query_only_keyed_fields():
+    assert tokenize_query("foo:bar") == {"foo": ["bar"]}
 
 
 def test_get_numeric_field_value_invalid():
@@ -467,6 +473,17 @@ class ParseQueryTest(TestCase):
         result = self.parse_query('"release:foo"')
         assert result == {"tags": {}, "query": "release:foo"}
 
+    def test_quoted_tag_value(self):
+        result = self.parse_query('event.type:error title:"QueryExecutionError: Code: 141."')
+        assert result["query"] == ""
+        assert result["tags"]["title"] == "QueryExecutionError: Code: 141."
+        assert result["tags"]["event.type"] == "error"
+
+    def test_leading_colon(self):
+        result = self.parse_query("country:canada :unresolved")
+        assert result["query"] == ":unresolved"
+        assert result["tags"]["country"] == "canada"
+
 
 class GetLatestReleaseTest(TestCase):
     def test(self):
@@ -509,8 +526,32 @@ class GetLatestReleaseTest(TestCase):
         result = get_latest_release([self.project], [environment])
         assert result == new.version
 
+        assert get_latest_release([self.project.id], [environment]) == ""
+        assert (
+            get_latest_release([self.project.id], [environment], self.project.organization_id)
+            == new.version
+        )
+
+        # Verify that not passing an environment correctly gets the latest one
+        assert get_latest_release([self.project], None) == newest.version
+        assert get_latest_release([self.project], []) == newest.version
+
         with pytest.raises(Release.DoesNotExist):
             # environment with no releases
             environment = self.create_environment()
             result = get_latest_release([self.project], [environment])
             assert result == new.version
+
+
+class ConvertUserTagTest(TestCase):
+    def test_simple_user_tag(self):
+        assert convert_user_tag_to_query("user", "id:123456") == 'user.id:"123456"'
+
+    def test_user_tag_with_quote(self):
+        assert convert_user_tag_to_query("user", 'id:123"456') == 'user.id:"123\\"456"'
+
+    def test_user_tag_with_space(self):
+        assert convert_user_tag_to_query("user", "id:123 456") == 'user.id:"123 456"'
+
+    def test_non_user_tag(self):
+        assert convert_user_tag_to_query("user", 'fake:123"456') is None

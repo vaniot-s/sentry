@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+import logging
+
 from django.db import models, IntegrityError
 from django.utils import timezone
 
@@ -9,43 +11,28 @@ from sentry.db.models import (
     EncryptedJsonField,
     FlexibleForeignKey,
     Model,
+    DefaultFieldsModel,
 )
 from sentry.signals import integration_added
 
 
-class PagerDutyService(Model):
+logger = logging.getLogger(__name__)
+
+
+class PagerDutyService(DefaultFieldsModel):
     __core__ = False
 
     organization_integration = FlexibleForeignKey("sentry.OrganizationIntegration")
     integration_key = models.CharField(max_length=255)
-    service_id = models.CharField(max_length=255)
     service_name = models.CharField(max_length=255)
     date_added = models.DateTimeField(default=timezone.now)
 
     class Meta:
         app_label = "sentry"
         db_table = "sentry_pagerdutyservice"
-        unique_together = (("service_id", "organization_integration"),)
 
 
-class PagerDutyServiceProject(Model):
-    __core__ = False
-
-    project = FlexibleForeignKey("sentry.Project", db_index=False, db_constraint=False)
-    pagerduty_service = FlexibleForeignKey("sentry.PagerDutyService")
-    organization_integration = FlexibleForeignKey("sentry.OrganizationIntegration", null=True)
-    integration_key = models.CharField(max_length=255, null=True)
-    service_id = models.CharField(max_length=255, null=True)
-    service_name = models.CharField(max_length=255, null=True)
-    date_added = models.DateTimeField(default=timezone.now, null=True)
-
-    class Meta:
-        app_label = "sentry"
-        db_table = "sentry_pagerdutyserviceproject"
-        unique_together = (("project", "pagerduty_service"),)
-
-
-class IntegrationExternalProject(Model):
+class IntegrationExternalProject(DefaultFieldsModel):
     __core__ = False
 
     organization_integration_id = BoundedPositiveIntegerField(db_index=True)
@@ -61,7 +48,7 @@ class IntegrationExternalProject(Model):
         unique_together = (("organization_integration_id", "external_id"),)
 
 
-class OrganizationIntegration(Model):
+class OrganizationIntegration(DefaultFieldsModel):
     __core__ = False
 
     organization = FlexibleForeignKey("sentry.Organization")
@@ -69,7 +56,6 @@ class OrganizationIntegration(Model):
     config = EncryptedJsonField(default=dict)
 
     default_auth_id = BoundedPositiveIntegerField(db_index=True, null=True)
-    date_added = models.DateTimeField(default=timezone.now, null=True)
     status = BoundedPositiveIntegerField(
         default=ObjectStatus.VISIBLE, choices=ObjectStatus.as_choices()
     )
@@ -95,7 +81,7 @@ class ProjectIntegration(Model):
         unique_together = (("project", "integration"),)
 
 
-class Integration(Model):
+class Integration(DefaultFieldsModel):
     __core__ = False
 
     organizations = models.ManyToManyField(
@@ -114,7 +100,6 @@ class Integration(Model):
     status = BoundedPositiveIntegerField(
         default=ObjectStatus.VISIBLE, choices=ObjectStatus.as_choices(), null=True
     )
-    date_added = models.DateTimeField(default=timezone.now, null=True)
 
     class Meta:
         app_label = "sentry"
@@ -147,6 +132,14 @@ class Integration(Model):
             if not created and default_auth_id:
                 org_integration.update(default_auth_id=default_auth_id)
         except IntegrityError:
+            logger.info(
+                "add-organization-integrity-error",
+                extra={
+                    "organization_id": organization.id,
+                    "integration_id": self.id,
+                    "default_auth_id": default_auth_id,
+                },
+            )
             return False
         else:
             integration_added.send_robust(
@@ -154,3 +147,16 @@ class Integration(Model):
             )
 
             return org_integration
+
+    def reauthorize(self, data):
+        """
+        The structure of `data` depends on the `build_integration`
+        method on the integration provider.
+
+        Each provider may have their own way of reauthorizing the
+        integration.
+        """
+        if self.provider == "slack":
+            metadata = data.get("metadata", {})
+            metadata["old_access_token"] = self.metadata["access_token"]
+            self.update(metadata=metadata)

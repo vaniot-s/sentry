@@ -1,11 +1,10 @@
-import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React from 'react';
+import isString from 'lodash/isString';
+import isNumber from 'lodash/isNumber';
+import isArray from 'lodash/isArray';
 
-import classNames from 'classnames';
-
-import _ from 'lodash';
-
+import AnnotatedText from 'app/components/events/meta/annotatedText';
 import {isUrl} from 'app/utils';
 
 function looksLikeObjectRepr(value) {
@@ -73,39 +72,65 @@ function analyzeStringForRepr(value) {
   return rv;
 }
 
+class ToggleWrap extends React.Component {
+  static propTypes = {
+    highUp: PropTypes.bool,
+    wrapClassName: PropTypes.string,
+  };
+
+  state = {toggled: false};
+
+  render() {
+    if (React.Children.count(this.props.children) === 0) {
+      return null;
+    }
+
+    const {wrapClassName, children} = this.props;
+    const wrappedChildren = <span className={wrapClassName}>{children}</span>;
+
+    if (this.props.highUp) {
+      return wrappedChildren;
+    }
+
+    const classes = ['val-toggle'];
+    if (this.state.toggled) {
+      classes.push('val-toggle-open');
+    }
+
+    return (
+      <span className={classes.join(' ')}>
+        <a
+          href="#"
+          className="val-toggle-link"
+          onClick={evt => {
+            this.setState(state => ({toggled: !state.toggled}));
+            evt.preventDefault();
+          }}
+        />
+        {wrappedChildren}
+      </span>
+    );
+  }
+}
+
 class ContextData extends React.Component {
   static propTypes = {
     data: PropTypes.any,
     preserveQuotes: PropTypes.bool,
+    withAnnotatedText: PropTypes.bool,
+    meta: PropTypes.any,
   };
 
   static defaultProps = {
     data: null,
+    withAnnotatedText: false,
   };
 
   renderValue = value => {
-    function toggle(evt) {
-      $(evt.target)
-        .parent()
-        .toggleClass('val-toggle-open');
-      evt.preventDefault();
-    }
+    const {preserveQuotes, meta, withAnnotatedText} = this.props;
 
-    const {preserveQuotes} = this.props;
-
-    function makeToggle(highUp, childCount, children) {
-      if (childCount === 0) {
-        return null;
-      }
-      if (highUp) {
-        return children;
-      }
-      return (
-        <span className="val-toggle">
-          <a href="#" className="val-toggle-link" onClick={toggle} />
-          {children}
-        </span>
-      );
+    function getValueWithAnnotatedText(v, meta) {
+      return <AnnotatedText value={v} meta={meta} />;
     }
 
     /*eslint no-shadow:0*/
@@ -116,19 +141,23 @@ class ContextData extends React.Component {
         return <span className="val-null">{'None'}</span>;
       } else if (value === true || value === false) {
         return <span className="val-bool">{value ? 'True' : 'False'}</span>;
-      } else if (_.isString(value)) {
+      } else if (isString(value)) {
         const valueInfo = analyzeStringForRepr(value);
+
+        const valueToBeReturned = withAnnotatedText
+          ? getValueWithAnnotatedText(valueInfo.repr, meta)
+          : valueInfo.repr;
 
         const out = [
           <span
             key="value"
             className={
-              (valueInfo.isString ? 'val-string' : 'val-repr') +
+              (valueInfo.isString ? 'val-string' : '') +
               (valueInfo.isStripped ? ' val-stripped' : '') +
               (valueInfo.isMultiLine ? ' val-string-multiline' : '')
             }
           >
-            {preserveQuotes ? `"${valueInfo.repr}"` : valueInfo.repr}
+            {preserveQuotes ? `"${valueToBeReturned}"` : valueToBeReturned}
           </span>,
         ];
 
@@ -141,9 +170,11 @@ class ContextData extends React.Component {
         }
 
         return out;
-      } else if (_.isNumber(value)) {
-        return <span className="val-number">{value}</span>;
-      } else if (_.isArray(value)) {
+      } else if (isNumber(value)) {
+        const valueToBeReturned =
+          withAnnotatedText && meta ? getValueWithAnnotatedText(value, meta) : value;
+        return <span>{valueToBeReturned}</span>;
+      } else if (isArray(value)) {
         for (i = 0; i < value.length; i++) {
           children.push(
             <span className="val-array-item" key={i}>
@@ -157,11 +188,9 @@ class ContextData extends React.Component {
         return (
           <span className="val-array">
             <span className="val-array-marker">{'['}</span>
-            {makeToggle(
-              depth <= 2,
-              children.length,
-              <span className="val-array-items">{children}</span>
-            )}
+            <ToggleWrap highUp={depth <= 2} wrapClassName="val-array-items">
+              {children}
+            </ToggleWrap>
             <span className="val-array-marker">{']'}</span>
           </span>
         );
@@ -190,11 +219,9 @@ class ContextData extends React.Component {
         return (
           <span className="val-dict">
             <span className="val-dict-marker">{'{'}</span>
-            {makeToggle(
-              depth <= 1,
-              children.length,
-              <span className="val-dict-items">{children}</span>
-            )}
+            <ToggleWrap highUp={depth <= 1} wrapClassName="val-dict-items">
+              {children}
+            </ToggleWrap>
             <span className="val-dict-marker">{'}'}</span>
           </span>
         );
@@ -203,19 +230,20 @@ class ContextData extends React.Component {
     return walk(value, 0);
   };
 
-  renderKeyPosValue = value => {
-    if (_.isString(value)) {
-      return <span className="val-string">{value}</span>;
-    }
-    return this.renderValue(value);
-  };
-
   render() {
-    const {data, className, preserveQuotes: _preserveQuotes, ...other} = this.props;
+    const {
+      data,
+      preserveQuotes: _preserveQuotes,
+      withAnnotatedText: _withAnnotatedText,
+      meta: _meta,
+      children,
+      ...other
+    } = this.props;
 
     return (
-      <pre className={classNames('val', className || '')} {...other}>
+      <pre className="val-string" {...other}>
         {this.renderValue(data)}
+        {children}
       </pre>
     );
   }

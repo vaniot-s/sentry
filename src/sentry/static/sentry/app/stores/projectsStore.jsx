@@ -1,5 +1,5 @@
 import Reflux from 'reflux';
-import _ from 'lodash';
+import each from 'lodash/each';
 
 import ProjectActions from 'app/actions/projectActions';
 import TeamActions from 'app/actions/teamActions';
@@ -14,6 +14,7 @@ const ProjectsStore = Reflux.createStore({
     this.listenTo(ProjectActions.loadProjects, this.loadInitialData);
     this.listenTo(ProjectActions.loadStatsSuccess, this.onStatsLoadSuccess);
     this.listenTo(ProjectActions.removeTeamSuccess, this.onRemoveTeam);
+    this.listenTo(ProjectActions.reset, this.reset);
     this.listenTo(ProjectActions.updateSuccess, this.onUpdateSuccess);
 
     this.listenTo(TeamActions.removeTeamSuccess, this.onDeleteTeam);
@@ -21,6 +22,7 @@ const ProjectsStore = Reflux.createStore({
 
   reset() {
     this.itemsById = {};
+    this.loading = true;
   },
 
   loadInitialData(items) {
@@ -28,6 +30,7 @@ const ProjectsStore = Reflux.createStore({
       map[project.id] = project;
       return map;
     }, {});
+    this.loading = false;
     this.trigger(new Set(Object.keys(this.itemsById)));
   },
 
@@ -74,7 +77,7 @@ const ProjectsStore = Reflux.createStore({
 
   onStatsLoadSuccess(data) {
     const touchedIds = [];
-    _.each(data || [], (stats, projectId) => {
+    each(data || [], (stats, projectId) => {
       if (projectId in this.itemsById) {
         this.itemsById[projectId].stats = stats;
         touchedIds.push(projectId);
@@ -166,6 +169,17 @@ const ProjectsStore = Reflux.createStore({
 
   getBySlug(slug) {
     return this.getAll().find(project => project.slug === slug);
+  },
+
+  getBySlugs(slugs) {
+    return this.getAll().filter(project => slugs.includes(project.slug));
+  },
+
+  getState(slugs) {
+    return {
+      projects: slugs ? this.getBySlugs(slugs) : this.getAll(),
+      loading: this.loading,
+    };
   },
 });
 

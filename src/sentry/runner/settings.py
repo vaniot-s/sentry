@@ -94,6 +94,11 @@ def configure(ctx, py, yaml, skip_service_validation=False):
 
     warnings.filterwarnings("default", "", Warning, r"^sentry")
 
+    # for now, squelch Django 2 warnings so prod logs aren't clogged
+    from django.utils.deprecation import RemovedInDjango20Warning
+
+    warnings.filterwarnings(action="ignore", category=RemovedInDjango20Warning)
+
     # Add in additional mimetypes that are useful for our static files
     # which aren't common in default system registries
     import mimetypes
@@ -146,13 +151,12 @@ def configure(ctx, py, yaml, skip_service_validation=False):
 
     hasattr(settings, "INSTALLED_APPS")
 
-    from .initializer import initialize_app, on_configure
+    from .initializer import initialize_app
 
     initialize_app(
         {"config_path": py, "settings": settings, "options": yaml},
         skip_service_validation=skip_service_validation,
     )
-    on_configure({"settings": settings})
 
     __installed = True
 

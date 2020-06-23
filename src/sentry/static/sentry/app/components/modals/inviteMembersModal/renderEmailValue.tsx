@@ -1,6 +1,7 @@
 import React from 'react';
-import styled, {css} from 'react-emotion';
-import {Value} from 'react-select';
+import styled from '@emotion/styled';
+import {css} from '@emotion/core';
+import {Value} from 'react-select-legacy';
 
 import InlineSvg from 'app/components/inlineSvg';
 import space from 'app/styles/space';
@@ -49,7 +50,7 @@ const EmailValue = styled('div')<{status: InviteStatus[string]}>`
   }
 
   .Select-value ${InlineSvg} {
-    color: ${p => (p.status && p.status.sent ? p.theme.green : 'inherit')};
+    color: ${p => (p.status && p.status.sent ? p.theme.green400 : 'inherit')};
   }
 `;
 

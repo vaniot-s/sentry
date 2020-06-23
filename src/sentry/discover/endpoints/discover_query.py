@@ -10,9 +10,11 @@ from sentry.api.bases import OrganizationEndpoint
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.paginator import GenericOffsetPaginator
 from sentry.utils import snuba
+from sentry.discover.utils import transform_aliases_and_query
 from sentry import features
 
 from .serializers import DiscoverQuerySerializer
+from sentry.utils.compat import map
 
 
 class DiscoverQueryPermission(OrganizationPermission):
@@ -83,7 +85,7 @@ class DiscoverQueryEndpoint(OrganizationEndpoint):
 
         if not kwargs["aggregations"]:
 
-            data_fn = partial(snuba.transform_aliases_and_query, referrer="discover", **kwargs)
+            data_fn = partial(transform_aliases_and_query, referrer="discover", **kwargs)
             return self.paginate(
                 request=request,
                 on_results=lambda results: self.handle_results(results, requested_query, projects),
@@ -91,7 +93,7 @@ class DiscoverQueryEndpoint(OrganizationEndpoint):
                 max_per_page=1000,
             )
         else:
-            snuba_results = snuba.transform_aliases_and_query(referrer="discover", **kwargs)
+            snuba_results = transform_aliases_and_query(referrer="discover", **kwargs)
             return Response(
                 self.handle_results(snuba_results, requested_query, projects), status=200
             )
@@ -101,8 +103,8 @@ class DiscoverQueryEndpoint(OrganizationEndpoint):
             return Response(status=404)
 
         try:
-            requested_projects = set(map(int, request.data["projects"]))
-        except ValueError:
+            requested_projects = set(map(int, request.data.get("projects", [])))
+        except (ValueError, TypeError):
             raise ResourceDoesNotExist()
         projects = self._get_projects_by_id(requested_projects, request, organization)
 

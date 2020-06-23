@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from sentry.utils.compat import zip
 
 __all__ = (
     "TestCase",
@@ -20,15 +21,13 @@ __all__ = (
 )
 
 import base64
-import calendar
-import contextlib
 import os
 import os.path
 import pytest
 import requests
 import six
-import types
-import mock
+import inspect
+from sentry.utils.compat import mock
 
 from click.testing import CliRunner
 from datetime import datetime
@@ -40,11 +39,12 @@ from django.core.cache import cache
 from django.core.urlresolvers import reverse
 from django.db import connections, DEFAULT_DB_ALIAS
 from django.http import HttpRequest
-from django.test import TestCase, TransactionTestCase
+from django.test import override_settings, TestCase, TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from exam import before, fixture, Exam
-from mock import patch
+from concurrent.futures import ThreadPoolExecutor
+from sentry.utils.compat.mock import patch
 from pkg_resources import iter_entry_points
 from rest_framework.test import APITestCase as BaseAPITestCase
 from six.moves.urllib.parse import urlencode
@@ -63,13 +63,10 @@ from sentry.auth.superuser import (
 from sentry.constants import MODULE_ROOT
 from sentry.eventstream.snuba import SnubaEventStream
 from sentry.models import (
-    GroupEnvironment,
-    GroupHash,
     GroupMeta,
     ProjectOption,
     Repository,
     DeletedOrganization,
-    Environment,
     Organization,
     TotpInterface,
     Dashboard,
@@ -99,8 +96,6 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, li
 
 
 class BaseTestCase(Fixtures, Exam):
-    urls = "sentry.web.urls"
-
     def assertRequiresAuthentication(self, path, method="GET"):
         resp = getattr(self.client, method.lower())(path)
         assert resp.status_code == 302
@@ -233,7 +228,7 @@ class BaseTestCase(Fixtures, Exam):
     def _makePostMessage(self, data):
         return base64.b64encode(self._makeMessage(data))
 
-    def _postWithHeader(self, data, key=None, secret=None, protocol=None):
+    def _postWithHeader(self, data, key=None, secret=None, protocol=None, **extra):
         if key is None:
             key = self.projectkey.public_key
             secret = self.projectkey.secret_key
@@ -245,6 +240,7 @@ class BaseTestCase(Fixtures, Exam):
                 message,
                 content_type="application/octet-stream",
                 HTTP_X_SENTRY_AUTH=get_auth_header("_postWithHeader/0.0.0", key, secret, protocol),
+                **extra
             )
         return resp
 
@@ -296,7 +292,7 @@ class BaseTestCase(Fixtures, Exam):
     def _postEventAttachmentWithHeader(self, attachment, **extra):
         path = reverse(
             "sentry-api-event-attachment",
-            kwargs={"project_id": self.project.id, "event_id": self.event.id},
+            kwargs={"project_id": self.project.id, "event_id": self.event.event_id},
         )
 
         key = self.projectkey.public_key
@@ -436,6 +432,7 @@ class _AssertQueriesContext(CaptureQueriesContext):
             )
 
 
+@override_settings(ROOT_URLCONF="sentry.web.urls")
 class TestCase(BaseTestCase, TestCase):
     pass
 
@@ -502,7 +499,7 @@ class TwoFactorAPITestCase(APITestCase):
         response = self.api_enable_org_2fa(organization, user)
         assert response.status_code == status_code
         if err_msg:
-            assert err_msg in response.content
+            assert err_msg.encode("utf-8") in response.content
         organization = Organization.objects.get(id=organization.id)
 
         if status_code >= 200 and status_code < 300:
@@ -658,7 +655,7 @@ class PluginTestCase(TestCase):
 
         # Old plugins, plugin is a class, new plugins, it's an instance
         # New plugins don't need to be registered
-        if isinstance(self.plugin, (type, types.ClassType)):
+        if inspect.isclass(self.plugin):
             plugins.register(self.plugin)
             self.addCleanup(plugins.unregister, self.plugin)
 
@@ -719,6 +716,20 @@ class AcceptanceTestCase(TransactionTestCase):
         # Forward session cookie to django client.
         self.client.cookies[settings.SESSION_COOKIE_NAME] = self.session.session_key
 
+    def dismiss_assistant(self, which=None):
+        if which is None:
+            which = ("discover_sidebar", "issue", "issue_stream")
+        if isinstance(which, six.string_types):
+            which = [which]
+
+        for item in which:
+            res = self.client.put(
+                "/api/0/assistant/?v2",
+                content_type="application/json",
+                data=json.dumps({"guide": item, "status": "viewed", "useful": True}),
+            )
+            assert res.status_code == 201, res.content
+
 
 class IntegrationTestCase(TestCase):
     provider = None
@@ -749,7 +760,7 @@ class IntegrationTestCase(TestCase):
         self.save_session()
 
     def assertDialogSuccess(self, resp):
-        assert "window.opener.postMessage(" in resp.content
+        assert b"window.opener.postMessage(" in resp.content
 
 
 @pytest.mark.snuba
@@ -761,21 +772,52 @@ class SnubaTestCase(BaseTestCase):
     tests that require snuba.
     """
 
+    init_endpoints = (
+        "/tests/events/drop",
+        "/tests/groupedmessage/drop",
+        "/tests/transactions/drop",
+        "/tests/sessions/drop",
+    )
+
     def setUp(self):
         super(SnubaTestCase, self).setUp()
         self.init_snuba()
 
+    def call_snuba(self, endpoint):
+        return requests.post(settings.SENTRY_SNUBA + endpoint)
+
     def init_snuba(self):
         self.snuba_eventstream = SnubaEventStream()
         self.snuba_tagstore = SnubaTagStorage()
-        assert requests.post(settings.SENTRY_SNUBA + "/tests/events/drop").status_code == 200
-        assert requests.post(settings.SENTRY_SNUBA + "/tests/transactions/drop").status_code == 200
+        assert all(
+            response.status_code == 200
+            for response in ThreadPoolExecutor(4).map(self.call_snuba, self.init_endpoints)
+        )
 
     def store_event(self, *args, **kwargs):
-        with contextlib.nested(
-            mock.patch("sentry.eventstream.insert", self.snuba_eventstream.insert)
-        ):
-            return Factories.store_event(*args, **kwargs)
+        with mock.patch("sentry.eventstream.insert", self.snuba_eventstream.insert):
+            stored_event = Factories.store_event(*args, **kwargs)
+            stored_group = stored_event.group
+            if stored_group is not None:
+                self.store_group(stored_group)
+            return stored_event
+
+    def store_session(self, session):
+        assert (
+            requests.post(
+                settings.SENTRY_SNUBA + "/tests/sessions/insert", data=json.dumps([session])
+            ).status_code
+            == 200
+        )
+
+    def store_group(self, group):
+        data = [self.__wrap_group(group)]
+        assert (
+            requests.post(
+                settings.SENTRY_SNUBA + "/tests/groupedmessage/insert", data=json.dumps(data)
+            ).status_code
+            == 200
+        )
 
     def __wrap_event(self, event, data, primary_hash):
         # TODO: Abstract and combine this with the stream code in
@@ -785,48 +827,67 @@ class SnubaTestCase(BaseTestCase):
             "group_id": event.group_id,
             "event_id": event.event_id,
             "project_id": event.project_id,
-            "message": event.real_message,
+            "message": event.message,
             "platform": event.platform,
             "datetime": event.datetime,
             "data": dict(data),
             "primary_hash": primary_hash,
         }
 
-    def create_event(self, *args, **kwargs):
-        """\
-        Takes the results from the existing `create_event` method and
-        inserts into the local test Snuba cluster so that tests can be
-        run against the same event data.
+    def to_snuba_time_format(self, datetime_value):
+        date_format = "%Y-%m-%d %H:%M:%S%z"
+        return datetime_value.strftime(date_format)
 
-        Note that we create a GroupHash as necessary because `create_event`
-        doesn't run them through the 'real' event pipeline. In a perfect
-        world all test events would go through the full regular pipeline.
-        """
-        # XXX: Use `store_event` instead of this!
-        event = Factories.create_event(*args, **kwargs)
-
-        data = event.data.data
-        tags = dict(data.get("tags", []))
-
-        if not data.get("received"):
-            data["received"] = calendar.timegm(event.datetime.timetuple())
-
-        if "environment" in tags:
-            environment = Environment.get_or_create(event.project, tags["environment"])
-
-            GroupEnvironment.objects.get_or_create(
-                environment_id=environment.id, group_id=event.group_id
-            )
-
-        primary_hash = event.get_primary_hash()
-
-        grouphash, _ = GroupHash.objects.get_or_create(
-            project=event.project, group=event.group, hash=primary_hash
-        )
-
-        self.snuba_insert(self.__wrap_event(event, data, grouphash.hash))
-
-        return event
+    def __wrap_group(self, group):
+        return {
+            "event": "change",
+            "kind": "insert",
+            "table": "sentry_groupedmessage",
+            "columnnames": [
+                "id",
+                "logger",
+                "level",
+                "message",
+                "status",
+                "times_seen",
+                "last_seen",
+                "first_seen",
+                "data",
+                "score",
+                "project_id",
+                "time_spent_total",
+                "time_spent_count",
+                "resolved_at",
+                "active_at",
+                "is_public",
+                "platform",
+                "num_comments",
+                "first_release_id",
+                "short_id",
+            ],
+            "columnvalues": [
+                group.id,
+                group.logger,
+                group.level,
+                group.message,
+                group.status,
+                group.times_seen,
+                self.to_snuba_time_format(group.last_seen),
+                self.to_snuba_time_format(group.first_seen),
+                group.data,
+                group.score,
+                group.project.id,
+                group.time_spent_total,
+                group.time_spent_count,
+                group.resolved_at,
+                self.to_snuba_time_format(group.active_at),
+                group.is_public,
+                group.platform,
+                group.num_comments,
+                group.first_release.id if group.first_release else None,
+                group.short_id,
+            ],
+        }
 
     def snuba_insert(self, events):
         "Write a (wrapped) event (or events) to Snuba."
@@ -849,20 +910,20 @@ class OutcomesSnubaTest(TestCase):
         super(OutcomesSnubaTest, self).setUp()
         assert requests.post(settings.SENTRY_SNUBA + "/tests/outcomes/drop").status_code == 200
 
-    def __format(self, org_id, project_id, outcome, timestamp):
+    def __format(self, org_id, project_id, outcome, timestamp, key_id):
         return {
             "project_id": project_id,
             "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "org_id": org_id,
             "reason": None,
-            "key_id": 1,
+            "key_id": key_id,
             "outcome": outcome,
         }
 
-    def store_outcomes(self, org_id, project_id, outcome, timestamp, num_times):
+    def store_outcomes(self, org_id, project_id, outcome, timestamp, key_id, num_times):
         outcomes = []
         for _ in range(num_times):
-            outcomes.append(self.__format(org_id, project_id, outcome, timestamp))
+            outcomes.append(self.__format(org_id, project_id, outcome, timestamp, key_id))
 
         assert (
             requests.post(

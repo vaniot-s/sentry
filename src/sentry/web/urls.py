@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from django.conf import settings
-from django.conf.urls import include, patterns, url
+from django.conf.urls import include, url
 from django.http import HttpResponse
 from django.views.generic import RedirectView
 
@@ -22,7 +22,7 @@ from sentry.web.frontend.pipeline_advancer import PipelineAdvancerView
 from sentry.web.frontend.mailgun_inbound_webhook import MailgunInboundWebhookView
 from sentry.web.frontend.oauth_authorize import OAuthAuthorizeView
 from sentry.web.frontend.oauth_token import OAuthTokenView
-from sentry.auth.providers.saml2 import SAML2AcceptACSView, SAML2SLSView, SAML2MetadataView
+from sentry.auth.providers.saml2.provider import SAML2AcceptACSView, SAML2SLSView, SAML2MetadataView
 from sentry.web.frontend.organization_avatar import OrganizationAvatarPhotoView
 from sentry.web.frontend.organization_auth_settings import OrganizationAuthSettingsView
 from sentry.web.frontend.organization_integration_setup import OrganizationIntegrationSetupView
@@ -53,7 +53,7 @@ __all__ = ("urlpatterns",)
 generic_react_page_view = GenericReactPageView.as_view()
 react_page_view = ReactPageView.as_view()
 
-urlpatterns = patterns("")
+urlpatterns = []
 
 if getattr(settings, "DEBUG_VIEWS", settings.DEBUG):
     from sentry.web.debug_urls import urlpatterns as debug_urls
@@ -62,17 +62,15 @@ if getattr(settings, "DEBUG_VIEWS", settings.DEBUG):
 
 # Special favicon in debug mode
 if settings.DEBUG:
-    urlpatterns += patterns(
-        "",
+    urlpatterns += [
         url(
             r"^_static/[^/]+/[^/]+/images/favicon\.ico$",
             generic.dev_favicon,
             name="sentry-dev-favicon",
-        ),
-    )
+        )
+    ]
 
-urlpatterns += patterns(
-    "",
+urlpatterns += [
     # Store endpoints first since they are the most active
     url(r"^api/store/$", api.StoreView.as_view(), name="sentry-api-store"),
     url(r"^api/(?P<project_id>[\w_-]+)/store/$", api.StoreView.as_view(), name="sentry-api-store"),
@@ -267,11 +265,6 @@ urlpatterns += patterns(
                     ),
                 ),
                 url(
-                    r"^settings/identities/(?P<identity_id>[^\/]+)/disconnect/$",
-                    accounts.disconnect_identity,
-                    name="sentry-account-disconnect-identity",
-                ),
-                url(
                     r"^settings/identities/associate/(?P<organization_slug>[^\/]+)/(?P<provider_key>[^\/]+)/(?P<external_id>[^\/]+)/$",
                     AccountIdentityAssociateView.as_view(),
                     name="sentry-account-associate-identity",
@@ -426,6 +419,11 @@ urlpatterns += patterns(
                 ),
                 url(r"^account/", generic_react_page_view),
                 url(
+                    r"^(?P<organization_slug>[\w_-]+)/$",
+                    react_page_view,
+                    name="sentry-organization-settings",
+                ),
+                url(
                     r"^(?P<organization_slug>[\w_-]+)/members/$",
                     react_page_view,
                     name="sentry-organization-members",
@@ -444,6 +442,11 @@ urlpatterns += patterns(
                     r"^(?P<organization_slug>[\w_-]+)/members/(?P<member_id>\d+)/$",
                     react_page_view,
                     name="sentry-organization-member-settings",
+                ),
+                url(
+                    r"^(?P<organization_slug>[\w_-]+)/auth/$",
+                    react_page_view,
+                    name="sentry-organization-auth-settings",
                 ),
                 url(r"^", react_page_view),
             ]
@@ -472,6 +475,7 @@ urlpatterns += patterns(
                     name="sentry-organization-issue-list",
                 ),
                 url(
+                    # See src.sentry.models.group.Group.get_absolute_url if this changes
                     r"^(?P<organization_slug>[\w_-]+)/issues/(?P<group_id>\d+)/$",
                     react_page_view,
                     name="sentry-organization-issue",
@@ -485,6 +489,11 @@ urlpatterns += patterns(
                     r"^(?P<organization_slug>[\w_-]+)/issues/(?P<group_id>\d+)/events/(?P<event_id_or_latest>[\w-]+)/$",
                     react_page_view,
                     name="sentry-organization-event-detail",
+                ),
+                url(
+                    r"^(?P<organization_slug>[\w_-]+)/data-export/(?P<data_export_id>\d+)/$",
+                    react_page_view,
+                    name="sentry-data-export-details",
                 ),
                 url(
                     r"^(?P<organization_slug>[\w_-]+)/issues/(?P<group_id>\d+)/events/(?P<event_id_or_latest>[\w-]+)/json/$",
@@ -505,11 +514,6 @@ urlpatterns += patterns(
                     r"^(?P<organization_slug>[\w_-]+)/api-keys/(?P<key_id>[\w_-]+)/$",
                     react_page_view,
                     name="sentry-organization-api-key-settings",
-                ),
-                url(
-                    r"^(?P<organization_slug>[\w_-]+)/auth/$",
-                    react_page_view,
-                    name="sentry-organization-auth-settings",
                 ),
                 url(
                     r"^(?P<organization_slug>[\w_-]+)/auth/configure/$",
@@ -627,6 +631,8 @@ urlpatterns += patterns(
                 url(r"^gitlab/", include("sentry.integrations.gitlab.urls")),
                 url(r"^vsts/", include("sentry.integrations.vsts.urls")),
                 url(r"^bitbucket/", include("sentry.integrations.bitbucket.urls")),
+                url(r"^bitbucket-server/", include("sentry.integrations.bitbucket_server.urls")),
+                url(r"^vercel/", include("sentry.integrations.vercel.urls")),
             ]
         ),
     ),
@@ -664,9 +670,14 @@ urlpatterns += patterns(
         name="sentry-stream",
     ),
     url(
-        r"^organizations/(?P<organization_slug>[\w_-]+)/incidents/(?P<incident_id>\d+)/$",
+        r"^organizations/(?P<organization_slug>[\w_-]+)/alerts/(?P<incident_id>\d+)/$",
         react_page_view,
-        name="sentry-incident",
+        name="sentry-metric-alert",
+    ),
+    url(
+        r"^settings/(?P<organization_slug>[\w_-]+)/projects/(?P<project_slug>[\w_-]+)/alerts/metric-rules/(?P<alert_rule_id>\d+)/$",
+        react_page_view,
+        name="sentry-alert-rule",
     ),
     url(
         r"^(?P<organization_slug>[\w_-]+)/(?P<project_slug>[\w_-]+)/issues/(?P<group_id>\d+)/tags/(?P<key>[^\/]+)/export/$",
@@ -684,5 +695,6 @@ urlpatterns += patterns(
         name="sentry-project-event-redirect",
     ),
     # Legacy
+    # This triggers a false positive for the urls.W002 Django warning
     url(r"/$", react_page_view),
-)
+]

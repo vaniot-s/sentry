@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
+
 import DropdownControl, {DropdownItem} from 'app/components/dropdownControl';
 import {t} from 'app/locale';
 import space from 'app/styles/space';
@@ -18,23 +19,21 @@ class IssueListSortOptions extends React.PureComponent {
     };
   }
 
-  componentWillReceiveProps(nextProps) {
+  UNSAFE_componentWillReceiveProps(nextProps) {
     this.setState({
       sortKey: nextProps.sort || 'date',
     });
   }
 
-  getMenuItem = key => {
-    return (
-      <DropdownItem
-        onSelect={this.onSelect}
-        eventKey={key}
-        isActive={this.state.sortKey === key}
-      >
-        {this.getSortLabel(key)}
-      </DropdownItem>
-    );
-  };
+  getMenuItem = key => (
+    <DropdownItem
+      onSelect={this.onSelect}
+      eventKey={key}
+      isActive={this.state.sortKey === key}
+    >
+      {this.getSortLabel(key)}
+    </DropdownItem>
+  );
 
   onSelect = sort => {
     this.setState({sortKey: sort});
@@ -51,6 +50,8 @@ class IssueListSortOptions extends React.PureComponent {
         return t('Priority');
       case 'freq':
         return t('Frequency');
+      case 'user':
+        return t('Users');
       case 'date':
       default:
         return t('Last Seen');
@@ -61,17 +62,14 @@ class IssueListSortOptions extends React.PureComponent {
     return (
       <Container>
         <DropdownControl
-          label={
-            <React.Fragment>
-              <LabelText>{t('Sort by')}: &nbsp; </LabelText>
-              {this.getSortLabel(this.state.sortKey)}
-            </React.Fragment>
-          }
+          buttonProps={{prefix: t('Sort by')}}
+          label={this.getSortLabel(this.state.sortKey)}
         >
           {this.getMenuItem('priority')}
           {this.getMenuItem('date')}
           {this.getMenuItem('new')}
           {this.getMenuItem('freq')}
+          {this.getMenuItem('user')}
         </DropdownControl>
       </Container>
     );
@@ -80,11 +78,6 @@ class IssueListSortOptions extends React.PureComponent {
 
 const Container = styled('div')`
   margin-right: ${space(0.5)};
-`;
-
-const LabelText = styled('em')`
-  font-style: normal;
-  color: ${p => p.theme.gray2};
 `;
 
 export default IssueListSortOptions;

@@ -1,18 +1,23 @@
 import React from 'react';
-import styled, {css} from 'react-emotion';
+import styled from '@emotion/styled';
+import {css} from '@emotion/core';
 
 import {t, tn, tct} from 'app/locale';
 import {MEMBER_ROLES} from 'app/constants';
 import {ModalRenderProps} from 'app/actionCreators/modal';
+import {trackAnalyticsEvent} from 'app/utils/analytics';
+import {uniqueId} from 'app/utils/guid';
 import InlineSvg from 'app/components/inlineSvg';
 import Button from 'app/components/button';
 import HookOrDefault from 'app/components/hookOrDefault';
+import QuestionTooltip from 'app/components/questionTooltip';
+import {IconAdd, IconMail} from 'app/icons';
 import space from 'app/styles/space';
 import AsyncComponent from 'app/components/asyncComponent';
-import {Organization} from 'app/types';
+import {Organization, Team} from 'app/types';
 import withLatestContext from 'app/utils/withLatestContext';
+import withTeams from 'app/utils/withTeams';
 import LoadingIndicator from 'app/components/loadingIndicator';
-import Tooltip from 'app/components/tooltip';
 
 import {InviteRow, InviteStatus, NormalizedInvite} from './types';
 import InviteRowControl from './inviteRowControl';
@@ -20,6 +25,9 @@ import InviteRowControl from './inviteRowControl';
 type Props = AsyncComponent['props'] &
   ModalRenderProps & {
     organization: Organization;
+    teams: Team[];
+    source?: string;
+    initialData?: Partial<InviteRow>[];
   };
 
 type State = AsyncComponent['state'] & {
@@ -41,37 +49,74 @@ type InviteModalRenderFunc = React.ComponentProps<typeof InviteModalHook>['child
 
 class InviteMembersModal extends AsyncComponent<Props, State> {
   get inviteTemplate(): InviteRow {
-    return {emails: new Set(), teams: new Set(), role: DEFAULT_ROLE};
+    return {
+      emails: new Set(),
+      teams: new Set(),
+      role: DEFAULT_ROLE,
+    };
+  }
+
+  /**
+   * Used for analytics tracking of the modals usage.
+   */
+  sessionId = '';
+
+  componentDidMount() {
+    this.sessionId = uniqueId();
+
+    const {organization, source} = this.props;
+
+    trackAnalyticsEvent({
+      eventKey: 'invite_modal.opened',
+      eventName: 'Invite Modal: Opened',
+      organization_id: organization.id,
+      modal_session: this.sessionId,
+      can_invite: this.willInvite,
+      source,
+    });
   }
 
   getEndpoints(): [string, string][] {
     const orgId = this.props.organization.slug;
-
-    // TODO(epurkhiser): For admins we cannot lookup me, and will not have
-    // roles when viewing this modal as an admin. We need to add some hardcoded
-    // defaults like in the old page.
 
     return [['member', `/organizations/${orgId}/members/me/`]];
   }
 
   getDefaultState() {
     const state = super.getDefaultState();
+    const {initialData} = this.props;
+
+    const pendingInvites = initialData
+      ? initialData.map(initial => ({
+          ...this.inviteTemplate,
+          ...initial,
+        }))
+      : [this.inviteTemplate];
+
     return {
       ...state,
-      pendingInvites: [this.inviteTemplate],
+      pendingInvites,
       inviteStatus: {},
       complete: false,
       sendingInvites: false,
     };
   }
 
-  reset = () =>
+  reset = () => {
     this.setState({
       pendingInvites: [this.inviteTemplate],
       inviteStatus: {},
       complete: false,
       sendingInvites: false,
     });
+
+    trackAnalyticsEvent({
+      eventKey: 'invite_modal.add_more',
+      eventName: 'Invite Modal: Add More',
+      organization_id: this.props.organization.id,
+      modal_session: this.sessionId,
+    });
+  };
 
   sendInvite = async (invite: NormalizedInvite) => {
     const {slug} = this.props.organization;
@@ -120,6 +165,17 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
     this.setState({sendingInvites: true});
     await Promise.all(this.invites.map(this.sendInvite));
     this.setState({sendingInvites: false, complete: true});
+
+    trackAnalyticsEvent({
+      eventKey: this.willInvite
+        ? 'invite_modal.invites_sent'
+        : 'invite_modal.requests_sent',
+      eventName: this.willInvite
+        ? 'Invite Modal: Invites Sent'
+        : 'Invite Modal: Requests Sent',
+      organization_id: this.props.organization.id,
+      modal_session: this.sessionId,
+    });
   };
 
   addInviteRow = () =>
@@ -200,7 +256,7 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
       const sentCount = statuses.filter(i => i.sent).length;
       const errorCount = statuses.filter(i => i.error).length;
 
-      const invites = <strong>{tn('%d invite', '%d invites', sentCount)}</strong>;
+      const invites = <strong>{tn('%s invite', '%s invites', sentCount)}</strong>;
       const tctComponents = {
         invites,
         failed: errorCount,
@@ -229,21 +285,29 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
   }
 
   get willInvite() {
-    return this.props.organization.access.includes('member:write');
+    return this.props.organization.access?.includes('member:write');
   }
 
   get inviteButtonLabel() {
     if (this.invites.length > 0) {
-      return this.willInvite
-        ? tn('Send invite', 'Send invites (%d)', this.invites.length)
-        : tn('Send invite request', 'Send invite requests (%d)', this.invites.length);
+      const numberInvites = this.invites.length;
+
+      // Note we use `t()` here because `tn()` expects the same # of string formatters
+      const inviteText =
+        numberInvites === 1 ? t('Send invite') : t('Send invites (%s)', numberInvites);
+      const requestText =
+        numberInvites === 1
+          ? t('Send invite request')
+          : t('Send invite requests (%s)', numberInvites);
+
+      return this.willInvite ? inviteText : requestText;
     }
 
     return this.willInvite ? t('Send invite') : t('Send invite request');
   }
 
   render() {
-    const {Footer, closeModal, organization} = this.props;
+    const {Footer, closeModal, organization, teams: allTeams} = this.props;
     const {pendingInvites, sendingInvites, complete, inviteStatus, member} = this.state;
 
     const disableInputs = sendingInvites || complete;
@@ -252,27 +316,27 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
     const hookRenderer: InviteModalRenderFunc = ({sendInvites, canSend, headerInfo}) => (
       <React.Fragment>
         <Heading>
-          <InlineSvg src="icon-mail" size="36px" />
+          <IconMail size="lg" />
           {t('Invite New Members')}
           {!this.willInvite && (
-            <Tooltip
+            <QuestionTooltip
               title={t(
                 `You do not have permission to directly invite members. Email
                  addresses entered here will be forwarded to organization
                  managers and owners; they will be prompted to approve the
                  invitation.`
               )}
-            >
-              <InlineSvg src="icon-circle-question" size="16px" />
-            </Tooltip>
+              size="sm"
+              position="bottom"
+            />
           )}
         </Heading>
         <Subtext>
           {this.willInvite
             ? t('Invite new members by email to join your organization.')
             : t(
-                `You can’t directly invite users because you don’t have
-                 permissions, but we’ll send a request on your behalf!`
+                `You don’t have permission to directly invite users, but we’ll
+                 send a request on your behalf.`
               )}
         </Subtext>
 
@@ -293,12 +357,22 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
             teams={[...teams]}
             roleOptions={member ? member.roles : MEMBER_ROLES}
             roleDisabledUnallowed={this.willInvite}
-            teamOptions={organization.teams}
+            teamOptions={allTeams}
             inviteStatus={inviteStatus}
             onRemove={() => this.removeInviteRow(i)}
-            onChangeEmails={opts => this.setEmails(opts.map(v => v.value), i)}
+            onChangeEmails={opts =>
+              this.setEmails(
+                opts.map(v => v.value),
+                i
+              )
+            }
             onChangeRole={({value}) => this.setRole(value, i)}
-            onChangeTeams={opts => this.setTeams(opts.map(v => v.value), i)}
+            onChangeTeams={opts =>
+              this.setTeams(
+                opts.map(v => v.value),
+                i
+              )
+            }
             disableRemove={disableInputs || pendingInvites.length === 1}
           />
         ))}
@@ -307,7 +381,7 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
           disabled={disableInputs}
           priority="link"
           onClick={this.addInviteRow}
-          icon="icon-circle-add"
+          icon={<IconAdd size="xs" isCircled />}
         >
           {t('Add another')}
         </AddButton>
@@ -325,7 +399,15 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
                   data-test-id="close"
                   priority="primary"
                   size="small"
-                  onClick={closeModal}
+                  onClick={() => {
+                    trackAnalyticsEvent({
+                      eventKey: 'invite_modal.closed',
+                      eventName: 'Invite Modal: Closed',
+                      organization_id: this.props.organization.id,
+                      modal_session: this.sessionId,
+                    });
+                    closeModal();
+                  }}
                 >
                   {t('Close')}
                 </Button>
@@ -358,7 +440,7 @@ class InviteMembersModal extends AsyncComponent<Props, State> {
 
     return (
       <InviteModalHook
-        organization={this.props.organization}
+        organization={organization}
         willInvite={this.willInvite}
         onSendInvites={this.sendInvites}
       >
@@ -380,7 +462,7 @@ const Heading = styled('h1')`
 `;
 
 const Subtext = styled('p')`
-  color: ${p => p.theme.gray3};
+  color: ${p => p.theme.gray600};
   margin-bottom: ${space(3)};
 `;
 
@@ -421,14 +503,14 @@ const StatusMessage = styled('div')<{status?: 'success' | 'error'}>`
   grid-gap: ${space(1)};
   align-items: center;
   font-size: ${p => p.theme.fontSizeMedium};
-  color: ${p => (p.status === 'error' ? p.theme.red : p.theme.gray3)};
+  color: ${p => (p.status === 'error' ? p.theme.red : p.theme.gray600)};
 
   > :first-child {
-    ${p => p.status === 'success' && `color: ${p.theme.green}`};
+    ${p => p.status === 'success' && `color: ${p.theme.green400}`};
   }
 `;
 
-const modalClassName = css`
+export const modalCss = css`
   padding: 50px;
 
   .modal-dialog {
@@ -438,5 +520,5 @@ const modalClassName = css`
     margin: 50px auto;
   }
 `;
-export {modalClassName};
-export default withLatestContext(InviteMembersModal);
+
+export default withLatestContext(withTeams(InviteMembersModal));

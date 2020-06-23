@@ -1,17 +1,21 @@
 from __future__ import absolute_import, print_function
 
 import click
+import logging
 import os
 import six
 
 from django.conf import settings
 
-from sentry.utils import warnings
+from sentry.utils import metrics, warnings
 from sentry.utils.sdk import configure_sdk
 from sentry.utils.warnings import DeprecatedSettingWarning
+from sentry.utils.compat import map
+
+logger = logging.getLogger("sentry.runner.initializer")
 
 
-def register_plugins(settings):
+def register_plugins(settings, raise_on_plugin_load_failure=False):
     from pkg_resources import iter_entry_points
     from sentry.plugins.base import plugins
 
@@ -20,7 +24,6 @@ def register_plugins(settings):
     #         'phabricator = sentry_phabricator.plugins:PhabricatorPlugin'
     #     ],
     # },
-
     for ep in iter_entry_points("sentry.plugins"):
         try:
             plugin = ep.load()
@@ -30,6 +33,8 @@ def register_plugins(settings):
             click.echo(
                 "Failed to load plugin %r:\n%s" % (ep.name, traceback.format_exc()), err=True
             )
+            if raise_on_plugin_load_failure:
+                raise
         else:
             plugins.register(plugin)
 
@@ -264,9 +269,6 @@ def initialize_app(config, skip_service_validation=False):
 
     configure_structlog()
 
-    if "south" in settings.INSTALLED_APPS:
-        fix_south(settings)
-
     # Commonly setups don't correctly configure themselves for production envs
     # so lets try to provide a bit more guidance
     if settings.CELERY_ALWAYS_EAGER and not settings.DEBUG:
@@ -300,6 +302,8 @@ def initialize_app(config, skip_service_validation=False):
 
     if getattr(settings, "SENTRY_DEBUGGER", None) is None:
         settings.SENTRY_DEBUGGER = settings.DEBUG
+
+    monkeypatch_model_unpickle()
 
     import django
 
@@ -392,19 +396,40 @@ def validate_options(settings):
     default_manager.validate(settings.SENTRY_OPTIONS, warn=True)
 
 
-def fix_south(settings):
-    settings.SOUTH_DATABASE_ADAPTERS = {}
+import django.db.models.base
 
-    # South needs an adapter defined conditionally
-    for key, value in six.iteritems(settings.DATABASES):
-        if value["ENGINE"] != "sentry.db.postgres":
-            continue
-        settings.SOUTH_DATABASE_ADAPTERS[key] = "south.db.postgresql_psycopg2"
+model_unpickle = django.db.models.base.model_unpickle
+
+
+def __model_unpickle_compat(model_id, attrs=None, factory=None):
+    if attrs is not None or factory is not None:
+        metrics.incr("django.pickle.loaded_19_pickle.__model_unpickle_compat", sample_rate=1)
+        logger.error(
+            "django.compat.model-unpickle-compat",
+            extra={"model_id": model_id, "attrs": attrs, "factory": factory},
+            exc_info=True,
+        )
+    return model_unpickle(model_id)
+
+
+def __simple_class_factory_compat(model, attrs):
+    return model
+
+
+def monkeypatch_model_unpickle():
+    # https://code.djangoproject.com/ticket/27187
+    # Django 1.10 breaks pickle compat with 1.9 models.
+    django.db.models.base.model_unpickle = __model_unpickle_compat
+
+    # Django 1.10 needs this to unpickle 1.9 models, but we can't branch while
+    # monkeypatching else our monkeypatched funcs won't be pickleable.
+    # So just vendor simple_class_factory from 1.9.
+    django.db.models.base.simple_class_factory = __simple_class_factory_compat
 
 
 def monkeypatch_django_migrations():
-    # This monkey patches the django 1.8 migration executor with a backported 1.9
-    # executor. This improves the speed that Django builds the migration state.
+    # This monkeypatches django's migration executor with our own, which
+    # adds some small but important customizations.
     import sentry.new_migrations.monkey  # NOQA
 
 
@@ -529,43 +554,6 @@ def apply_legacy_settings(settings):
         )
 
 
-def skip_migration_if_applied(settings, app_name, table_name, name="0001_initial"):
-    from south.migration import Migrations
-    from sentry.utils.db import table_exists
-    import types
-
-    if app_name not in settings.INSTALLED_APPS:
-        return
-
-    migration = Migrations(app_name)[name]
-
-    def skip_if_table_exists(original):
-        def wrapped(self):
-            # TODO: look into why we're having to return some ridiculous
-            # lambda
-            if table_exists(table_name):
-                return lambda x=None: None
-            return original()
-
-        wrapped.__name__ = original.__name__
-        return wrapped
-
-    migration.forwards = types.MethodType(skip_if_table_exists(migration.forwards), migration)
-
-
-def on_configure(config):
-    """
-    Executes after settings are full installed and configured.
-
-    At this point we can force import on various things such as models
-    as all of settings should be correctly configured.
-    """
-    settings = config["settings"]
-
-    if "south" in settings.INSTALLED_APPS:
-        skip_migration_if_applied(settings, "social_auth", "social_auth_association")
-
-
 def validate_snuba():
     """
     Make sure everything related to Snuba is in sync.
@@ -584,7 +572,7 @@ def validate_snuba():
         return
 
     has_all_snuba_required_backends = (
-        settings.SENTRY_SEARCH == "sentry.search.snuba.SnubaSearchBackend"
+        settings.SENTRY_SEARCH == "sentry.search.snuba.EventsDatasetSnubaSearchBackend"
         and settings.SENTRY_TAGSTORE == "sentry.tagstore.snuba.SnubaTagStorage"
         and
         # TODO(mattrobenolt): Remove ServiceDelegator check

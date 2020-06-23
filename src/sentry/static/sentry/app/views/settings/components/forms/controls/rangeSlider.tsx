@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {t} from 'app/locale';
 import Input from 'app/views/settings/components/forms/controls/input';
@@ -55,7 +55,7 @@ type Props = {
    * Used for "smart" Fields to trigger a "blur" event. `onChange` can
    * be triggered quite frequently
    */
-  onBlur?: Function;
+  onBlur?: (value, event?) => void;
   onChange?: Function;
 };
 
@@ -126,7 +126,7 @@ class RangeSlider extends React.Component<Props, State> {
       : this.props.value,
   };
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     // Update local state when re-rendered with next `props.value` (e.g if this is controlled)
     if (typeof nextProps.value !== 'undefined') {
       const {allowedValues} = this.props;
@@ -352,17 +352,17 @@ const Slider = styled('input')<{hasLabel: boolean}>`
 
   &[disabled] {
     &::-webkit-slider-thumb {
-      background: ${p => p.theme.gray6};
+      background: ${p => p.theme.gray400};
       cursor: default;
     }
 
     &::-moz-range-thumb {
-      background: ${p => p.theme.gray6};
+      background: ${p => p.theme.gray400};
       cursor: default;
     }
 
     &::-ms-thumb {
-      background: ${p => p.theme.gray6};
+      background: ${p => p.theme.gray400};
       cursor: default;
     }
 
@@ -383,7 +383,7 @@ const Slider = styled('input')<{hasLabel: boolean}>`
 const Label = styled('label')`
   font-size: 14px;
   margin-bottom: ${p => p.theme.grid}px;
-  color: ${p => p.theme.gray3};
+  color: ${p => p.theme.gray600};
 `;
 
 const SliderAndInputWrapper = styled('div')<{showCustomInput?: boolean}>`

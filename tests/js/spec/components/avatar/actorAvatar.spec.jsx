@@ -1,14 +1,16 @@
 import React from 'react';
+
 import {shallow, mount} from 'sentry-test/enzyme';
+
 import ActorAvatar from 'app/components/avatar/actorAvatar';
 import MemberListStore from 'app/stores/memberListStore';
 import TeamStore from 'app/stores/teamStore';
 
-describe('Avatar', function() {
+describe('ActorAvatar', function() {
   const USER = {
     id: '1',
-    name: 'Jane Doe',
-    email: 'janedoe@example.com',
+    name: 'JanActore Bloggs',
+    email: 'janebloggs@example.com',
   };
   const TEAM_1 = {
     id: '3',
@@ -33,7 +35,7 @@ describe('Avatar', function() {
         <ActorAvatar
           actor={{
             id: '1',
-            name: 'Jane Doe',
+            name: 'Jane Bloggs',
             type: 'user',
           }}
         />

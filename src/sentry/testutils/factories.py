@@ -3,33 +3,37 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from django.conf import settings
 
-import copy
 import io
 import os
 import petname
 import random
 import six
 import warnings
+from binascii import hexlify
+from hashlib import sha1
+from uuid import uuid4
 from importlib import import_module
 
 from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
-from hashlib import sha1
-from loremipsum import Generator
-from uuid import uuid4
 
 from sentry.event_manager import EventManager
-from sentry.constants import SentryAppStatus
-from sentry.incidents.logic import create_alert_rule
+from sentry.constants import SentryAppStatus, SentryAppInstallationStatus
+from sentry.incidents.logic import (
+    create_alert_rule,
+    create_alert_rule_trigger,
+    create_alert_rule_trigger_action,
+)
 from sentry.incidents.models import (
     AlertRuleThresholdType,
+    AlertRuleTriggerAction,
     Incident,
-    IncidentGroup,
+    IncidentActivity,
     IncidentProject,
     IncidentSeen,
-    IncidentActivity,
+    IncidentType,
 )
 from sentry.mediators import (
     sentry_apps,
@@ -40,8 +44,6 @@ from sentry.mediators import (
 from sentry.models import (
     Activity,
     Environment,
-    Event,
-    EventError,
     Group,
     Organization,
     OrganizationMember,
@@ -63,15 +65,15 @@ from sentry.models import (
     EventAttachment,
     UserReport,
     PlatformExternalIssue,
-    SentryAppWebhookError,
+    ExternalIssue,
+    GroupLink,
+    ReleaseFile,
+    Rule,
 )
 from sentry.models.integrationfeature import Feature, IntegrationFeature
 from sentry.signals import project_created
-from sentry.snuba.models import QueryAggregations
-from sentry.utils import json
-from sentry.utils.canonical import CanonicalKeyDict
-
-loremipsum = Generator()
+from sentry.snuba.models import QueryDatasets
+from sentry.utils import loremipsum, json
 
 
 def get_fixture_path(name):
@@ -297,22 +299,68 @@ class Factories(object):
         return ProjectBookmark.objects.create(project_id=project.id, user=user)
 
     @staticmethod
+    def create_project_rule(project, action_data=None, condition_data=None):
+        action_data = action_data or [
+            {
+                "id": "sentry.rules.actions.notify_event.NotifyEventAction",
+                "name": "Send a notification (for all legacy integrations)",
+            },
+            {
+                "id": "sentry.rules.actions.notify_event_service.NotifyEventServiceAction",
+                "service": "mail",
+                "name": "Send a notification via mail",
+            },
+        ]
+        condition_data = condition_data or [
+            {
+                "id": "sentry.rules.conditions.first_seen_event.FirstSeenEventCondition",
+                "name": "An issue is first seen",
+            },
+            {
+                "id": "sentry.rules.conditions.every_event.EveryEventCondition",
+                "name": "An event is seen",
+            },
+        ]
+        return Rule.objects.create(
+            project=project,
+            data={"conditions": condition_data, "actions": action_data, "action_match": "all"},
+        )
+
+    @staticmethod
+    def create_slack_project_rule(project, integration_id, channel_id=None, channel_name=None):
+        action_data = [
+            {
+                "id": "sentry.rules.actions.notify_event.SlackNotifyServiceAction",
+                "name": "Send a Slack notification",
+                "workspace": integration_id,
+                "channel_id": channel_id or "123453",
+                "channel": channel_name or "#general",
+            }
+        ]
+        return Factories.create_project_rule(project, action_data)
+
+    @staticmethod
     def create_project_key(project):
         return project.key_set.get_or_create()[0]
 
     @staticmethod
-    def create_release(project, user=None, version=None, date_added=None):
+    def create_release(project, user=None, version=None, date_added=None, additional_projects=None):
         if version is None:
-            version = os.urandom(20).encode("hex")
+            version = hexlify(os.urandom(20))
 
         if date_added is None:
             date_added = timezone.now()
+
+        if additional_projects is None:
+            additional_projects = []
 
         release = Release.objects.create(
             version=version, organization_id=project.organization_id, date_added=date_added
         )
 
         release.add_project(project)
+        for additional_project in additional_projects:
+            release.add_project(additional_project)
 
         Activity.objects.create(
             type=Activity.RELEASE,
@@ -340,6 +388,23 @@ class Factories(object):
             )
 
         return release
+
+    @staticmethod
+    def create_release_file(release, file=None, name=None, dist=None):
+        if file is None:
+            file = Factories.create_file(
+                name="log.txt",
+                size=32,
+                headers={"Content-Type": "text/plain"},
+                checksum="dc1e3f3e411979d336c3057cce64294f3420f93a",
+            )
+
+        if name is None:
+            name = file.name
+
+        return ReleaseFile.objects.create(
+            organization=release.organization, release=release, name=name, file=file, dist=dist
+        )
 
     @staticmethod
     def create_artifact_bundle(org, release, project=None):
@@ -448,56 +513,10 @@ class Factories(object):
         return useremail
 
     @staticmethod
-    def create_event(group=None, project=None, event_id=None, normalize=True, **kwargs):
-        # XXX: Do not use this method for new tests! Prefer `store_event`.
-        if event_id is None:
-            event_id = uuid4().hex
-        kwargs.setdefault("project", project if project else group.project)
-        kwargs.setdefault("data", copy.deepcopy(DEFAULT_EVENT_DATA))
-        kwargs.setdefault("platform", kwargs["data"].get("platform", "python"))
-        kwargs.setdefault("message", kwargs["data"].get("message", "message"))
-        if kwargs.get("tags"):
-            tags = kwargs.pop("tags")
-            if isinstance(tags, dict):
-                tags = list(tags.items())
-            kwargs["data"]["tags"] = tags
-        if kwargs.get("stacktrace"):
-            stacktrace = kwargs.pop("stacktrace")
-            kwargs["data"]["stacktrace"] = stacktrace
-
-        user = kwargs.pop("user", None)
-        if user is not None:
-            kwargs["data"]["user"] = user
-
-        kwargs["data"].setdefault("errors", [{"type": EventError.INVALID_DATA, "name": "foobar"}])
-
-        # maintain simple event Factories by supporting the legacy message
-        # parameter just like our API would
-        if "logentry" not in kwargs["data"]:
-            kwargs["data"]["logentry"] = {"message": kwargs["message"] or "<unlabeled event>"}
-
-        if normalize:
-            manager = EventManager(CanonicalKeyDict(kwargs["data"]))
-            manager.normalize()
-            kwargs["data"] = manager.get_data()
-            kwargs["data"].update(manager.materialize_metadata())
-            kwargs["message"] = manager.get_search_message()
-
-        # This is needed so that create_event saves the event in nodestore
-        # under the correct key. This is usually dont in EventManager.save()
-        kwargs["data"].setdefault("node_id", Event.generate_node_id(kwargs["project"].id, event_id))
-
-        event = Event(event_id=event_id, group=group, **kwargs)
-        # emulate EventManager refs
-        event.data.bind_ref(event)
-        event.save()
-        return event
-
-    @staticmethod
-    def store_event(data, project_id, assert_no_errors=True):
+    def store_event(data, project_id, assert_no_errors=True, sent_at=None):
         # Like `create_event`, but closer to how events are actually
         # ingested. Prefer to use this method over `create_event`
-        manager = EventManager(data)
+        manager = EventManager(data, sent_at=sent_at)
         manager.normalize()
         if assert_no_errors:
             errors = manager.get_data().get("errors")
@@ -506,107 +525,6 @@ class Factories(object):
         event = manager.save(project_id)
         if event.group:
             event.group.save()
-        return event
-
-    @staticmethod
-    def create_full_event(group, event_id="a", **kwargs):
-        payload = """
-            {
-                "event_id": "f5dd88e612bc406ba89dfebd09120769",
-                "project": 11276,
-                "release": "e1b5d1900526feaf20fe2bc9cad83d392136030a",
-                "platform": "javascript",
-                "culprit": "app/components/events/eventEntries in map",
-                "logentry": {"formatted": "TypeError: Cannot read property '1' of null"},
-                "tags": [
-                    ["environment", "prod"],
-                    ["sentry_version", "e1b5d1900526feaf20fe2bc9cad83d392136030a"],
-                    ["level", "error"],
-                    ["logger", "javascript"],
-                    ["sentry:release", "e1b5d1900526feaf20fe2bc9cad83d392136030a"],
-                    ["browser", "Chrome 48.0"],
-                    ["device", "Other"],
-                    ["os", "Windows 10"],
-                    ["url", "https://sentry.io/katon-direct/localhost/issues/112734598/"],
-                    ["sentry:user", "id:41656"]
-                ],
-                "errors": [{
-                    "url": "<anonymous>",
-                    "type": "js_no_source"
-                }],
-                "extra": {
-                    "session:duration": 40364
-                },
-                "exception": {
-                    "exc_omitted": null,
-                    "values": [{
-                        "stacktrace": {
-                            "frames": [{
-                                "function": "batchedUpdates",
-                                "abs_path": "webpack:////usr/src/getsentry/src/sentry/~/react/lib/ReactUpdates.js",
-                                "pre_context": ["  // verify that that's the case. (This is called by each top-level update", "  // function, like setProps, setState, forceUpdate, etc.; creation and", "  // destruction of top-level components is guarded in ReactMount.)", "", "  if (!batchingStrategy.isBatchingUpdates) {"],
-                                "post_context": ["    return;", "  }", "", "  dirtyComponents.push(component);", "}"],
-                                "filename": "~/react/lib/ReactUpdates.js",
-                                "module": "react/lib/ReactUpdates",
-                                "colno": 0,
-                                "in_app": false,
-                                "data": {
-                                    "orig_filename": "/_static/29e365f8b0d923bc123e8afa38d890c3/sentry/dist/vendor.js",
-                                    "orig_abs_path": "https://media.sentry.io/_static/29e365f8b0d923bc123e8afa38d890c3/sentry/dist/vendor.js",
-                                    "sourcemap": "https://media.sentry.io/_static/29e365f8b0d923bc123e8afa38d890c3/sentry/dist/vendor.js.map",
-                                    "orig_lineno": 37,
-                                    "orig_function": "Object.s [as enqueueUpdate]",
-                                    "orig_colno": 16101
-                                },
-                                "context_line": "    batchingStrategy.batchedUpdates(enqueueUpdate, component);",
-                                "lineno": 176
-                            }],
-                            "frames_omitted": null
-                        },
-                        "type": "TypeError",
-                        "value": "Cannot read property '1' of null",
-                        "module": null
-                    }]
-                },
-                "request": {
-                    "url": "https://sentry.io/katon-direct/localhost/issues/112734598/",
-                    "headers": [
-                        ["Referer", "https://sentry.io/welcome/"],
-                        ["User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.109 Safari/537.36"]
-                    ]
-                },
-                "user": {
-                    "ip_address": "0.0.0.0",
-                    "id": "41656",
-                    "email": "test@example.com"
-                },
-                "version": "7",
-                "breadcrumbs": {
-                    "values": [
-                        {
-                            "category": "xhr",
-                            "timestamp": 1496395011.63,
-                            "type": "http",
-                            "data": {
-                                "url": "/api/path/here",
-                                "status_code": "500",
-                                "method": "POST"
-                            }
-                        }
-                    ]
-                }
-            }"""
-
-        event = Factories.create_event(
-            group=group,
-            event_id=event_id,
-            platform="javascript",
-            data=json.loads(payload),
-            # This payload already went through sourcemap
-            # processing, normalizing it would remove
-            # frame.data (orig_filename, etc)
-            normalize=False,
-        )
         return event
 
     @staticmethod
@@ -706,7 +624,7 @@ class Factories(object):
 
     @staticmethod
     def create_sentry_app(**kwargs):
-        app = sentry_apps.Creator.run(**Factories._sentry_app_kwargs(**kwargs))
+        app = sentry_apps.Creator.run(is_internal=False, **Factories._sentry_app_kwargs(**kwargs))
 
         if kwargs.get("published"):
             app.update(status=SentryAppStatus.PUBLISHED)
@@ -715,7 +633,9 @@ class Factories(object):
 
     @staticmethod
     def create_internal_integration(**kwargs):
-        return sentry_apps.InternalCreator.run(**Factories._sentry_app_kwargs(**kwargs))
+        return sentry_apps.InternalCreator.run(
+            is_internal=True, **Factories._sentry_app_kwargs(**kwargs)
+        )
 
     @staticmethod
     def create_internal_integration_token(install, **kwargs):
@@ -739,17 +659,20 @@ class Factories(object):
         return _kwargs
 
     @staticmethod
-    def create_sentry_app_installation(organization=None, slug=None, user=None):
+    def create_sentry_app_installation(organization=None, slug=None, user=None, status=None):
         if not organization:
             organization = Factories.create_organization()
 
         Factories.create_project(organization=organization)
 
-        return sentry_app_installations.Creator.run(
+        install = sentry_app_installations.Creator.run(
             slug=(slug or Factories.create_sentry_app().slug),
             organization=organization,
             user=(user or Factories.create_user()),
         )
+        install.status = SentryAppInstallationStatus.INSTALLED if status is None else status
+        install.save()
+        return install
 
     @staticmethod
     def create_issue_link_schema():
@@ -836,42 +759,12 @@ class Factories(object):
         return integration_feature
 
     @staticmethod
-    def create_sentry_app_webhook_error(sentry_app=None, organization=None, event_type=None):
-        if not sentry_app:
-            sentry_app = Factories.create_sentry_app()
-        if not organization:
-            organization = Factories.create_organization()
-        if not event_type:
-            event_type = "issue.assigned"
-
-        request_body = {}
-        request_headers = {
-            "Request-ID": "c2f0ab98bd2a4f8eba6a67a91c43c7c8",
-            "Sentry-Hook-Signature": "656e2aad9b01327fcd9860deff06fe1f55ddca9655eba05aa92ff4f96f5c1a42",
-            "Content-Type": "application/json",
-            "Sentry-Hook-Resource": "issue",
-            "Sentry-Hook-Timestamp": "1569455694",
-        }
-        error = SentryAppWebhookError.objects.create(
-            sentry_app=sentry_app,
-            organization=organization,
-            request_body=request_body,
-            request_headers=request_headers,
-            event_type=event_type,
-            webhook_url="https://example.com/webhook",
-            response_body="This is an error",
-            response_code=400,
-        )
-
-        return error
-
-    @staticmethod
     def create_userreport(group, project=None, event_id=None, **kwargs):
         return UserReport.objects.create(
             group=group,
             event_id=event_id or "a" * 32,
             project=project or group.project,
-            name="Jane Doe",
+            name="Jane Bloggs",
             email="jane@example.com",
             comments="the application crashed",
             **kwargs
@@ -894,6 +787,22 @@ class Factories(object):
         )
 
     @staticmethod
+    def create_integration_external_issue(group=None, integration=None, key=None):
+        external_issue = ExternalIssue.objects.create(
+            organization_id=group.organization.id, integration_id=integration.id, key=key
+        )
+
+        GroupLink.objects.create(
+            group_id=group.id,
+            project_id=group.project_id,
+            linked_type=GroupLink.LinkedType.issue,
+            linked_id=external_issue.id,
+            relationship=GroupLink.Relationship.references,
+        )
+
+        return external_issue
+
+    @staticmethod
     def create_incident(
         organization,
         projects,
@@ -904,27 +813,29 @@ class Factories(object):
         date_started=None,
         date_detected=None,
         date_closed=None,
-        groups=None,
         seen_by=None,
+        alert_rule=None,
     ):
         if not title:
             title = petname.Generate(2, " ", letters=10).title()
+        if alert_rule is None:
+            alert_rule = Factories.create_alert_rule(
+                organization, projects, query=query, time_window=1
+            )
 
         incident = Incident.objects.create(
             organization=organization,
             detection_uuid=detection_uuid,
             status=status,
             title=title,
-            query=query,
+            alert_rule=alert_rule,
             date_started=date_started or timezone.now(),
             date_detected=date_detected or timezone.now(),
-            date_closed=date_closed or timezone.now(),
+            date_closed=timezone.now() if date_closed is not None else date_closed,
+            type=IncidentType.ALERT_TRIGGERED.value,
         )
         for project in projects:
             IncidentProject.objects.create(incident=incident, project=project)
-        if groups:
-            for group in groups:
-                IncidentGroup.objects.create(incident=incident, group=group)
         if seen_by:
             for user in seen_by:
                 IncidentSeen.objects.create(incident=incident, user=user, last_seen=timezone.now())
@@ -941,30 +852,61 @@ class Factories(object):
         organization,
         projects,
         name=None,
-        threshold_type=AlertRuleThresholdType.ABOVE,
         query="level:error",
-        aggregation=QueryAggregations.TOTAL,
+        aggregate="count()",
         time_window=10,
-        alert_threshold=100,
-        resolve_threshold=10,
         threshold_period=1,
         include_all_projects=False,
+        environment=None,
         excluded_projects=None,
+        date_added=None,
+        dataset=QueryDatasets.EVENTS,
     ):
         if not name:
             name = petname.Generate(2, " ", letters=10).title()
 
-        return create_alert_rule(
+        alert_rule = create_alert_rule(
             organization,
             projects,
             name,
-            threshold_type,
             query,
-            aggregation,
+            aggregate,
             time_window,
-            alert_threshold,
-            resolve_threshold,
             threshold_period,
+            dataset=dataset,
+            environment=environment,
             include_all_projects=include_all_projects,
             excluded_projects=excluded_projects,
+        )
+
+        if date_added is not None:
+            alert_rule.update(date_added=date_added)
+
+        return alert_rule
+
+    @staticmethod
+    def create_alert_rule_trigger(
+        alert_rule,
+        label=None,
+        threshold_type=AlertRuleThresholdType.ABOVE,
+        alert_threshold=100,
+        resolve_threshold=10,
+    ):
+        if not label:
+            label = petname.Generate(2, " ", letters=10).title()
+
+        return create_alert_rule_trigger(
+            alert_rule, label, threshold_type, alert_threshold, resolve_threshold
+        )
+
+    @staticmethod
+    def create_alert_rule_trigger_action(
+        trigger,
+        type=AlertRuleTriggerAction.Type.EMAIL,
+        target_type=AlertRuleTriggerAction.TargetType.USER,
+        target_identifier=None,
+        integration=None,
+    ):
+        return create_alert_rule_trigger_action(
+            trigger, type, target_type, target_identifier, integration
         )

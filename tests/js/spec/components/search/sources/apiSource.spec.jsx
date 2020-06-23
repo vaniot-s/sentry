@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount} from 'sentry-test/enzyme';
 
 import {ApiSource} from 'app/components/search/sources/apiSource';
@@ -51,6 +52,27 @@ describe('ApiSource', function() {
       url: '/organizations/org-slug/eventids/12345678901234567890123456789012/',
       query: '12345678901234567890123456789012',
       body: TestStubs.EventIdQueryResult(),
+    });
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/plugins/?plugins=_all',
+      query: {plugins: '_all'},
+      body: [],
+    });
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/plugins/configs/',
+      body: [],
+    });
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/config/integrations/',
+      body: [],
+    });
+    MockApiClient.addMockResponse({
+      url: '/sentry-apps/?status=published',
+      body: [],
+    });
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/shortids/foo-t/',
+      body: [],
     });
     allMocks = {orgsMock, projectsMock, teamsMock, membersMock, shortIdMock, eventIdMock};
   });

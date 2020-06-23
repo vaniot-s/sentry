@@ -1,20 +1,23 @@
-import {debounce} from 'lodash';
 import PropTypes from 'prop-types';
 import React from 'react';
-import styled from 'react-emotion';
+import debounce from 'lodash/debounce';
+import styled from '@emotion/styled';
 
-import {Panel, PanelHeader} from 'app/components/panels';
+import {Panel, PanelItem, PanelHeader} from 'app/components/panels';
 import {addErrorMessage, addSuccessMessage} from 'app/actionCreators/indicator';
 import {joinTeam, leaveTeam} from 'app/actionCreators/teams';
+import {
+  openInviteMembersModal,
+  openTeamAccessRequestModal,
+} from 'app/actionCreators/modal';
 import {t} from 'app/locale';
-import Avatar from 'app/components/avatar';
+import UserAvatar from 'app/components/avatar/userAvatar';
 import Button from 'app/components/button';
 import DropdownAutoComplete from 'app/components/dropdownAutoComplete';
 import DropdownButton from 'app/components/dropdownButton';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
 import IdBadge from 'app/components/idBadge';
-import IndicatorStore from 'app/stores/indicatorStore';
-import InlineSvg from 'app/components/inlineSvg';
+import {IconSubtract, IconUser} from 'app/icons';
 import Link from 'app/components/links/link';
 import LoadingError from 'app/components/loadingError';
 import LoadingIndicator from 'app/components/loadingIndicator';
@@ -40,11 +43,11 @@ class TeamMembers extends React.Component {
     orgMemberList: null,
   };
 
-  componentWillMount() {
+  UNSAFE_componentWillMount() {
     this.fetchData();
   }
 
-  componentWillReceiveProps(nextProps) {
+  UNSAFE_componentWillReceiveProps(nextProps) {
     const params = this.props.params;
     if (
       nextProps.params.teamId !== params.teamId ||
@@ -81,19 +84,13 @@ class TeamMembers extends React.Component {
       {
         success: () => {
           this.setState({
-            teamMemberList: this.state.teamMemberList.filter(m => {
-              return m.id !== member.id;
-            }),
+            teamMemberList: this.state.teamMemberList.filter(m => m.id !== member.id),
           });
-          IndicatorStore.add(t('Successfully removed member from team.'), 'success', {
-            duration: 2000,
-          });
+          addSuccessMessage(t('Successfully removed member from team.'));
         },
         error: () => {
-          IndicatorStore.add(
-            t('There was an error while trying to remove a member from the team.'),
-            'error',
-            {duration: 2000}
+          addErrorMessage(
+            t('There was an error while trying to remove a member from the team.')
           );
         },
       }
@@ -149,7 +146,7 @@ class TeamMembers extends React.Component {
   };
 
   addTeamMember = selection => {
-    const params = this.props.params;
+    const {params} = this.props;
 
     this.setState({
       loading: true,
@@ -167,9 +164,9 @@ class TeamMembers extends React.Component {
       },
       {
         success: () => {
-          const orgMember = this.state.orgMemberList.find(member => {
-            return member.id === selection.value;
-          });
+          const orgMember = this.state.orgMemberList.find(
+            member => member.id === selection.value
+          );
           this.setState({
             loading: false,
             error: false,
@@ -198,48 +195,37 @@ class TeamMembers extends React.Component {
   };
 
   renderDropdown = access => {
-    const {params} = this.props;
-
-    // You can add members if you have `org:write` or you have `team:admin` AND you belong to the team
-    // a parent "team details" request should determine your team membership, so this only view is rendered only
-    // when you are a member
-    const canAddMembers = access.has('org:write') || access.has('team:admin');
-
-    if (!canAddMembers) {
-      return (
-        <DropdownButton
-          disabled
-          title={t('You do not have enough permission to add new members')}
-          isOpen={false}
-          size="xsmall"
-        >
-          {t('Add Member')}
-        </DropdownButton>
-      );
-    }
-
+    const {organization, params} = this.props;
     const existingMembers = new Set(this.state.teamMemberList.map(member => member.id));
+
+    // members can add other members to a team if the `Open Membership` setting is enabled
+    // otherwise, `org:write` or `team:admin` permissions are required
+    const hasOpenMembership = organization && organization.openMembership;
+    const hasWriteAccess = access.has('org:write') || access.has('team:admin');
+    const canAddMembers = hasOpenMembership || hasWriteAccess;
 
     const items = (this.state.orgMemberList || [])
       .filter(m => !existingMembers.has(m.id))
-      .map(m => {
-        return {
-          searchKey: `${m.name} ${m.email}`,
-          value: m.id,
-          label: (
-            <StyledUserListElement>
-              <StyledAvatar user={m} size={24} className="avatar" />
-              <StyledNameOrEmail>{m.name || m.email}</StyledNameOrEmail>
-            </StyledUserListElement>
-          ),
-        };
-      });
+      .map(m => ({
+        searchKey: `${m.name} ${m.email}`,
+        value: m.id,
+        label: (
+          <StyledUserListElement>
+            <StyledAvatar user={m} size={24} className="avatar" />
+            <StyledNameOrEmail>{m.name || m.email}</StyledNameOrEmail>
+          </StyledUserListElement>
+        ),
+      }));
 
     const menuHeader = (
       <StyledMembersLabel>
         {t('Members')}
-        <StyledCreateMemberLink to={`/settings/${params.orgId}/members/new/`}>
-          {t('Add Member')}
+        <StyledCreateMemberLink
+          to=""
+          onClick={() => openInviteMembersModal({source: 'teams'})}
+          data-test-id="invite-member"
+        >
+          {t('Invite Member')}
         </StyledCreateMemberLink>
       </StyledMembersLabel>
     );
@@ -247,7 +233,16 @@ class TeamMembers extends React.Component {
     return (
       <DropdownAutoComplete
         items={items}
-        onSelect={this.addTeamMember}
+        onSelect={
+          canAddMembers
+            ? this.addTeamMember
+            : selection =>
+                openTeamAccessRequestModal({
+                  teamId: params.teamId,
+                  orgId: params.orgId,
+                  memberId: selection.value,
+                })
+        }
         menuHeader={menuHeader}
         emptyMessage={t('No members')}
         onChange={this.handleMemberFilterChange}
@@ -255,7 +250,7 @@ class TeamMembers extends React.Component {
         onClose={() => this.debouncedFetchMembersRequest('')}
       >
         {({isOpen}) => (
-          <DropdownButton isOpen={isOpen} size="xsmall">
+          <DropdownButton isOpen={isOpen} size="xsmall" data-test-id="add-member">
             {t('Add Member')}
           </DropdownButton>
         )}
@@ -263,22 +258,16 @@ class TeamMembers extends React.Component {
     );
   };
 
-  removeButton = member => {
-    return (
-      <Button
-        size="small"
-        onClick={this.removeMember.bind(this, member)}
-        label={t('Remove')}
-      >
-        <InlineSvg
-          src="icon-circle-subtract"
-          size="1.25em"
-          style={{marginRight: space(1)}}
-        />
-        {t('Remove')}
-      </Button>
-    );
-  };
+  removeButton = member => (
+    <Button
+      size="small"
+      icon={<IconSubtract size="xs" isCircled />}
+      onClick={this.removeMember.bind(this, member)}
+      label={t('Remove')}
+    >
+      {t('Remove')}
+    </Button>
+  );
 
   render() {
     if (this.state.loading) {
@@ -289,8 +278,7 @@ class TeamMembers extends React.Component {
 
     const {params, organization, config} = this.props;
     const access = new Set(organization.access);
-    const isOrgAdmin = access.has('org:write');
-    const isTeamAdmin = access.has('team:admin');
+    const hasWriteAccess = access.has('org:write') || access.has('team:admin');
 
     return (
       <Panel>
@@ -301,7 +289,7 @@ class TeamMembers extends React.Component {
         {this.state.teamMemberList.length ? (
           this.state.teamMemberList.map(member => {
             const isSelf = member.email === config.user.email;
-            const canRemoveMember = isOrgAdmin || isTeamAdmin || isSelf;
+            const canRemoveMember = hasWriteAccess || isSelf;
             return (
               <StyledMemberContainer key={member.id}>
                 <IdBadge avatarSize={36} member={member} useLink orgId={params.orgId} />
@@ -310,7 +298,7 @@ class TeamMembers extends React.Component {
             );
           })
         ) : (
-          <EmptyMessage icon="icon-user" size="large">
+          <EmptyMessage icon={<IconUser size="xl" />} size="large">
             {t('This team has no members')}
           </EmptyMessage>
         )}
@@ -319,43 +307,39 @@ class TeamMembers extends React.Component {
   }
 }
 
-const StyledMemberContainer = styled('div')`
-  display: flex;
+const StyledMemberContainer = styled(PanelItem)`
   justify-content: space-between;
-  padding: ${space(2)};
-  border-bottom: 1px solid ${p => p.theme.borderLight};
+  align-items: center;
 `;
 
 const StyledUserListElement = styled('div')`
-  font-size: 0.875em;
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  grid-gap: ${space(0.5)};
   align-items: center;
-  padding: ${space(0.5)};
 `;
 
 const StyledNameOrEmail = styled('div')`
-  flex-shrink: 1;
-  min-width: 0;
+  font-size: ${p => p.theme.fontSizeSmall};
   ${overflowEllipsis};
 `;
 
-const StyledAvatar = styled(props => <Avatar {...props} />)`
+const StyledAvatar = styled(props => <UserAvatar {...props} />)`
   min-width: 1.75em;
   min-height: 1.75em;
   width: 1.5em;
   height: 1.5em;
-  margin-right: ${space(0.5)};
 `;
 
 const StyledMembersLabel = styled('div')`
-  width: 250px;
-  font-size: 0.875em;
+  display: grid;
+  grid-template-columns: 1fr max-content;
   padding: ${space(1)} 0;
+  font-size: ${p => p.theme.fontSizeExtraSmall};
   text-transform: uppercase;
 `;
 
 const StyledCreateMemberLink = styled(Link)`
-  float: right;
   text-transform: none;
 `;
 

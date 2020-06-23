@@ -30,6 +30,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
         "team:write",
         "team:admin",
       ],
+      "experiments": Object {},
       "features": Array [],
       "id": "3",
       "name": "Organization Name",
@@ -53,274 +54,290 @@ exports[`OrganizationTeamProjects Should render 1`] = `
 >
   <Panel>
     <Component
-      className="css-10qfvek-Panel e119nu470"
+      className="css-15hwgrz-Panel e119nu470"
     >
       <div
-        className="css-10qfvek-Panel e119nu470"
+        className="css-15hwgrz-Panel e119nu470"
       >
         <PanelHeader
           hasButtons={true}
         >
-          <Component
-            className="css-1m2bast-PanelHeader-getPadding e1p8v8nv0"
-            hasButtons={true}
+          <div
+            className="css-yhsu7n-PanelHeader en8g1d30"
           >
-            <Flex
-              align="center"
-              className="css-1m2bast-PanelHeader-getPadding e1p8v8nv0"
-              justify="space-between"
+            <div>
+              Projects
+            </div>
+            <div
+              style={
+                Object {
+                  "textTransform": "none",
+                }
+              }
             >
-              <Base
-                align="center"
-                className="e1p8v8nv0 css-yowjp-PanelHeader-getPadding"
-                justify="space-between"
+              <DropdownAutoComplete
+                alignMenu="right"
+                emptyMessage="No projects"
+                items={
+                  Array [
+                    Object {
+                      "label": <ForwardRef(render)>
+                        project-slug
+                      </ForwardRef(render)>,
+                      "searchKey": "project-slug",
+                      "value": "2",
+                    },
+                    Object {
+                      "label": <ForwardRef(render)>
+                        project-slug-2
+                      </ForwardRef(render)>,
+                      "searchKey": "project-slug-2",
+                      "value": "3",
+                    },
+                  ]
+                }
+                onChange={[Function]}
+                onSelect={[Function]}
               >
-                <div
-                  className="e1p8v8nv0 css-yowjp-PanelHeader-getPadding"
-                  is={null}
-                >
-                  <div>
-                    Projects
-                  </div>
-                  <div
-                    style={
+                <DropdownAutoCompleteMenu
+                  alignMenu="right"
+                  blendCorner={true}
+                  emptyMessage="No projects"
+                  items={
+                    Array [
                       Object {
-                        "textTransform": "none",
-                      }
-                    }
+                        "label": <ForwardRef(render)>
+                          project-slug
+                        </ForwardRef(render)>,
+                        "searchKey": "project-slug",
+                        "value": "2",
+                      },
+                      Object {
+                        "label": <ForwardRef(render)>
+                          project-slug-2
+                        </ForwardRef(render)>,
+                        "searchKey": "project-slug-2",
+                        "value": "3",
+                      },
+                    ]
+                  }
+                  maxHeight={300}
+                  onChange={[Function]}
+                  onSelect={[Function]}
+                  searchPlaceholder="Filter search"
+                >
+                  <AutoComplete
+                    closeOnSelect={true}
+                    disabled={false}
+                    inputIsActor={false}
+                    itemToString={[Function]}
+                    onSelect={[Function]}
+                    resetInputOnClose={true}
+                    shouldSelectWithEnter={true}
+                    shouldSelectWithTab={false}
                   >
-                    <DropdownAutoComplete
-                      alignMenu="right"
-                      emptyMessage="No projects"
-                      items={
-                        Array [
-                          Object {
-                            "label": <ProjectListElement>
-                              project-slug
-                            </ProjectListElement>,
-                            "searchKey": "project-slug",
-                            "value": "2",
-                          },
-                          Object {
-                            "label": <ProjectListElement>
-                              project-slug-2
-                            </ProjectListElement>,
-                            "searchKey": "project-slug-2",
-                            "value": "3",
-                          },
-                        ]
-                      }
-                      onChange={[Function]}
-                      onSelect={[Function]}
+                    <DropdownMenu
+                      closeOnEscape={true}
+                      isOpen={false}
+                      keepMenuOpen={false}
+                      onClickOutside={[Function]}
                     >
-                      <DropdownAutoCompleteMenu
-                        alignMenu="right"
-                        blendCorner={true}
-                        emptyMessage="No projects"
-                        items={
-                          Array [
-                            Object {
-                              "label": <ProjectListElement>
-                                project-slug
-                              </ProjectListElement>,
-                              "searchKey": "project-slug",
-                              "value": "2",
-                            },
-                            Object {
-                              "label": <ProjectListElement>
-                                project-slug-2
-                              </ProjectListElement>,
-                              "searchKey": "project-slug-2",
-                              "value": "3",
-                            },
-                          ]
-                        }
-                        maxHeight={300}
-                        onChange={[Function]}
-                        onSelect={[Function]}
-                        searchPlaceholder="Filter search"
-                      >
-                        <AutoComplete
-                          closeOnSelect={true}
-                          disabled={false}
-                          inputIsActor={false}
-                          itemToString={[Function]}
-                          onSelect={[Function]}
-                          resetInputOnClose={true}
-                          shouldSelectWithEnter={true}
-                          shouldSelectWithTab={false}
+                      <AutoCompleteRoot>
+                        <Component
+                          className="css-j1qymt-AutoCompleteRoot ejumqxq0"
                         >
-                          <DropdownMenu
-                            closeOnEscape={true}
-                            isOpen={false}
-                            keepMenuOpen={false}
-                            onClickOutside={[Function]}
+                          <div
+                            className="css-j1qymt-AutoCompleteRoot ejumqxq0"
                           >
-                            <AutoCompleteRoot>
-                              <Component
-                                className="css-6v04yn-AutoCompleteRoot ejumqxq0"
+                            <Actor
+                              isOpen={false}
+                              onClick={[Function]}
+                              onKeyDown={[Function]}
+                              onMouseEnter={[Function]}
+                              onMouseLeave={[Function]}
+                              role="button"
+                              style={
+                                Object {
+                                  "outline": "none",
+                                }
+                              }
+                              tabIndex="0"
+                            >
+                              <div
+                                className="css-1vv9ctx-Actor e53us8t0"
+                                onClick={[Function]}
+                                onKeyDown={[Function]}
+                                onMouseEnter={[Function]}
+                                onMouseLeave={[Function]}
+                                role="button"
+                                style={
+                                  Object {
+                                    "outline": "none",
+                                  }
+                                }
+                                tabIndex="0"
                               >
-                                <div
-                                  className="css-6v04yn-AutoCompleteRoot ejumqxq0"
+                                <ForwardRef
+                                  isOpen={false}
+                                  size="xsmall"
                                 >
-                                  <Actor
-                                    innerRef={[Function]}
+                                  <DropdownButton
+                                    forwardedRef={null}
                                     isOpen={false}
-                                    onClick={[Function]}
-                                    onKeyDown={[Function]}
-                                    onMouseEnter={[Function]}
-                                    onMouseLeave={[Function]}
-                                    role="button"
-                                    style={
-                                      Object {
-                                        "outline": "none",
-                                      }
-                                    }
-                                    tabIndex="0"
+                                    showChevron={true}
+                                    size="xsmall"
                                   >
-                                    <div
-                                      className="css-12n6mek-Actor e53us8t0"
-                                      onClick={[Function]}
-                                      onKeyDown={[Function]}
-                                      onMouseEnter={[Function]}
-                                      onMouseLeave={[Function]}
-                                      role="button"
-                                      style={
-                                        Object {
-                                          "outline": "none",
-                                        }
-                                      }
-                                      tabIndex="0"
+                                    <StyledButton
+                                      hideBottomBorder={true}
+                                      isOpen={false}
+                                      size="xsmall"
+                                      type="button"
                                     >
-                                      <DropdownButton
+                                      <forwardRef<Button>
+                                        className="css-1k1xa0j-StyledButton eenpoef1"
+                                        hideBottomBorder={true}
                                         isOpen={false}
-                                        showChevron={true}
                                         size="xsmall"
+                                        type="button"
                                       >
-                                        <StyledButton
+                                        <Button
+                                          align="center"
+                                          className="css-1k1xa0j-StyledButton eenpoef1"
+                                          disabled={false}
+                                          forwardRef={null}
+                                          hideBottomBorder={true}
                                           isOpen={false}
                                           size="xsmall"
+                                          type="button"
                                         >
-                                          <ForwardRef
-                                            className="css-a2adl3-StyledButton e1yghndz1"
+                                          <StyledButton
+                                            aria-disabled={false}
+                                            className="css-1k1xa0j-StyledButton eenpoef1"
+                                            disabled={false}
+                                            forwardRef={null}
+                                            hideBottomBorder={true}
                                             isOpen={false}
+                                            onClick={[Function]}
+                                            role="button"
                                             size="xsmall"
+                                            type="button"
                                           >
-                                            <Button
-                                              align="center"
-                                              className="css-a2adl3-StyledButton e1yghndz1"
-                                              disabled={false}
-                                              innerRef={null}
+                                            <Component
+                                              aria-disabled={false}
+                                              className="eenpoef1 css-ssbzqs-StyledButton-StyledButton edwq9my0"
+                                              forwardRef={null}
+                                              onClick={[Function]}
+                                              role="button"
                                               size="xsmall"
+                                              type="button"
                                             >
-                                              <StyledButton
+                                              <button
                                                 aria-disabled={false}
-                                                className="css-a2adl3-StyledButton e1yghndz1"
-                                                disabled={false}
-                                                innerRef={null}
+                                                className="eenpoef1 css-ssbzqs-StyledButton-StyledButton edwq9my0"
                                                 onClick={[Function]}
                                                 role="button"
                                                 size="xsmall"
+                                                type="button"
                                               >
-                                                <ForwardRef
-                                                  aria-disabled={false}
-                                                  className="e1yghndz1 css-rfaawb-StyledButton-getColors-StyledButton edwq9my0"
-                                                  disabled={false}
-                                                  onClick={[Function]}
-                                                  role="button"
+                                                <ButtonLabel
+                                                  align="center"
                                                   size="xsmall"
                                                 >
-                                                  <button
-                                                    aria-disabled={false}
-                                                    className="e1yghndz1 css-rfaawb-StyledButton-getColors-StyledButton edwq9my0"
-                                                    onClick={[Function]}
-                                                    role="button"
-                                                    size="xsmall"
+                                                  <span
+                                                    className="css-1dw46ju-ButtonLabel edwq9my1"
                                                   >
-                                                    <ButtonLabel
-                                                      align="center"
-                                                      size="xsmall"
+                                                    Add Project
+                                                    <StyledChevron
+                                                      direction="down"
+                                                      size="10px"
                                                     >
-                                                      <Component
-                                                        align="center"
-                                                        className="css-1bqncjo-ButtonLabel edwq9my1"
-                                                        size="xsmall"
+                                                      <IconChevron
+                                                        className="css-17f1s2z-StyledChevron eenpoef0"
+                                                        direction="down"
+                                                        size="10px"
                                                       >
-                                                        <span
-                                                          className="css-1bqncjo-ButtonLabel edwq9my1"
+                                                        <EmotionCssPropInternal
+                                                          __EMOTION_LABEL_PLEASE_DO_NOT_USE__="IconChevron"
+                                                          __EMOTION_TYPE_PLEASE_DO_NOT_USE__={
+                                                            Object {
+                                                              "$$typeof": Symbol(react.forward_ref),
+                                                              "propTypes": Object {
+                                                                "color": [Function],
+                                                                "size": [Function],
+                                                                "viewBox": [Function],
+                                                              },
+                                                              "render": [Function],
+                                                            }
+                                                          }
+                                                          className="css-17f1s2z-StyledChevron eenpoef0"
+                                                          css={
+                                                            Object {
+                                                              "map": undefined,
+                                                              "name": "7chgxg-IconChevron",
+                                                              "next": undefined,
+                                                              "styles": "transform:rotate(180deg);;label:IconChevron;",
+                                                              "toString": [Function],
+                                                            }
+                                                          }
+                                                          size="10px"
                                                         >
-                                                          Add Project
-                                                          <StyledChevronDown>
-                                                            <Component
-                                                              className="css-17v3tc-StyledChevronDown e1yghndz0"
+                                                          <ForwardRef(SvgIcon)
+                                                            className="eenpoef0 css-hsco9l-IconChevron-StyledChevron"
+                                                            size="10px"
+                                                          >
+                                                            <svg
+                                                              className="eenpoef0 css-hsco9l-IconChevron-StyledChevron"
+                                                              fill="currentColor"
+                                                              height="10px"
+                                                              viewBox="0 0 16 16"
+                                                              width="10px"
                                                             >
-                                                              <InlineSvg
-                                                                className="css-17v3tc-StyledChevronDown e1yghndz0"
-                                                                src="icon-chevron-down"
-                                                              >
-                                                                <ForwardRef
-                                                                  className="e1yghndz0 css-ft01vp-InlineSvg-StyledChevronDown enyz4ql0"
-                                                                  src="icon-chevron-down"
-                                                                >
-                                                                  <svg
-                                                                    className="e1yghndz0 css-ft01vp-InlineSvg-StyledChevronDown enyz4ql0"
-                                                                    height="1em"
-                                                                    viewBox={Object {}}
-                                                                    width="1em"
-                                                                  >
-                                                                    <use
-                                                                      href="#test"
-                                                                      xlinkHref="#test"
-                                                                    />
-                                                                  </svg>
-                                                                </ForwardRef>
-                                                              </InlineSvg>
-                                                            </Component>
-                                                          </StyledChevronDown>
-                                                        </span>
-                                                      </Component>
-                                                    </ButtonLabel>
-                                                  </button>
-                                                </ForwardRef>
-                                              </StyledButton>
-                                            </Button>
-                                          </ForwardRef>
-                                        </StyledButton>
-                                      </DropdownButton>
-                                    </div>
-                                  </Actor>
-                                </div>
-                              </Component>
-                            </AutoCompleteRoot>
-                          </DropdownMenu>
-                        </AutoComplete>
-                      </DropdownAutoCompleteMenu>
-                    </DropdownAutoComplete>
-                  </div>
-                </div>
-              </Base>
-            </Flex>
-          </Component>
+                                                              <path
+                                                                d="M14,11.75a.74.74,0,0,1-.53-.22L8,6.06,2.53,11.53a.75.75,0,0,1-1.06-1.06l6-6a.75.75,0,0,1,1.06,0l6,6a.75.75,0,0,1,0,1.06A.74.74,0,0,1,14,11.75Z"
+                                                              />
+                                                            </svg>
+                                                          </ForwardRef(SvgIcon)>
+                                                        </EmotionCssPropInternal>
+                                                      </IconChevron>
+                                                    </StyledChevron>
+                                                  </span>
+                                                </ButtonLabel>
+                                              </button>
+                                            </Component>
+                                          </StyledButton>
+                                        </Button>
+                                      </forwardRef<Button>>
+                                    </StyledButton>
+                                  </DropdownButton>
+                                </ForwardRef>
+                              </div>
+                            </Actor>
+                          </div>
+                        </Component>
+                      </AutoCompleteRoot>
+                    </DropdownMenu>
+                  </AutoComplete>
+                </DropdownAutoCompleteMenu>
+              </DropdownAutoComplete>
+            </div>
+          </div>
         </PanelHeader>
         <PanelBody
-          direction="column"
-          disablePadding={true}
-          flex={false}
+          flexible={false}
+          withPadding={false}
         >
-          <div
-            className="css-a4ya23-textStyles"
+          <FlexBox
+            withPadding={false}
           >
-            <StyledPanelItem
-              key="2"
-              p={2}
+            <div
+              className="css-1nto0rx-FlexBox e1vnwt6f0"
             >
-              <Base
-                className="css-1usthj3-PanelItem-StyledPanelItem eqsa6vb1"
+              <StyledPanelItem
+                key="2"
                 p={2}
               >
                 <div
-                  className="css-1usthj3-PanelItem-StyledPanelItem eqsa6vb1"
-                  is={null}
+                  className="css-1les87u-PanelItem-StyledPanelItem eqsa6vb1"
                 >
                   <ProjectItem
                     organization={
@@ -337,6 +354,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                           "team:write",
                           "team:admin",
                         ],
+                        "experiments": Object {},
                         "features": Array [],
                         "id": "3",
                         "name": "Organization Name",
@@ -370,7 +388,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                       key="2"
                     >
                       <div
-                        className="css-9ku3o0-Container enngb6z0"
+                        className="css-vtga8x-Container enngb6z0"
                       >
                         <BookmarkLink
                           isBookmarked={false}
@@ -389,6 +407,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                 "team:write",
                                 "team:admin",
                               ],
+                              "experiments": Object {},
                               "features": Array [],
                               "id": "3",
                               "name": "Organization Name",
@@ -419,7 +438,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                           }
                         >
                           <withApi(BookmarkStar)
-                            className="css-10z01iz-BookmarkLink enngb6z1"
+                            className="css-1qavcxg-BookmarkLink enngb6z1"
                             isBookmarked={false}
                             onToggle={[Function]}
                             organization={
@@ -436,6 +455,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                   "team:write",
                                   "team:admin",
                                 ],
+                                "experiments": Object {},
                                 "features": Array [],
                                 "id": "3",
                                 "name": "Organization Name",
@@ -475,7 +495,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                   "hasProjectBeenRenamed": [Function],
                                 }
                               }
-                              className="css-10z01iz-BookmarkLink enngb6z1"
+                              className="css-1qavcxg-BookmarkLink enngb6z1"
                               isBookmarked={false}
                               onToggle={[Function]}
                               organization={
@@ -492,6 +512,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                     "team:write",
                                     "team:admin",
                                   ],
+                                  "experiments": Object {},
                                   "features": Array [],
                                   "id": "3",
                                   "name": "Organization Name",
@@ -522,19 +543,19 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                               }
                             >
                               <Star
-                                className="css-10z01iz-BookmarkLink enngb6z1"
+                                className="css-1qavcxg-BookmarkLink enngb6z1"
                                 isBookmarked={false}
                                 onClick={[Function]}
                                 src="icon-star-small-filled"
                               >
                                 <ForwardRef
-                                  className="enngb6z1 css-judnc9-InlineSvg-Star-BookmarkLink e5ekdrk0"
+                                  className="enngb6z1 css-wprtkf-InlineSvg-Star-BookmarkLink ez1a7zv0"
                                   isBookmarked={false}
                                   onClick={[Function]}
                                   src="icon-star-small-filled"
                                 >
                                   <svg
-                                    className="enngb6z1 css-judnc9-InlineSvg-Star-BookmarkLink e5ekdrk0"
+                                    className="enngb6z1 css-wprtkf-InlineSvg-Star-BookmarkLink ez1a7zv0"
                                     height="1em"
                                     onClick={[Function]}
                                     viewBox={Object {}}
@@ -580,20 +601,6 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                               >
                                 <span
                                   className="project-label"
-                                  project={
-                                    Object {
-                                      "environments": Array [],
-                                      "hasAccess": true,
-                                      "id": "2",
-                                      "isBookmarked": false,
-                                      "isMember": true,
-                                      "name": "Project Name",
-                                      "slug": "project-slug",
-                                      "teams": Array [
-                                        undefined,
-                                      ],
-                                    }
-                                  }
                                 >
                                   <span
                                     className="project-name"
@@ -614,60 +621,62 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                     position="top"
                     title="You do not have enough permission to change project association."
                   >
-                    <Button
-                      align="center"
+                    <forwardRef<Button>
                       disabled={false}
                       onClick={[Function]}
                       size="small"
                     >
-                      <StyledButton
-                        aria-disabled={false}
+                      <Button
+                        align="center"
                         disabled={false}
+                        forwardRef={null}
                         onClick={[Function]}
-                        role="button"
                         size="small"
                       >
-                        <ForwardRef
+                        <StyledButton
                           aria-disabled={false}
-                          className="css-z6hjis-StyledButton-getColors edwq9my0"
                           disabled={false}
+                          forwardRef={null}
                           onClick={[Function]}
                           role="button"
                           size="small"
                         >
-                          <button
+                          <Component
                             aria-disabled={false}
-                            className="css-z6hjis-StyledButton-getColors edwq9my0"
+                            className="css-12ogwys-StyledButton edwq9my0"
+                            forwardRef={null}
                             onClick={[Function]}
                             role="button"
                             size="small"
                           >
-                            <ButtonLabel
-                              align="center"
+                            <button
+                              aria-disabled={false}
+                              className="css-12ogwys-StyledButton edwq9my0"
+                              onClick={[Function]}
+                              role="button"
                               size="small"
                             >
-                              <Component
+                              <ButtonLabel
                                 align="center"
-                                className="css-1h693nz-ButtonLabel edwq9my1"
                                 size="small"
                               >
                                 <span
-                                  className="css-1h693nz-ButtonLabel edwq9my1"
+                                  className="css-n7mdnv-ButtonLabel edwq9my1"
                                 >
                                   <RemoveIcon>
                                     <Component
-                                      className="css-1e2j5j0-RemoveIcon eqsa6vb0"
+                                      className="css-1d2szfl-RemoveIcon eqsa6vb0"
                                     >
                                       <InlineSvg
-                                        className="css-1e2j5j0-RemoveIcon eqsa6vb0"
+                                        className="css-1d2szfl-RemoveIcon eqsa6vb0"
                                         src="icon-circle-subtract"
                                       >
                                         <ForwardRef
-                                          className="eqsa6vb0 css-wkk3z5-InlineSvg-RemoveIcon enyz4ql0"
+                                          className="eqsa6vb0 css-hoycps-InlineSvg-RemoveIcon enyz4ql0"
                                           src="icon-circle-subtract"
                                         >
                                           <svg
-                                            className="eqsa6vb0 css-wkk3z5-InlineSvg-RemoveIcon enyz4ql0"
+                                            className="eqsa6vb0 css-hoycps-InlineSvg-RemoveIcon enyz4ql0"
                                             height="1em"
                                             viewBox={Object {}}
                                             width="1em"
@@ -684,27 +693,21 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                    
                                   Remove
                                 </span>
-                              </Component>
-                            </ButtonLabel>
-                          </button>
-                        </ForwardRef>
-                      </StyledButton>
-                    </Button>
+                              </ButtonLabel>
+                            </button>
+                          </Component>
+                        </StyledButton>
+                      </Button>
+                    </forwardRef<Button>>
                   </Tooltip>
                 </div>
-              </Base>
-            </StyledPanelItem>
-            <StyledPanelItem
-              key="3"
-              p={2}
-            >
-              <Base
-                className="css-1usthj3-PanelItem-StyledPanelItem eqsa6vb1"
+              </StyledPanelItem>
+              <StyledPanelItem
+                key="3"
                 p={2}
               >
                 <div
-                  className="css-1usthj3-PanelItem-StyledPanelItem eqsa6vb1"
-                  is={null}
+                  className="css-1les87u-PanelItem-StyledPanelItem eqsa6vb1"
                 >
                   <ProjectItem
                     organization={
@@ -721,6 +724,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                           "team:write",
                           "team:admin",
                         ],
+                        "experiments": Object {},
                         "features": Array [],
                         "id": "3",
                         "name": "Organization Name",
@@ -752,7 +756,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                       key="3"
                     >
                       <div
-                        className="css-9ku3o0-Container enngb6z0"
+                        className="css-vtga8x-Container enngb6z0"
                       >
                         <BookmarkLink
                           isBookmarked={false}
@@ -771,6 +775,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                 "team:write",
                                 "team:admin",
                               ],
+                              "experiments": Object {},
                               "features": Array [],
                               "id": "3",
                               "name": "Organization Name",
@@ -799,7 +804,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                           }
                         >
                           <withApi(BookmarkStar)
-                            className="css-10z01iz-BookmarkLink enngb6z1"
+                            className="css-1qavcxg-BookmarkLink enngb6z1"
                             isBookmarked={false}
                             onToggle={[Function]}
                             organization={
@@ -816,6 +821,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                   "team:write",
                                   "team:admin",
                                 ],
+                                "experiments": Object {},
                                 "features": Array [],
                                 "id": "3",
                                 "name": "Organization Name",
@@ -853,7 +859,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                   "hasProjectBeenRenamed": [Function],
                                 }
                               }
-                              className="css-10z01iz-BookmarkLink enngb6z1"
+                              className="css-1qavcxg-BookmarkLink enngb6z1"
                               isBookmarked={false}
                               onToggle={[Function]}
                               organization={
@@ -870,6 +876,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                     "team:write",
                                     "team:admin",
                                   ],
+                                  "experiments": Object {},
                                   "features": Array [],
                                   "id": "3",
                                   "name": "Organization Name",
@@ -898,19 +905,19 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                               }
                             >
                               <Star
-                                className="css-10z01iz-BookmarkLink enngb6z1"
+                                className="css-1qavcxg-BookmarkLink enngb6z1"
                                 isBookmarked={false}
                                 onClick={[Function]}
                                 src="icon-star-small-filled"
                               >
                                 <ForwardRef
-                                  className="enngb6z1 css-judnc9-InlineSvg-Star-BookmarkLink e5ekdrk0"
+                                  className="enngb6z1 css-wprtkf-InlineSvg-Star-BookmarkLink ez1a7zv0"
                                   isBookmarked={false}
                                   onClick={[Function]}
                                   src="icon-star-small-filled"
                                 >
                                   <svg
-                                    className="enngb6z1 css-judnc9-InlineSvg-Star-BookmarkLink e5ekdrk0"
+                                    className="enngb6z1 css-wprtkf-InlineSvg-Star-BookmarkLink ez1a7zv0"
                                     height="1em"
                                     onClick={[Function]}
                                     viewBox={Object {}}
@@ -954,18 +961,6 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                               >
                                 <span
                                   className="project-label"
-                                  project={
-                                    Object {
-                                      "environments": Array [],
-                                      "hasAccess": true,
-                                      "id": "3",
-                                      "isBookmarked": false,
-                                      "isMember": true,
-                                      "name": "Project Name 2",
-                                      "slug": "project-slug-2",
-                                      "teams": Array [],
-                                    }
-                                  }
                                 >
                                   <span
                                     className="project-name"
@@ -986,60 +981,62 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                     position="top"
                     title="You do not have enough permission to change project association."
                   >
-                    <Button
-                      align="center"
+                    <forwardRef<Button>
                       disabled={false}
                       onClick={[Function]}
                       size="small"
                     >
-                      <StyledButton
-                        aria-disabled={false}
+                      <Button
+                        align="center"
                         disabled={false}
+                        forwardRef={null}
                         onClick={[Function]}
-                        role="button"
                         size="small"
                       >
-                        <ForwardRef
+                        <StyledButton
                           aria-disabled={false}
-                          className="css-z6hjis-StyledButton-getColors edwq9my0"
                           disabled={false}
+                          forwardRef={null}
                           onClick={[Function]}
                           role="button"
                           size="small"
                         >
-                          <button
+                          <Component
                             aria-disabled={false}
-                            className="css-z6hjis-StyledButton-getColors edwq9my0"
+                            className="css-12ogwys-StyledButton edwq9my0"
+                            forwardRef={null}
                             onClick={[Function]}
                             role="button"
                             size="small"
                           >
-                            <ButtonLabel
-                              align="center"
+                            <button
+                              aria-disabled={false}
+                              className="css-12ogwys-StyledButton edwq9my0"
+                              onClick={[Function]}
+                              role="button"
                               size="small"
                             >
-                              <Component
+                              <ButtonLabel
                                 align="center"
-                                className="css-1h693nz-ButtonLabel edwq9my1"
                                 size="small"
                               >
                                 <span
-                                  className="css-1h693nz-ButtonLabel edwq9my1"
+                                  className="css-n7mdnv-ButtonLabel edwq9my1"
                                 >
                                   <RemoveIcon>
                                     <Component
-                                      className="css-1e2j5j0-RemoveIcon eqsa6vb0"
+                                      className="css-1d2szfl-RemoveIcon eqsa6vb0"
                                     >
                                       <InlineSvg
-                                        className="css-1e2j5j0-RemoveIcon eqsa6vb0"
+                                        className="css-1d2szfl-RemoveIcon eqsa6vb0"
                                         src="icon-circle-subtract"
                                       >
                                         <ForwardRef
-                                          className="eqsa6vb0 css-wkk3z5-InlineSvg-RemoveIcon enyz4ql0"
+                                          className="eqsa6vb0 css-hoycps-InlineSvg-RemoveIcon enyz4ql0"
                                           src="icon-circle-subtract"
                                         >
                                           <svg
-                                            className="eqsa6vb0 css-wkk3z5-InlineSvg-RemoveIcon enyz4ql0"
+                                            className="eqsa6vb0 css-hoycps-InlineSvg-RemoveIcon enyz4ql0"
                                             height="1em"
                                             viewBox={Object {}}
                                             width="1em"
@@ -1056,22 +1053,22 @@ exports[`OrganizationTeamProjects Should render 1`] = `
                                    
                                   Remove
                                 </span>
-                              </Component>
-                            </ButtonLabel>
-                          </button>
-                        </ForwardRef>
-                      </StyledButton>
-                    </Button>
+                              </ButtonLabel>
+                            </button>
+                          </Component>
+                        </StyledButton>
+                      </Button>
+                    </forwardRef<Button>>
                   </Tooltip>
                 </div>
-              </Base>
-            </StyledPanelItem>
-          </div>
+              </StyledPanelItem>
+            </div>
+          </FlexBox>
         </PanelBody>
       </div>
     </Component>
   </Panel>
-  <Pagination
+  <Styled(Pagination)
     api={
       Client {
         "_chain": [Function],
@@ -1081,7 +1078,6 @@ exports[`OrganizationTeamProjects Should render 1`] = `
         "hasProjectBeenRenamed": [Function],
       }
     }
-    className="css-1yt0wm7-streamCss"
     location={
       Object {
         "query": Object {},
@@ -1102,6 +1098,7 @@ exports[`OrganizationTeamProjects Should render 1`] = `
           "team:write",
           "team:admin",
         ],
+        "experiments": Object {},
         "features": Array [],
         "id": "3",
         "name": "Organization Name",
@@ -1122,6 +1119,60 @@ exports[`OrganizationTeamProjects Should render 1`] = `
         "teamId": "team-slug",
       }
     }
-  />
+  >
+    <Pagination
+      api={
+        Client {
+          "_chain": [Function],
+          "_wrapRequest": [Function],
+          "bulkUpdate": [Function],
+          "handleRequestError": [Function],
+          "hasProjectBeenRenamed": [Function],
+        }
+      }
+      className="css-yneqnx e1vkspke0"
+      location={
+        Object {
+          "query": Object {},
+        }
+      }
+      onCursor={[Function]}
+      organization={
+        Object {
+          "access": Array [
+            "org:read",
+            "org:write",
+            "org:admin",
+            "org:integrations",
+            "project:read",
+            "project:write",
+            "project:admin",
+            "team:read",
+            "team:write",
+            "team:admin",
+          ],
+          "experiments": Object {},
+          "features": Array [],
+          "id": "3",
+          "name": "Organization Name",
+          "onboardingTasks": Array [],
+          "projects": Array [],
+          "scrapeJavaScript": true,
+          "slug": "org-slug",
+          "status": Object {
+            "id": "active",
+            "name": "active",
+          },
+          "teams": Array [],
+        }
+      }
+      params={
+        Object {
+          "orgId": "org-slug",
+          "teamId": "team-slug",
+        }
+      }
+    />
+  </Styled(Pagination)>
 </TeamProjects>
 `;

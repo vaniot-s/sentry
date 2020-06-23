@@ -1,5 +1,5 @@
 import {observable, computed, action, ObservableMap} from 'mobx';
-import _ from 'lodash';
+import isEqual from 'lodash/isEqual';
 
 import {Client, APIRequestMethod} from 'app/api';
 import {addErrorMessage, saveOnBlurUndoMessage} from 'app/actionCreators/indicator';
@@ -48,7 +48,6 @@ class FormModel {
    *
    * Map of field name -> object
    */
-
   @observable fieldState = new Map();
 
   /**
@@ -73,7 +72,7 @@ class FormModel {
    */
   initialData = {};
 
-  api: Client | null;
+  api: Client;
 
   formErrors: any;
 
@@ -92,8 +91,7 @@ class FormModel {
    * Reset state of model
    */
   reset() {
-    this.api && this.api.clear();
-    this.api = null;
+    this.api.clear();
     this.fieldDescriptor.clear();
     this.resetForm();
   }
@@ -111,7 +109,7 @@ class FormModel {
    */
   @computed
   get formChanged() {
-    return !_.isEqual(this.initialData, this.fields.toJSON());
+    return !isEqual(this.initialData, this.fields.toJSON());
   }
 
   @computed
@@ -263,7 +261,8 @@ class FormModel {
   isValidRequiredField(id: string) {
     // Check field descriptor to see if field is required
     const isRequired = this.getDescriptor(id, 'required');
-    return !isRequired || this.getValue(id) !== '';
+    const value = this.getValue(id);
+    return !isRequired || (value !== '' && defined(value));
   }
 
   isValidField(id: string) {
@@ -282,22 +281,22 @@ class FormModel {
     const endpoint = apiEndpoint || this.options.apiEndpoint || '';
     const method = apiMethod || this.options.apiMethod;
 
-    return new Promise((resolve, reject) => {
-      //should never happen but TS complains if we don't check
-      if (!this.api) {
-        return reject(new Error('Api not set'));
-      }
-      return this.api.request(endpoint, {
+    return new Promise((resolve, reject) =>
+      this.api.request(endpoint, {
         method,
         data,
         success: response => resolve(response),
         error: error => reject(error),
-      });
-    });
+      })
+    );
   }
 
+  /**
+   * Set the value of the form field
+   * if quiet is true, we skip callbacks, validations
+   */
   @action
-  setValue(id: string, value: FieldValue) {
+  setValue(id: string, value: FieldValue, {quiet}: {quiet?: boolean} = {}) {
     const fieldDescriptor = this.fieldDescriptor.get(id);
     let finalValue = value;
 
@@ -306,6 +305,9 @@ class FormModel {
     }
 
     this.fields.set(id, finalValue);
+    if (quiet) {
+      return;
+    }
 
     if (this.options.onFieldChange) {
       this.options.onFieldChange(id, finalValue);
@@ -392,10 +394,10 @@ class FormModel {
    */
   @action
   saveForm() {
-    this.validateForm();
-    if (this.isError) {
+    if (!this.validateForm()) {
       return null;
     }
+
     let saveSnapshot: SaveSnapshot = this.createSnapshot();
 
     const request = this.doApiRequest({
@@ -553,7 +555,7 @@ class FormModel {
             Array.isArray(resp.responseJSON.non_field_errors) &&
             resp.responseJSON.non_field_errors.length
           ) {
-            addErrorMessage(resp.responseJSON.non_field_errors[0], 10000);
+            addErrorMessage(resp.responseJSON.non_field_errors[0], {duration: 10000});
             // Reset saving state
             this.setError(id, '');
           } else {
@@ -661,9 +663,14 @@ class FormModel {
     this.setFieldState(id, FormState.SAVING, false);
   }
 
+  /**
+   * Returns true if there are no errors
+   */
   @action
-  validateForm() {
+  validateForm(): boolean {
     Array.from(this.fieldDescriptor.keys()).forEach(id => !this.validateField(id));
+
+    return !this.isError;
   }
 
   @action
@@ -679,7 +686,7 @@ class FormModel {
         Array.isArray(resp.non_field_errors) &&
         resp.non_field_errors.length
       ) {
-        addErrorMessage(resp.non_field_errors[0], 10000);
+        addErrorMessage(resp.non_field_errors[0], {duration: 10000});
       } else if (Array.isArray(resp[id]) && resp[id].length) {
         // Just take first resp for now
         this.setError(id, resp[id][0]);

@@ -5,15 +5,16 @@ import collections
 from collections import namedtuple
 import re
 
-from sentry.models.projectoption import ProjectOption
-from sentry.utils.data_filters import FilterStatKeys
 from rest_framework import serializers
-from sentry.api.fields.multiplechoice import MultipleChoiceField
-
 from six.moves.urllib.parse import urlparse
-from sentry.utils.safe import get_path
 from ua_parser.user_agent_parser import Parse
+
+from sentry.api.fields.multiplechoice import MultipleChoiceField
+from sentry.models.projectoption import ProjectOption
 from sentry.signals import inbound_filter_toggled
+from sentry.utils.data_filters import FilterStatKeys, get_filter_key
+from sentry.utils.safe import get_path
+
 
 EventFilteredRet = namedtuple("EventFilteredRet", "should_filter reason")
 
@@ -71,7 +72,7 @@ def set_filter_state(filter_id, project, state):
             project=project, key=u"filters:{}".format(filter_id), value=option_val
         )
 
-        return option_val
+        return option_val == "1" if option_val in ("0", "1") else option_val
 
     else:
         # all boolean filters
@@ -170,7 +171,7 @@ def _get_filter_settings(project_config, flt):
     :param flt: the filter
     :return: the options for the filter
     """
-    filter_settings = project_config.config.get("filter_settings", {})
+    filter_settings = project_config.config.get("filterSettings", {})
     return filter_settings.get(get_filter_key(flt), None)
 
 
@@ -180,11 +181,7 @@ def _is_filter_enabled(project_config, flt):
     if filter_options is None:
         raise ValueError("unknown filter", flt.spec.id)
 
-    return filter_options["is_enabled"]
-
-
-def get_filter_key(flt):
-    return flt.spec.id.replace("-", "_")
+    return filter_options["isEnabled"]
 
 
 # ************* local host filter *************
@@ -265,6 +262,10 @@ _EXTENSION_EXC_SOURCES = re.compile(
             r"static\.woopra\.com\/js\/woopra\.js",
             # Chrome extensions
             r"^chrome(?:-extension)?:\/\/",
+            # Firefox extensions
+            r"^moz-extension:\/\/",
+            # Safari extensions
+            r"^safari-extension:\/\/",
             # Cacaoweb
             r"127\.0\.0\.1:4001\/isrunning",
             # Other
@@ -376,6 +377,7 @@ class _LegacyBrowserFilterSerializer(serializers.Serializer):
             "ie_pre_9",
             "ie9",
             "ie10",
+            "ie11",
             "opera_pre_15",
             "android_pre_4",
             "safari_pre_6",
@@ -473,6 +475,10 @@ def _filter_opera_mini_pre_8(browser):
     return False
 
 
+def _filter_ie11(browser):
+    return _filter_ie_internal(browser, lambda major_ver: major_ver == 11)
+
+
 def _filter_ie10(browser):
     return _filter_ie_internal(browser, lambda major_ver: major_ver == 10)
 
@@ -506,6 +512,7 @@ _legacy_browsers_sub_filters = {
     "opera_mini_pre_8": _filter_opera_mini_pre_8,
     "ie9": _filter_ie9,
     "ie10": _filter_ie10,
+    "ie11": _filter_ie11,
     "ie_pre_9": _filter_ie_pre_9,
 }
 

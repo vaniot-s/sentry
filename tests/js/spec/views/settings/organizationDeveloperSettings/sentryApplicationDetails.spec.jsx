@@ -1,11 +1,12 @@
 import React from 'react';
 
-import {Client} from 'app/api';
 import {mountWithTheme} from 'sentry-test/enzyme';
+import {selectByValue} from 'sentry-test/select';
+
+import {Client} from 'app/api';
 import SentryApplicationDetails from 'app/views/settings/organizationDeveloperSettings/sentryApplicationDetails';
 import JsonForm from 'app/views/settings/components/forms/jsonForm';
 import PermissionsObserver from 'app/views/settings/organizationDeveloperSettings/permissionsObserver';
-import {selectByValue} from 'sentry-test/select';
 
 describe('Sentry Application Details', function() {
   let org;
@@ -433,7 +434,7 @@ describe('Sentry Application Details', function() {
       await tick();
       wrapper.update();
 
-      expect(wrapper.find('div FormFieldErrorReason').text()).toEqual(
+      expect(wrapper.find('div FieldErrorReason').text()).toEqual(
         "Requested permission of member:admin exceeds requester's permission. Please contact an administrator to make the requested change."
       );
     });

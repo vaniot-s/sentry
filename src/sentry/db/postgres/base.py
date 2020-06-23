@@ -94,8 +94,16 @@ class DatabaseWrapper(DatabaseWrapper):
 
     @auto_reconnect_connection
     def _cursor(self, *args, **kwargs):
-        cursor = super(DatabaseWrapper, self)._cursor()
-        return CursorWrapper(self, cursor)
+        return super(DatabaseWrapper, self)._cursor()
+
+    # We're overriding this internal method that's present in Django 1.11+, because
+    # things were shuffled around since 1.10 resulting in not constructing a django CursorWrapper
+    # with our CursorWrapper. We need to be passing our wrapped cursor to their wrapped cursor,
+    # not the other way around since then we'll lose things like __enter__ due to the way this
+    # wrapper is working (getattr on self.cursor).
+    def _prepare_cursor(self, cursor):
+        cursor = super(DatabaseWrapper, self)._prepare_cursor(CursorWrapper(self, cursor))
+        return cursor
 
     def close(self, reconnect=False):
         """

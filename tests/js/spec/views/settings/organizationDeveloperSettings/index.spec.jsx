@@ -1,7 +1,8 @@
 import React from 'react';
 
-import {Client} from 'app/api';
 import {mountWithTheme} from 'sentry-test/enzyme';
+
+import {Client} from 'app/api';
 import OrganizationDeveloperSettings from 'app/views/settings/organizationDeveloperSettings/index';
 import App from 'app/views/app';
 
@@ -19,7 +20,8 @@ describe('Organization Developer Settings', function() {
   });
   const routerContext = TestStubs.routerContext();
 
-  const publishButtonSelector = 'StyledButton[icon="icon-upgrade"]';
+  const publishButtonSelector = 'StyledButton[aria-label="Publish"]';
+  const deleteButtonSelector = 'StyledButton[aria-label="Delete"]';
 
   beforeEach(() => {
     Client.clearMockResponses();
@@ -75,8 +77,8 @@ describe('Organization Developer Settings', function() {
         body: [],
       });
 
-      expect(wrapper.find('[icon="icon-trash"]').prop('disabled')).toEqual(false);
-      wrapper.find('[icon="icon-trash"]').simulate('click');
+      expect(wrapper.find(deleteButtonSelector).prop('disabled')).toEqual(false);
+      wrapper.find(deleteButtonSelector).simulate('click');
       // confirm deletion by entering in app slug
       wrapper.find('input').simulate('change', {target: {value: 'sample-app'}});
       wrapper
@@ -97,7 +99,7 @@ describe('Organization Developer Settings', function() {
         },
       });
       Client.addMockResponse({
-        url: '/assistant/',
+        url: '/assistant/?v2',
         body: [],
       });
       Client.addMockResponse({
@@ -191,7 +193,7 @@ describe('Organization Developer Settings', function() {
     });
 
     it('trash button is disabled', () => {
-      expect(wrapper.find('[icon="icon-trash"]').prop('disabled')).toEqual(true);
+      expect(wrapper.find(deleteButtonSelector).prop('disabled')).toEqual(true);
     });
 
     it('publish button is disabled', () => {
@@ -217,7 +219,7 @@ describe('Organization Developer Settings', function() {
     });
 
     it('allows deleting', () => {
-      expect(wrapper.find('[icon="icon-trash"]').prop('disabled')).toEqual(false);
+      expect(wrapper.find(deleteButtonSelector).prop('disabled')).toEqual(false);
     });
 
     it('publish button does not exist', () => {
@@ -241,7 +243,7 @@ describe('Organization Developer Settings', function() {
     );
 
     it('trash button is disabled', () => {
-      expect(wrapper.find('[icon="icon-trash"]').prop('disabled')).toEqual(true);
+      expect(wrapper.find(deleteButtonSelector).prop('disabled')).toEqual(true);
     });
 
     it('publish button is disabled', () => {

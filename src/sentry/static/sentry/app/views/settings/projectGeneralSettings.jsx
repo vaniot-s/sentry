@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
 import createReactClass from 'create-react-class';
-import marked from 'marked';
 
 import Alert from 'app/components/alert';
 import {Panel, PanelAlert, PanelHeader} from 'app/components/panels';
@@ -27,10 +26,14 @@ import ProjectsStore from 'app/stores/projectsStore';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
 import TextBlock from 'app/views/settings/components/text/textBlock';
 import TextField from 'app/views/settings/components/forms/textField';
-import BetaTag from 'app/components/betaTag';
+import FeatureBadge from 'app/components/featureBadge';
 import handleXhrErrorResponse from 'app/utils/handleXhrErrorResponse';
+import marked from 'app/utils/marked';
 import recreateRoute from 'app/utils/recreateRoute';
 import routeTitleGen from 'app/utils/routeTitle';
+import Link from 'app/components/links/link';
+import EmptyMessage from 'app/views/settings/components/emptyMessage';
+import Feature from 'app/components/acl/feature';
 
 class ProjectGeneralSettings extends AsyncView {
   static propTypes = {
@@ -96,6 +99,45 @@ class ProjectGeneralSettings extends AsyncView {
     }, handleXhrErrorResponse('Unable to transfer project'));
   };
 
+  getGroupingChanges() {
+    let updateNotes = '';
+    const byId = {};
+    let riskLevel = 0;
+    let latestGroupingConfig = null;
+    let latestEnhancementsBase = null;
+
+    this.state.groupingConfigs.forEach(cfg => {
+      byId[cfg.id] = cfg;
+      if (cfg.latest && this.state.data.groupingConfig !== cfg.id) {
+        updateNotes = cfg.changelog;
+        latestGroupingConfig = cfg;
+        riskLevel = cfg.risk;
+      }
+    });
+
+    if (latestGroupingConfig) {
+      let next = latestGroupingConfig.base;
+      while (next !== this.state.data.groupingConfig) {
+        const cfg = byId[next];
+        if (!cfg) {
+          break;
+        }
+        riskLevel = Math.max(riskLevel, cfg.risk);
+        updateNotes = cfg.changelog + '\n' + updateNotes;
+        next = cfg.base;
+      }
+    }
+
+    this.state.groupingEnhancementBases.forEach(cfg => {
+      if (cfg.latest && this.state.data.groupingEnhancementsBase !== cfg.id) {
+        updateNotes += '\n\n' + cfg.changelog;
+        latestEnhancementsBase = cfg;
+      }
+    });
+
+    return {updateNotes, riskLevel, latestGroupingConfig, latestEnhancementsBase};
+  }
+
   renderUpgradeGrouping() {
     const {orgId, projectId} = this.props.params;
 
@@ -103,31 +145,19 @@ class ProjectGeneralSettings extends AsyncView {
       return null;
     }
 
-    let updateNotes = '';
-    let riskLevel = 0;
+    const {
+      updateNotes,
+      riskLevel,
+      latestGroupingConfig,
+      latestEnhancementsBase,
+    } = this.getGroupingChanges();
+    const noUpdates = !latestGroupingConfig && !latestEnhancementsBase;
     const newData = {};
-
-    this.state.groupingConfigs.forEach(({id, latest, changelog}) => {
-      if (latest && this.state.data.groupingConfig !== id) {
-        updateNotes += changelog + '\n\n';
-        newData.groupingConfig = id;
-      }
-    });
-
-    this.state.groupingEnhancementBases.forEach(({id, latest, changelog}) => {
-      if (latest && this.state.data.groupingEnhancementsBase !== id) {
-        updateNotes += changelog + '\n\n';
-        newData.groupingEnhancementsBase = id;
-      }
-    });
-
-    // legacy to newstyle is a risky update
-    if (
-      this.state.data.groupingConfig.match(/^legacy:/) &&
-      newData.groupingConfig &&
-      newData.groupingConfig.match(/^newstyle:/)
-    ) {
-      riskLevel = 2;
+    if (latestGroupingConfig) {
+      newData.groupingConfig = latestGroupingConfig.id;
+    }
+    if (latestEnhancementsBase) {
+      newData.groupingEnhancementsBase = latestEnhancementsBase.id;
     }
 
     let riskNote;
@@ -153,8 +183,6 @@ class ProjectGeneralSettings extends AsyncView {
         break;
       default:
     }
-
-    const noUpdates = Object.keys(newData).length === 0;
 
     return (
       <Field
@@ -220,9 +248,7 @@ class ProjectGeneralSettings extends AsyncView {
     );
   }
 
-  isProjectAdmin = () => {
-    return new Set(this.context.organization.access).has('project:admin');
-  };
+  isProjectAdmin = () => new Set(this.context.organization.access).has('project:admin');
 
   renderRemoveProject() {
     const project = this.state.data;
@@ -423,7 +449,7 @@ class ProjectGeneralSettings extends AsyncView {
               {...jsonFormProps}
               title={
                 <React.Fragment>
-                  {t('Grouping Settings')} <BetaTag />
+                  {t('Grouping Settings')} <FeatureBadge type="beta" />
                 </React.Fragment>
               }
               fields={[
@@ -448,19 +474,41 @@ class ProjectGeneralSettings extends AsyncView {
             />
           )}
 
-          <JsonForm
-            {...jsonFormProps}
-            title={t('Data Privacy')}
-            fields={[
-              fields.dataScrubber,
-              fields.dataScrubberDefaults,
-              fields.scrubIPAddresses,
-              fields.sensitiveFields,
-              fields.safeFields,
-              fields.storeCrashReports,
-              fields.relayPiiConfig,
-            ]}
-          />
+          <Feature features={['datascrubbers-v2']}>
+            {({hasFeature}) =>
+              hasFeature ? (
+                <Panel>
+                  <PanelHeader>{t('Data Privacy')}</PanelHeader>
+                  <EmptyMessage
+                    title={t('Data Privacy has moved')}
+                    description={
+                      <Link
+                        to={`/settings/${orgId}/projects/${projectId}/security-and-privacy/`}
+                      >
+                        {t('Go to Security & Privacy')}
+                      </Link>
+                    }
+                  />
+                </Panel>
+              ) : (
+                <JsonForm
+                  {...jsonFormProps}
+                  // Legacy use of the name Data Privacy... this codepath is
+                  // going to be gone if datascrubbersv2 goes GA
+                  title={t('Data Privacy')}
+                  fields={[
+                    fields.dataScrubber,
+                    fields.dataScrubberDefaults,
+                    fields.scrubIPAddresses,
+                    fields.sensitiveFields,
+                    fields.safeFields,
+                    fields.storeCrashReports,
+                    fields.relayPiiConfig,
+                  ]}
+                />
+              )
+            }
+          </Feature>
 
           <JsonForm
             {...jsonFormProps}

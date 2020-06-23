@@ -1,20 +1,24 @@
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 import PropTypes from 'prop-types';
 import * as Sentry from '@sentry/browser';
 
-import {Organization} from 'app/types';
+import userFeedback from 'sentry-dreamy-components/dist/user-feedback.svg';
+
+import {Organization, Project} from 'app/types';
 import {t} from 'app/locale';
 import {trackAnalyticsEvent, trackAdhocEvent} from 'app/utils/analytics';
 import Button from 'app/components/button';
 import EmptyStateWarning from 'app/components/emptyStateWarning';
 import SentryTypes from 'app/sentryTypes';
 import space from 'app/styles/space';
-import userFeedback from 'sentry-dreamy-components/dist/user-feedback.svg';
 import withOrganization from 'app/utils/withOrganization';
+import withProjects from 'app/utils/withProjects';
 
 type Props = {
   organization: Organization;
+  projects: Project[];
+  loadingProjects: boolean;
   projectIds?: string[];
 };
 
@@ -59,10 +63,7 @@ class UserFeedbackEmpty extends React.Component<Props> {
   }
 
   get hasAnyFeedback() {
-    const {
-      organization: {projects},
-      projectIds,
-    } = this.props;
+    const {projects, projectIds} = this.props;
 
     const selectedProjects =
       projectIds && projectIds.length
@@ -84,14 +85,15 @@ class UserFeedbackEmpty extends React.Component<Props> {
   }
 
   render() {
-    if (this.hasAnyFeedback !== false) {
+    // Show no user reports if waiting for projects to load or if there is no feedback
+    if (this.props.loadingProjects || this.hasAnyFeedback !== false) {
       return (
         <EmptyStateWarning>
           <p>{t('Sorry, no user reports match your filters.')}</p>
         </EmptyStateWarning>
       );
     }
-
+    // Show landing page after projects have loaded and it is confirmed no projects have feedback
     return (
       <UserFeedbackLanding>
         <IllustrationContainer>
@@ -200,4 +202,6 @@ const ButtonList = styled('div')`
   grid-gap: ${space(1)};
 `;
 
-export default withOrganization(UserFeedbackEmpty);
+export {UserFeedbackEmpty};
+
+export default withOrganization(withProjects(UserFeedbackEmpty));

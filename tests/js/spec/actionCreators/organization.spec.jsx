@@ -45,7 +45,7 @@ describe('OrganizationActionCreator', function() {
       `/organizations/${detailedOrg.slug}/`,
       expect.anything()
     );
-    expect(OrganizationActions.update).toHaveBeenCalledWith(detailedOrg);
+    expect(OrganizationActions.update).toHaveBeenCalledWith(detailedOrg, {replace: true});
     expect(OrganizationsActionCreator.setActiveOrganization).toHaveBeenCalled();
 
     expect(TeamStore.loadInitialData).toHaveBeenCalledWith(detailedOrg.teams);
@@ -57,6 +57,14 @@ describe('OrganizationActionCreator', function() {
       url: `/organizations/${lightOrg.slug}/`,
       body: lightOrg,
     });
+    const getProjectsMock = MockApiClient.addMockResponse({
+      url: `/organizations/${lightOrg.slug}/projects/`,
+      body: [],
+    });
+    const getTeamsMock = MockApiClient.addMockResponse({
+      url: `/organizations/${lightOrg.slug}/teams/`,
+      body: [],
+    });
 
     fetchOrganizationDetails(api, lightOrg.slug, false);
     await tick();
@@ -66,7 +74,15 @@ describe('OrganizationActionCreator', function() {
       `/organizations/${lightOrg.slug}/`,
       expect.anything()
     );
-    expect(OrganizationActions.update).toHaveBeenCalledWith(lightOrg);
+    expect(getProjectsMock).toHaveBeenCalledWith(
+      `/organizations/${lightOrg.slug}/projects/`,
+      expect.anything()
+    );
+    expect(getTeamsMock).toHaveBeenCalledWith(
+      `/organizations/${lightOrg.slug}/teams/`,
+      expect.anything()
+    );
+    expect(OrganizationActions.update).toHaveBeenCalledWith(lightOrg, {replace: true});
     expect(OrganizationsActionCreator.setActiveOrganization).toHaveBeenCalled();
 
     expect(TeamStore.loadInitialData).not.toHaveBeenCalled();
@@ -87,7 +103,7 @@ describe('OrganizationActionCreator', function() {
       `/organizations/${detailedOrg.slug}/`,
       expect.anything()
     );
-    expect(OrganizationActions.update).toHaveBeenCalledWith(detailedOrg);
+    expect(OrganizationActions.update).toHaveBeenCalledWith(detailedOrg, {replace: true});
     expect(OrganizationsActionCreator.setActiveOrganization).toHaveBeenCalled();
 
     expect(TeamStore.loadInitialData).toHaveBeenCalledWith(detailedOrg.teams);

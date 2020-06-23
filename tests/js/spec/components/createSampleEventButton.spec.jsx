@@ -1,8 +1,9 @@
 import {browserHistory} from 'react-router';
-import {mountWithTheme} from 'sentry-test/enzyme';
 import React from 'react';
 
+import {mountWithTheme} from 'sentry-test/enzyme';
 import {initializeOrg} from 'sentry-test/initializeOrg';
+
 import CreateSampleEventButton from 'app/views/onboarding/createSampleEventButton';
 
 jest.useFakeTimers();
@@ -58,6 +59,8 @@ describe('CreateSampleEventButton', function() {
     expect(latestIssueRequest).toHaveBeenCalled();
 
     // Wait for the api request and latestEventAvailable to resolve
+    await Promise.resolve();
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
 

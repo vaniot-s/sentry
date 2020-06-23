@@ -9,12 +9,11 @@ export type ObjectKey = React.ReactText;
 
 export type GridColumn<K = ObjectKey> = {
   key: K;
+  width?: number;
 };
 
 export type GridColumnHeader<K = ObjectKey> = GridColumn<K> & {
   name: string;
-  isDragging: boolean;
-  isPrimary?: boolean;
 };
 
 export type GridColumnOrder<K = ObjectKey> = GridColumnHeader<K>;

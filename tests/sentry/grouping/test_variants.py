@@ -1,12 +1,10 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import absolute_import, print_function
 
 import os
 import json
 import pytest
 
-from sentry.models import Event
+from sentry import eventstore
 from sentry.stacktraces.processing import normalize_stacktraces_for_grouping
 from sentry.event_manager import EventManager
 from sentry.grouping.component import GroupingComponent
@@ -35,9 +33,9 @@ def dump_variant(variant, lines=None, indent=0):
             if isinstance(value, GroupingComponent):
                 _dump_component(value, indent + 1)
             else:
-                lines.append("  " * (indent + 1) + repr(value))
+                lines.append("%s%s" % ("  " * (indent + 1), json.dumps(value)))
 
-    lines.append("%shash: %r" % ("  " * indent, variant.get_hash()))
+    lines.append("%shash: %s" % ("  " * indent, json.dumps(variant.get_hash())))
     for (key, value) in sorted(variant.__dict__.items()):
         if isinstance(value, GroupingComponent):
             lines.append("%s%s:" % ("  " * indent, key))
@@ -46,7 +44,7 @@ def dump_variant(variant, lines=None, indent=0):
             # We do not want to dump the config
             continue
         else:
-            lines.append("%s%s: %r" % ("  " * indent, key, value))
+            lines.append("%s%s: %s" % ("  " * indent, key, json.dumps(value)))
 
     return lines
 
@@ -95,7 +93,7 @@ def test_event_hash_variant(insta_snapshot, config_name, test_name, log):
     # Normalize the stacktrace for grouping.  This normally happens in
     # save()
     normalize_stacktraces_for_grouping(data, load_grouping_config(grouping_config))
-    evt = Event(data=data, platform=data["platform"])
+    evt = eventstore.create_event(data=data)
 
     # Make sure we don't need to touch the DB here because this would
     # break stuff later on.

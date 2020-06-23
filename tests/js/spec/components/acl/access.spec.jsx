@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount} from 'sentry-test/enzyme';
 
 import Access from 'app/components/acl/access';
@@ -30,7 +31,7 @@ describe('Access', function() {
       });
     });
 
-    it('has accesss', function() {
+    it('has access', function() {
       mount(
         <Access access={['project:write', 'project:read']}>{childrenMock}</Access>,
         routerContext
@@ -91,6 +92,20 @@ describe('Access', function() {
 
       expect(childrenMock).toHaveBeenCalledWith({
         hasAccess: false,
+        hasSuperuser: false,
+      });
+    });
+
+    it('handles no user', function() {
+      // Regression test for the share sheet.
+      ConfigStore.config = {
+        user: null,
+      };
+
+      mount(<Access>{childrenMock}</Access>, routerContext);
+
+      expect(childrenMock).toHaveBeenCalledWith({
+        hasAccess: true,
         hasSuperuser: false,
       });
     });

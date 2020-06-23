@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount} from 'sentry-test/enzyme';
 
 import GlobalSelectionStore from 'app/stores/globalSelectionStore';
@@ -29,7 +30,7 @@ describe('withGlobalSelection HoC', function() {
     const wrapper = mount(<Container />);
 
     selection = wrapper.find('MyComponent').prop('selection');
-    expect(selection.datetime.period).toEqual(null);
+    expect(selection.datetime.period).toEqual('14d');
     expect(selection.datetime.start).toEqual(null);
     expect(selection.datetime.end).toEqual(null);
 

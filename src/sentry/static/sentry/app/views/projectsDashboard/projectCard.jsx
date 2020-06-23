@@ -1,9 +1,9 @@
-import {Box} from 'grid-emotion';
+import {Box} from 'reflexbox';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
 import createReactClass from 'create-react-class';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import BookmarkStar from 'app/components/projects/bookmarkStar';
 import {Client} from 'app/api';
@@ -121,7 +121,7 @@ const ProjectCardContainer = createReactClass({
 
 const ChartContainer = styled('div')`
   position: relative;
-  background: ${p => p.theme.offWhite};
+  background: ${p => p.theme.gray100};
   padding-top: ${space(1)};
 `;
 
@@ -145,7 +145,7 @@ const StyledProjectCard = styled('div')`
 
 const LoadingCard = styled('div')`
   border: 1px solid transparent;
-  background-color: ${p => p.theme.offWhite};
+  background-color: ${p => p.theme.gray100};
   height: 210px;
 `;
 

@@ -1,10 +1,8 @@
 import Reflux from 'reflux';
-import _ from 'lodash';
+import isUndefined from 'lodash/isUndefined';
 import * as Sentry from '@sentry/browser';
 
 import {Hooks, HookName} from 'app/types/hooks';
-
-type HookMapping = {[H in HookName]?: Array<Hooks[H]>};
 
 /**
  * See types/hooks for hook usage reference.
@@ -15,17 +13,23 @@ const validHookNames = new Set<HookName>([
   'analytics:init-user',
   'analytics:track-adhoc-event',
   'analytics:track-event',
+  'analytics:log-experiment',
   'component:header-date-range',
   'component:header-selector-items',
-  'component:org-members-view',
   'feature-disabled:custom-inbound-filters',
   'feature-disabled:custom-symbol-sources',
   'feature-disabled:data-forwarding',
   'feature-disabled:discard-groups',
   'feature-disabled:discover-page',
+  'feature-disabled:discover-saved-query-create',
   'feature-disabled:discover-sidebar-item',
+  'feature-disabled:discover2-page',
+  'feature-disabled:discover2-sidebar-item',
   'feature-disabled:events-page',
   'feature-disabled:events-sidebar-item',
+  'feature-disabled:grid-editable-actions',
+  'feature-disabled:performance-page',
+  'feature-disabled:performance-sidebar-item',
   'feature-disabled:project-selector-checkbox',
   'feature-disabled:rate-limits',
   'feature-disabled:sso-basic',
@@ -37,11 +41,13 @@ const validHookNames = new Set<HookName>([
   'metrics:event',
   'onboarding:extra-chrome',
   'onboarding:invite-members',
+  'onboarding-wizard:skip-help',
   'organization:header',
   'routes',
   'routes:admin',
   'routes:organization',
   'routes:organization-root',
+  'settings:organization-general-settings',
   'settings:organization-navigation',
   'settings:organization-navigation-config',
   'sidebar:bottom-items',
@@ -51,7 +57,11 @@ const validHookNames = new Set<HookName>([
 ]);
 
 type HookStoreInterface = {
-  hooks: HookMapping;
+  // XXX(epurkhiser): We could type this as {[H in HookName]?:
+  // Array<Hooks[H]>}, however this causes typescript to produce a complex
+  // union that it complains is 'too complex'
+  hooks: any;
+
   add<H extends HookName>(hookName: H, callback: Hooks[H]): void;
   remove<H extends HookName>(hookName: H, callback: Hooks[H]): void;
   get<H extends HookName>(hookName: H): Array<Hooks[H]>;
@@ -76,7 +86,7 @@ const hookStoreConfig: Reflux.StoreDefinition & HookStoreInterface = {
       });
     }
 
-    if (_.isUndefined(this.hooks[hookName])) {
+    if (isUndefined(this.hooks[hookName])) {
       this.hooks[hookName] = [];
     }
 
@@ -85,12 +95,10 @@ const hookStoreConfig: Reflux.StoreDefinition & HookStoreInterface = {
   },
 
   remove(hookName, callback) {
-    if (_.isUndefined(this.hooks[hookName])) {
+    if (isUndefined(this.hooks[hookName])) {
       return;
     }
-    this.hooks[hookName] = this.hooks[hookName]!.filter(cb => {
-      return cb !== callback;
-    });
+    this.hooks[hookName] = this.hooks[hookName]!.filter(cb => cb !== callback);
     this.trigger(hookName, this.hooks[hookName]);
   },
 

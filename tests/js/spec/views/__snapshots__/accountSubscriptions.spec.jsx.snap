@@ -50,26 +50,26 @@ exports[`AccountSubscriptions renders list and can toggle 1`] = `
           title="Subscriptions"
         >
           <SettingsPageHeading
-            className="css-1fvvoq2-StyledSettingsPageHeading e1uay4fd4"
+            className="css-xtfhnp-StyledSettingsPageHeading e1uay4fd4"
             noTitleStyles={false}
             title="Subscriptions"
           >
             <div
-              className="css-1fvvoq2-StyledSettingsPageHeading e1uay4fd4"
+              className="css-xtfhnp-StyledSettingsPageHeading e1uay4fd4"
             >
               <TitleAndActions>
                 <div
-                  className="css-b5tiyd-TitleAndActions e1uay4fd0"
+                  className="css-ifzfc5-TitleAndActions e1uay4fd0"
                 >
                   <Title
                     styled={false}
                   >
                     <div
-                      className="css-2kvddg-Title e1uay4fd1"
+                      className="css-120v9s3-Title e1uay4fd1"
                     >
                       <HeaderTitle>
                         <h4
-                          className="css-1w8ttcn-HeaderTitle eqkydle2"
+                          className="css-1bosio6-HeaderTitle eqkydle2"
                         >
                           Subscriptions
                         </h4>
@@ -83,273 +83,221 @@ exports[`AccountSubscriptions renders list and can toggle 1`] = `
         </StyledSettingsPageHeading>
         <TextBlock>
           <div
-            className="css-1geyb25-TextBlock e1x1lar10"
+            className="css-1j3tvli-TextBlock e1x1lar10"
           >
             Sentry is committed to respecting your inbox. Our goal is to provide useful content and resources that make fixing errors less painful. Enjoyable even.
           </div>
         </TextBlock>
         <TextBlock>
           <div
-            className="css-1geyb25-TextBlock e1x1lar10"
+            className="css-1j3tvli-TextBlock e1x1lar10"
           >
             As part of our compliance with the EU’s General Data Protection Regulation (GDPR), starting on 25 May 2018, we’ll only email you according to the marketing categories to which you’ve explicitly opted-in.
           </div>
         </TextBlock>
         <Panel>
           <Component
-            className="css-10qfvek-Panel e119nu470"
+            className="css-15hwgrz-Panel e119nu470"
           >
             <div
-              className="css-10qfvek-Panel e119nu470"
+              className="css-15hwgrz-Panel e119nu470"
             >
               <div>
                 <PanelHeader>
-                  <Component
-                    className="css-7odsll-PanelHeader-getPadding e1p8v8nv0"
+                  <div
+                    className="css-1es1m70-PanelHeader en8g1d30"
                   >
-                    <Flex
-                      align="center"
-                      className="css-7odsll-PanelHeader-getPadding e1p8v8nv0"
-                      justify="space-between"
-                    >
-                      <Base
-                        align="center"
-                        className="e1p8v8nv0 css-1fivf9w-PanelHeader-getPadding"
-                        justify="space-between"
-                      >
-                        <div
-                          className="e1p8v8nv0 css-1fivf9w-PanelHeader-getPadding"
-                          is={null}
-                        >
-                          Subscription
-                        </div>
-                      </Base>
-                    </Flex>
-                  </Component>
+                    Subscription
+                  </div>
                 </PanelHeader>
                 <PanelBody
-                  direction="column"
-                  disablePadding={true}
-                  flex={false}
+                  flexible={false}
+                  withPadding={false}
                 >
-                  <div
-                    className="css-a4ya23-textStyles"
+                  <FlexBox
+                    withPadding={false}
                   >
-                    <PanelItem
-                      align="center"
-                      key="2"
-                      p={2}
+                    <div
+                      className="css-1nto0rx-FlexBox e1vnwt6f0"
                     >
-                      <Base
-                        align="center"
-                        className="css-93wv0u-PanelItem eo8n7lk0"
+                      <PanelItem
+                        alignItems="center"
+                        key="2"
                         p={2}
                       >
                         <div
-                          className="css-93wv0u-PanelItem eo8n7lk0"
-                          is={null}
+                          className="css-xopa6g-PanelItem ej5ox20"
                         >
-                          <Box
-                            pr={2}
-                            w={0.5}
-                          >
-                            <Base
-                              className="css-k6zv7a"
-                              pr={2}
-                              w={0.5}
+                          <SubscriptionDetails>
+                            <div
+                              className="css-f7qdjq-SubscriptionDetails er83abj0"
                             >
-                              <div
-                                className="css-k6zv7a"
-                                is={null}
-                              >
-                                <SubscriptionName>
-                                  <div
-                                    className="css-tt56b0-SubscriptionName er83abj0"
-                                  >
-                                    Product & Feature Updates
+                              <SubscriptionName>
+                                <div
+                                  className="css-dvhern-SubscriptionName er83abj1"
+                                >
+                                  Product & Feature Updates
+                                </div>
+                              </SubscriptionName>
+                              <Description>
+                                <div
+                                  className="css-10gzpqv-Description er83abj2"
+                                >
+                                  Everything you need to know about Sentry features, integrations, partnerships, and launches.
+                                </div>
+                              </Description>
+                              <SubscribedDescription>
+                                <div
+                                  className="css-tn06kc-Description-SubscribedDescription er83abj3"
+                                >
+                                  <div>
+                                    test@sentry.io
+                                     on
+                                     
+                                    <DateTime
+                                      date="2018-01-08T05:14:59.102Z"
+                                      seconds={true}
+                                      shortDate={true}
+                                    >
+                                      <time>
+                                        01/08/2018
+                                      </time>
+                                    </DateTime>
                                   </div>
-                                </SubscriptionName>
-                                <Description>
-                                  <div
-                                    className="css-378hu7-Description er83abj1"
-                                  >
-                                    Everything you need to know about Sentry features, integrations, partnerships, and launches.
-                                  </div>
-                                </Description>
-                                <SubscribedDescription>
-                                  <div
-                                    className="css-126itr8-Description-SubscribedDescription er83abj2"
-                                  >
-                                    <div>
-                                      test@sentry.io
-                                       on
-                                       
-                                      <DateTime
-                                        date="2018-01-08T05:14:59.102Z"
-                                        seconds={true}
-                                        shortDate={true}
-                                      >
-                                        <time>
-                                          01/08/2018
-                                        </time>
-                                      </DateTime>
-                                    </div>
-                                  </div>
-                                </SubscribedDescription>
-                              </div>
-                            </Base>
-                          </Box>
-                          <Box>
-                            <Base
-                              className="css-roynbj"
+                                </div>
+                              </SubscribedDescription>
+                            </div>
+                          </SubscriptionDetails>
+                          <div>
+                            <ForwardRef
+                              isActive={true}
+                              size="lg"
+                              toggle={[Function]}
                             >
-                              <div
-                                className="css-roynbj"
-                                is={null}
+                              <Switch
+                                forwardRef={null}
+                                isActive={true}
+                                size="lg"
+                                toggle={[Function]}
                               >
-                                <Switch
+                                <SwitchButton
+                                  aria-checked={true}
+                                  data-test-id="switch"
                                   isActive={true}
+                                  onClick={[Function]}
+                                  role="checkbox"
                                   size="lg"
-                                  toggle={[Function]}
+                                  type="button"
                                 >
-                                  <SwitchButton
+                                  <button
                                     aria-checked={true}
+                                    className="css-nsv6v6-SwitchButton ezmyi9u0"
                                     data-test-id="switch"
-                                    isActive={true}
                                     onClick={[Function]}
                                     role="checkbox"
                                     size="lg"
                                     type="button"
                                   >
-                                    <button
-                                      aria-checked={true}
-                                      className="css-fgzayp-SwitchButton e1wgeblw0"
-                                      data-test-id="switch"
-                                      onClick={[Function]}
-                                      role="checkbox"
+                                    <Toggle
+                                      isActive={true}
                                       size="lg"
-                                      type="button"
                                     >
-                                      <Toggle
-                                        isActive={true}
+                                      <span
+                                        className="css-2c6uwf-Toggle ezmyi9u1"
                                         size="lg"
-                                      >
-                                        <span
-                                          className="css-n9hg2w-Toggle e1wgeblw1"
-                                          size="lg"
-                                        />
-                                      </Toggle>
-                                    </button>
-                                  </SwitchButton>
-                                </Switch>
-                              </div>
-                            </Base>
-                          </Box>
+                                      />
+                                    </Toggle>
+                                  </button>
+                                </SwitchButton>
+                              </Switch>
+                            </ForwardRef>
+                          </div>
                         </div>
-                      </Base>
-                    </PanelItem>
-                    <PanelItem
-                      align="center"
-                      key="1"
-                      p={2}
-                    >
-                      <Base
-                        align="center"
-                        className="css-93wv0u-PanelItem eo8n7lk0"
+                      </PanelItem>
+                      <PanelItem
+                        alignItems="center"
+                        key="1"
                         p={2}
                       >
                         <div
-                          className="css-93wv0u-PanelItem eo8n7lk0"
-                          is={null}
+                          className="css-xopa6g-PanelItem ej5ox20"
                         >
-                          <Box
-                            pr={2}
-                            w={0.5}
-                          >
-                            <Base
-                              className="css-k6zv7a"
-                              pr={2}
-                              w={0.5}
+                          <SubscriptionDetails>
+                            <div
+                              className="css-f7qdjq-SubscriptionDetails er83abj0"
                             >
-                              <div
-                                className="css-k6zv7a"
-                                is={null}
-                              >
-                                <SubscriptionName>
-                                  <div
-                                    className="css-tt56b0-SubscriptionName er83abj0"
-                                  >
-                                    Sentry Newsletter
-                                  </div>
-                                </SubscriptionName>
-                                <Description>
-                                  <div
-                                    className="css-378hu7-Description er83abj1"
-                                  >
-                                    Our monthly update on what's new with Sentry and the community.
-                                  </div>
-                                </Description>
-                                <SubscribedDescription>
-                                  <div
-                                    className="css-126itr8-Description-SubscribedDescription er83abj2"
-                                  >
-                                    Not currently subscribed
-                                  </div>
-                                </SubscribedDescription>
-                              </div>
-                            </Base>
-                          </Box>
-                          <Box>
-                            <Base
-                              className="css-roynbj"
-                            >
-                              <div
-                                className="css-roynbj"
-                                is={null}
-                              >
-                                <Switch
-                                  isActive={false}
-                                  size="lg"
-                                  toggle={[Function]}
+                              <SubscriptionName>
+                                <div
+                                  className="css-dvhern-SubscriptionName er83abj1"
                                 >
-                                  <SwitchButton
+                                  Sentry Newsletter
+                                </div>
+                              </SubscriptionName>
+                              <Description>
+                                <div
+                                  className="css-10gzpqv-Description er83abj2"
+                                >
+                                  Our monthly update on what's new with Sentry and the community.
+                                </div>
+                              </Description>
+                              <SubscribedDescription>
+                                <div
+                                  className="css-tn06kc-Description-SubscribedDescription er83abj3"
+                                >
+                                  Not currently subscribed
+                                </div>
+                              </SubscribedDescription>
+                            </div>
+                          </SubscriptionDetails>
+                          <div>
+                            <ForwardRef
+                              isActive={false}
+                              size="lg"
+                              toggle={[Function]}
+                            >
+                              <Switch
+                                forwardRef={null}
+                                isActive={false}
+                                size="lg"
+                                toggle={[Function]}
+                              >
+                                <SwitchButton
+                                  aria-checked={false}
+                                  data-test-id="switch"
+                                  isActive={false}
+                                  onClick={[Function]}
+                                  role="checkbox"
+                                  size="lg"
+                                  type="button"
+                                >
+                                  <button
                                     aria-checked={false}
+                                    className="css-1tqvyh8-SwitchButton ezmyi9u0"
                                     data-test-id="switch"
-                                    isActive={false}
                                     onClick={[Function]}
                                     role="checkbox"
                                     size="lg"
                                     type="button"
                                   >
-                                    <button
-                                      aria-checked={false}
-                                      className="css-1vudn4r-SwitchButton e1wgeblw0"
-                                      data-test-id="switch"
-                                      onClick={[Function]}
-                                      role="checkbox"
+                                    <Toggle
+                                      isActive={false}
                                       size="lg"
-                                      type="button"
                                     >
-                                      <Toggle
-                                        isActive={false}
+                                      <span
+                                        className="css-1wbwbmn-Toggle ezmyi9u1"
                                         size="lg"
-                                      >
-                                        <span
-                                          className="css-1uoqc08-Toggle e1wgeblw1"
-                                          size="lg"
-                                        />
-                                      </Toggle>
-                                    </button>
-                                  </SwitchButton>
-                                </Switch>
-                              </div>
-                            </Base>
-                          </Box>
+                                      />
+                                    </Toggle>
+                                  </button>
+                                </SwitchButton>
+                              </Switch>
+                            </ForwardRef>
+                          </div>
                         </div>
-                      </Base>
-                    </PanelItem>
-                     
-                  </div>
+                      </PanelItem>
+                       
+                    </div>
+                  </FlexBox>
                 </PanelBody>
               </div>
             </div>
@@ -357,14 +305,14 @@ exports[`AccountSubscriptions renders list and can toggle 1`] = `
         </Panel>
         <TextBlock>
           <div
-            className="css-1geyb25-TextBlock e1x1lar10"
+            className="css-1j3tvli-TextBlock e1x1lar10"
           >
             We’re applying GDPR consent and privacy policies to all Sentry contacts, regardless of location. You’ll be able to manage your subscriptions here and from an Unsubscribe link in the footer of all marketing emails.
           </div>
         </TextBlock>
         <TextBlock>
           <div
-            className="css-1geyb25-TextBlock e1x1lar10"
+            className="css-1j3tvli-TextBlock e1x1lar10"
           >
             Please contact 
             <a

@@ -1,4 +1,4 @@
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 const Header = styled('div')`
   position: relative;
@@ -12,6 +12,13 @@ const Header = styled('div')`
 
   background: #fff;
   font-size: ${p => p.theme.fontSizeExtraLarge};
+  @media (min-width: ${props => props.theme.breakpoints[0]} and max-width: ${props =>
+  props.theme.breakpoints[1]}) {
+    margin-top: 54px;
+  }
+  @media (max-width: calc(${props => props.theme.breakpoints[0]} - 1px)) {
+    margin-top: 0;
+  }
 `;
 
 export default Header;

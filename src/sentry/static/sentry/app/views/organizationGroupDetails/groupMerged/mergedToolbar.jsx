@@ -1,9 +1,9 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
-import _ from 'lodash';
+import pick from 'lodash/pick';
 import createReactClass from 'create-react-class';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {openDiffModal} from 'app/actionCreators/modal';
 import {t} from 'app/locale';
@@ -51,7 +51,7 @@ const MergedToolbar = createReactClass({
       'enableFingerprintCompare',
     ];
 
-    this.setState(_.pick(updateObj, allowedKeys));
+    this.setState(pick(updateObj, allowedKeys));
   },
 
   handleShowDiff(e) {

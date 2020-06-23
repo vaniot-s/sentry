@@ -1,12 +1,13 @@
 import {withRouter, browserHistory} from 'react-router';
 import React from 'react';
 
-import Events, {parseRowFromLinks} from 'app/views/events/events';
 import {chart, doZoom} from 'sentry-test/charts';
 import {initializeOrg} from 'sentry-test/initializeOrg';
-import {getUtcToLocalDateObject} from 'app/utils/dates';
 import {mockRouterPush} from 'sentry-test/mockRouterPush';
 import {mountWithTheme} from 'sentry-test/enzyme';
+
+import {getUtcToLocalDateObject} from 'app/utils/dates';
+import Events, {parseRowFromLinks} from 'app/views/events/events';
 import EventsContainer from 'app/views/events';
 import ProjectsStore from 'app/stores/projectsStore';
 
@@ -30,7 +31,7 @@ const pageTwoLinks = generatePageLinks(100, 100);
 const EventsWithRouter = withRouter(Events);
 
 describe('EventsErrors', function() {
-  const {organization, router, routerContext} = initializeOrg({
+  const {organization, projects, router, routerContext} = initializeOrg({
     projects: [{isMember: true}, {isMember: true, slug: 'new-project', id: 3}],
     organization: {
       features: ['events'],
@@ -40,6 +41,7 @@ describe('EventsErrors', function() {
         pathname: '/organizations/org-slug/events/',
         query: {},
       },
+      params: {orgId: 'org-slug'},
     },
   });
 
@@ -49,7 +51,20 @@ describe('EventsErrors', function() {
 
   beforeAll(function() {
     MockApiClient.addMockResponse({
+      url: `/organizations/${organization.slug}/releases/`,
+      body: [],
+    });
+    MockApiClient.addMockResponse({
+      url: `/organizations/${organization.slug}/projects/`,
+      body: projects,
+    });
+    MockApiClient.addMockResponse({
       url: `/organizations/${organization.slug}/recent-searches/`,
+      body: [],
+    });
+    MockApiClient.addMockResponse({
+      url: `/organizations/${organization.slug}/recent-searches/`,
+      method: 'POST',
       body: [],
     });
     MockApiClient.addMockResponse({
@@ -62,7 +77,10 @@ describe('EventsErrors', function() {
     // Search bar makes this request when mounted
     MockApiClient.addMockResponse({
       url: '/organizations/org-slug/tags/',
-      body: [{count: 1, tag: 'transaction'}, {count: 2, tag: 'mechanism'}],
+      body: [
+        {count: 1, key: 'transaction', name: 'Transaction'},
+        {count: 2, key: 'mechanism', name: 'Mechanism'},
+      ],
     });
     eventsMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/events/',
@@ -71,9 +89,7 @@ describe('EventsErrors', function() {
     });
     eventsStatsMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/events-stats/',
-      body: (_url, opts) => {
-        return TestStubs.EventsStats(opts.query);
-      },
+      body: (_url, opts) => TestStubs.EventsStats(opts.query),
     });
     eventsMetaMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/events-meta/',
@@ -114,6 +130,8 @@ describe('EventsErrors', function() {
     expect(eventsStatsMock).toHaveBeenCalled();
     expect(eventsMetaMock).not.toHaveBeenCalled();
     expect(wrapper.find('LoadingIndicator')).toHaveLength(0);
+
+    // projects and user badges
     expect(wrapper.find('IdBadge')).toHaveLength(2);
   });
 
@@ -182,8 +200,8 @@ describe('EventsErrors', function() {
       expect.any(String),
       expect.objectContaining({
         query: {
-          start: '2017-10-01T04:00:00',
-          end: '2017-10-02T03:59:59',
+          start: '2017-10-01T04:00:00.000',
+          end: '2017-10-02T03:59:59.000',
         },
       })
     );
@@ -195,7 +213,7 @@ describe('EventsErrors', function() {
     let wrapper;
     let newParams;
 
-    beforeEach(function() {
+    beforeEach(async function() {
       const newLocation = {
         ...router.location,
         query: {
@@ -217,6 +235,7 @@ describe('EventsErrors', function() {
         },
       };
 
+      ProjectsStore.loadInitialData(organization.projects);
       wrapper = mountWithTheme(
         <EventsContainer
           router={newRouter}
@@ -228,6 +247,9 @@ describe('EventsErrors', function() {
         newRouterContext
       );
       mockRouterPush(wrapper, router);
+
+      await tick();
+      wrapper.update();
 
       // XXX: Note this spy happens AFTER initial render!
       tableRender = jest.spyOn(wrapper.find('EventsTable').instance(), 'render');
@@ -247,7 +269,7 @@ describe('EventsErrors', function() {
       await tick();
       wrapper.update();
 
-      chartRender = jest.spyOn(wrapper.find('LineChart').instance(), 'render');
+      chartRender = jest.spyOn(wrapper.find('AreaChart').instance(), 'render');
 
       doZoom(wrapper.find('EventsChart').first(), chart);
       await tick();
@@ -255,7 +277,7 @@ describe('EventsErrors', function() {
 
       // After zooming, line chart should re-render once, but table does
       expect(chartRender).toHaveBeenCalledTimes(1);
-      expect(tableRender).toHaveBeenCalledTimes(3);
+      expect(tableRender).toHaveBeenCalledTimes(2);
 
       newParams = {
         start: '2018-11-29T00:00:00',
@@ -288,8 +310,8 @@ describe('EventsContainer', function() {
 
   const {organization, router, routerContext} = initializeOrg({
     projects: [
-      {isMember: true, isBookmarked: true},
-      {isMember: true, slug: 'new-project', id: 3},
+      {isMember: true, slug: 'new-project-2', id: 2, isBookmarked: true},
+      {isMember: true, slug: 'new-project-3', id: 3},
     ],
     organization: {
       features: ['events', 'internal-catchall'],
@@ -299,6 +321,7 @@ describe('EventsContainer', function() {
         pathname: '/organizations/org-slug/events/',
         query: {},
       },
+      params: {orgId: 'org-slug'},
     },
   });
 
@@ -309,11 +332,14 @@ describe('EventsContainer', function() {
     });
   });
 
-  beforeEach(function() {
+  beforeEach(async function() {
     // Search bar makes this request when mounted
     MockApiClient.addMockResponse({
       url: '/organizations/org-slug/tags/',
-      body: [{count: 1, tag: 'transaction'}, {count: 2, tag: 'mechanism'}],
+      body: [
+        {count: 1, key: 'transaction', name: 'Transaction'},
+        {count: 2, key: 'mechanism', name: 'Mechanism'},
+      ],
     });
     eventsMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/events/',
@@ -322,14 +348,14 @@ describe('EventsContainer', function() {
     });
     eventsStatsMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/events-stats/',
-      body: (_url, opts) => {
-        return TestStubs.EventsStats(opts.query);
-      },
+      body: (_url, opts) => TestStubs.EventsStats(opts.query),
     });
     eventsMetaMock = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/events-meta/',
       body: {count: 5},
     });
+
+    ProjectsStore.loadInitialData(organization.projects);
 
     wrapper = mountWithTheme(
       <EventsContainer
@@ -341,8 +367,15 @@ describe('EventsContainer', function() {
       </EventsContainer>,
       routerContext
     );
+    await tick();
+    wrapper.update();
 
     mockRouterPush(wrapper, router);
+  });
+
+  afterEach(async function() {
+    ProjectsStore.reset();
+    await tick();
   });
 
   it('performs the correct queries when there is a search query', async function() {
@@ -382,15 +415,14 @@ describe('EventsContainer', function() {
   });
 
   it('updates when changing projects', async function() {
-    ProjectsStore.loadInitialData(organization.projects);
-
-    expect(wrapper.find('MultipleProjectSelector').prop('value')).toEqual([]);
+    // Project id = 2 should be first selected because of ProjectsStore.getAll sorting by slug
+    expect(wrapper.find('MultipleProjectSelector').prop('value')).toEqual([2]);
 
     wrapper.find('MultipleProjectSelector HeaderItem').simulate('click');
 
     wrapper
       .find('MultipleProjectSelector AutoCompleteItem ProjectSelectorItem')
-      .first()
+      .at(0)
       .simulate('click');
 
     await tick();
@@ -428,6 +460,8 @@ describe('EventsContainer', function() {
       <Events organization={organization} location={{query: eventId}} />,
       routerContext
     );
+
+    await tick();
 
     expect(eventsMock).toHaveBeenCalled();
     expect(browserHistory.replace).toHaveBeenCalledWith(

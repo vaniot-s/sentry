@@ -1,11 +1,12 @@
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {t} from 'app/locale';
 import TextField from 'app/components/forms/textField';
 import NumberField from 'app/components/forms/numberField';
 import SelectControl from 'app/components/forms/selectControl';
 import Badge from 'app/components/badge';
+import {IconDocs} from 'app/icons';
 import getDynamicText from 'app/utils/getDynamicText';
 
 import Aggregations from '../aggregations';
@@ -18,7 +19,6 @@ import {
   StyledInlineSvg,
   DiscoverDocs,
   DocsLabel,
-  DocsIcon,
   DocsLink,
 } from '../styles';
 import Orderby from './orderby';
@@ -49,14 +49,12 @@ export default class QueryFields extends React.Component<QueryFieldsProps> {
     return <PlaceholderText>{text}</PlaceholderText>;
   };
 
-  optionRenderer = ({label, isTag}: ReactSelectOption) => {
-    return (
-      <Option>
-        {label}
-        {isTag && <Badge text="tag" />}
-      </Option>
-    );
-  };
+  optionRenderer = ({label, isTag}: ReactSelectOption) => (
+    <Option>
+      {label}
+      {isTag && <Badge text="tag" />}
+    </Option>
+  );
 
   render() {
     const {
@@ -104,6 +102,7 @@ export default class QueryFields extends React.Component<QueryFieldsProps> {
             {t('Summarize')}
           </SidebarLabel>
           <SelectControl
+            deprecatedSelectControl
             name="fields"
             multiple
             placeholder={this.getSummarizePlaceholder()}
@@ -111,7 +110,10 @@ export default class QueryFields extends React.Component<QueryFieldsProps> {
             optionRenderer={this.optionRenderer}
             value={currentQuery.fields}
             onChange={(val: ReactSelectOption[]) =>
-              onUpdateField('fields', val.map(({value}) => value))
+              onUpdateField(
+                'fields',
+                val.map(({value}) => value)
+              )
             }
             clearable
             disabled={isLoading}
@@ -157,7 +159,7 @@ export default class QueryFields extends React.Component<QueryFieldsProps> {
         <DocsSeparator />
         <DocsLink href="https://docs.sentry.io/product/discover/">
           <DiscoverDocs>
-            <DocsIcon src="icon-docs" />
+            <IconDocs size="sm" />
             <DocsLabel>{t('Discover Documentation')}</DocsLabel>
             <StyledInlineSvg src="icon-chevron-right" size="1em" />
           </DiscoverDocs>

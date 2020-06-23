@@ -1,23 +1,22 @@
 from __future__ import absolute_import
 
 import unittest
-from datetime import timedelta
-from time import time
+from datetime import datetime, timedelta
 from random import randint
 from uuid import uuid4
 
+import pytz
 import six
 from django.utils import timezone
 from exam import fixture, patcher
 from freezegun import freeze_time
-from mock import call, Mock
+from sentry.utils.compat.mock import call, Mock
 
 from sentry.incidents.logic import (
     create_alert_rule,
     create_alert_rule_trigger,
     create_alert_rule_trigger_action,
 )
-from sentry.snuba.subscriptions import query_aggregation_to_snuba
 from sentry.incidents.models import (
     AlertRule,
     AlertRuleThresholdType,
@@ -39,9 +38,10 @@ from sentry.incidents.subscription_processor import (
     SubscriptionProcessor,
     update_alert_rule_stats,
 )
-from sentry.snuba.models import QueryAggregations, QuerySubscription
+from sentry.snuba.models import QuerySubscription
 from sentry.testutils import TestCase
 from sentry.utils.dates import to_timestamp
+from sentry.utils.compat import map
 
 
 @freeze_time()
@@ -50,10 +50,10 @@ class ProcessUpdateTest(TestCase):
 
     def setUp(self):
         super(ProcessUpdateTest, self).setUp()
-        self.old_handlers = AlertRuleTriggerAction.handlers
-        AlertRuleTriggerAction.handlers = {}
+        self.old_handlers = AlertRuleTriggerAction._type_registrations
+        AlertRuleTriggerAction._type_registrations = {}
         self.email_action_handler = Mock()
-        AlertRuleTriggerAction.register_type_handler(AlertRuleTriggerAction.Type.EMAIL)(
+        AlertRuleTriggerAction.register_type("email", AlertRuleTriggerAction.Type.EMAIL, [])(
             self.email_action_handler
         )
         self._run_tasks = self.tasks()
@@ -61,7 +61,7 @@ class ProcessUpdateTest(TestCase):
 
     def tearDown(self):
         super(ProcessUpdateTest, self).tearDown()
-        AlertRuleTriggerAction.handlers = self.old_handlers
+        AlertRuleTriggerAction._type_registrations = self.old_handlers
         self._run_tasks.__exit__(None, None, None)
 
     @fixture
@@ -70,11 +70,11 @@ class ProcessUpdateTest(TestCase):
 
     @fixture
     def sub(self):
-        return self.rule.query_subscriptions.filter(project=self.project).get()
+        return self.rule.snuba_query.subscriptions.filter(project=self.project).get()
 
     @fixture
     def other_sub(self):
-        return self.rule.query_subscriptions.filter(project=self.other_project).get()
+        return self.rule.snuba_query.subscriptions.filter(project=self.other_project).get()
 
     @fixture
     def rule(self):
@@ -82,12 +82,9 @@ class ProcessUpdateTest(TestCase):
             self.organization,
             [self.project, self.other_project],
             "some rule",
-            AlertRuleThresholdType.ABOVE,
             query="",
-            aggregation=QueryAggregations.TOTAL,
+            aggregate="count()",
             time_window=1,
-            alert_threshold=100,
-            resolve_threshold=10,
             threshold_period=1,
         )
         # Make sure the trigger exists
@@ -112,18 +109,16 @@ class ProcessUpdateTest(TestCase):
 
     def build_subscription_update(self, subscription, time_delta=None, value=None):
         if time_delta is not None:
-            timestamp = int(to_timestamp(timezone.now() + time_delta))
+            timestamp = timezone.now() + time_delta
         else:
-            timestamp = int(time())
+            timestamp = timezone.now()
+        timestamp = timestamp.replace(tzinfo=pytz.utc, microsecond=0)
 
-        values = {}
+        data = {}
 
         if subscription:
-            aggregation_type = query_aggregation_to_snuba[
-                QueryAggregations(subscription.aggregation)
-            ]
-            value = randint(0, 100) if value is None else value
-            values = {aggregation_type[2]: value}
+            data = {"some_col_name": randint(0, 100) if value is None else value}
+        values = {"data": [data]}
         return {
             "subscription_id": subscription.subscription_id if subscription else uuid4().hex,
             "values": values,
@@ -163,7 +158,9 @@ class ProcessUpdateTest(TestCase):
             .exists()
         )
 
-    def assert_action_handler_called_with_actions(self, incident, actions):
+    def assert_action_handler_called_with_actions(self, incident, actions, project=None):
+        project = self.project if project is None else project
+
         if not actions:
             if not incident:
                 assert not self.email_action_handler.called
@@ -172,17 +169,19 @@ class ProcessUpdateTest(TestCase):
                     assert call_args[0][1] != incident
         else:
             self.email_action_handler.assert_has_calls(
-                [call(action, incident) for action in actions], any_order=True
+                [call(action, incident, project) for action in actions], any_order=True
             )
 
-    def assert_actions_fired_for_incident(self, incident, actions=None):
+    def assert_actions_fired_for_incident(self, incident, actions=None, project=None):
         actions = [] if actions is None else actions
-        self.assert_action_handler_called_with_actions(incident, actions)
+        project = self.project if project is None else project
+        self.assert_action_handler_called_with_actions(incident, actions, project)
         assert len(actions) == len(self.email_action_handler.return_value.fire.call_args_list)
 
-    def assert_actions_resolved_for_incident(self, incident, actions=None):
+    def assert_actions_resolved_for_incident(self, incident, actions=None, project=None):
+        project = self.project if project is None else project
         actions = [] if actions is None else actions
-        self.assert_action_handler_called_with_actions(incident, actions)
+        self.assert_action_handler_called_with_actions(incident, actions, project)
         assert len(actions) == len(self.email_action_handler.return_value.resolve.call_args_list)
 
     def assert_no_active_incident(self, rule, subscription=None):
@@ -199,10 +198,9 @@ class ProcessUpdateTest(TestCase):
         return list(
             Incident.objects.filter(
                 type=IncidentType.ALERT_TRIGGERED.value,
-                status=IncidentStatus.OPEN.value,
                 alert_rule=rule,
                 projects=subscription.project,
-            )
+            ).exclude(status=IncidentStatus.CLOSED.value)
         )
 
     def assert_trigger_counts(self, processor, trigger, alert_triggers=0, resolve_triggers=0):
@@ -256,6 +254,9 @@ class ProcessUpdateTest(TestCase):
         processor = self.send_update(rule, trigger.alert_threshold + 1)
         self.assert_trigger_counts(processor, self.trigger, 0, 0)
         incident = self.assert_active_incident(rule)
+        assert incident.date_started == (
+            timezone.now().replace(microsecond=0) - timedelta(seconds=rule.snuba_query.time_window)
+        )
         self.assert_trigger_exists_with_status(incident, self.trigger, TriggerStatus.ACTIVE)
         self.assert_actions_fired_for_incident(incident, [self.action])
 
@@ -479,7 +480,7 @@ class ProcessUpdateTest(TestCase):
         self.assert_action_handler_called_with_actions(incident, [])
         other_incident = self.assert_active_incident(rule, self.other_sub)
         self.assert_trigger_exists_with_status(other_incident, self.trigger, TriggerStatus.ACTIVE)
-        self.assert_actions_fired_for_incident(other_incident, [self.action])
+        self.assert_actions_fired_for_incident(other_incident, [self.action], self.other_project)
 
         # Now we want to test that resolving is isolated. Send another update through
         # for the first subscription.
@@ -515,7 +516,7 @@ class ProcessUpdateTest(TestCase):
         self.assert_trigger_exists_with_status(incident, self.trigger, TriggerStatus.ACTIVE)
         self.assert_no_active_incident(rule, self.other_sub)
         self.assert_trigger_exists_with_status(other_incident, self.trigger, TriggerStatus.RESOLVED)
-        self.assert_actions_resolved_for_incident(other_incident, [self.action])
+        self.assert_actions_resolved_for_incident(other_incident, [self.action], self.other_project)
 
         # This second update for the first subscription should resolve its incident now.
         processor = self.send_update(
@@ -722,7 +723,8 @@ class TestGetAlertRuleStats(TestCase):
         triggers = [AlertRuleTrigger(id=3), AlertRuleTrigger(id=4)]
         client = get_redis_client()
         pipeline = client.pipeline()
-        pipeline.set("{alert_rule:1:project:2}:last_update", 1234)
+        timestamp = datetime.now().replace(tzinfo=pytz.utc, microsecond=0)
+        pipeline.set("{alert_rule:1:project:2}:last_update", int(to_timestamp(timestamp)))
         for key, value in [
             ("{alert_rule:1:project:2}:trigger:3:alert_triggered", 1),
             ("{alert_rule:1:project:2}:trigger:3:resolve_triggered", 2),
@@ -733,7 +735,7 @@ class TestGetAlertRuleStats(TestCase):
         pipeline.execute()
 
         last_update, alert_counts, resolve_counts = get_alert_rule_stats(alert_rule, sub, triggers)
-        assert last_update == 1234
+        assert last_update == timestamp
         assert alert_counts == {3: 1, 4: 3}
         assert resolve_counts == {3: 2, 4: 4}
 
@@ -742,7 +744,8 @@ class TestUpdateAlertRuleStats(TestCase):
     def test(self):
         alert_rule = AlertRule(id=1)
         sub = QuerySubscription(project_id=2)
-        update_alert_rule_stats(alert_rule, sub, 1234, {3: 20, 4: 3}, {3: 10, 4: 15})
+        date = datetime.utcnow().replace(tzinfo=pytz.utc)
+        update_alert_rule_stats(alert_rule, sub, date, {3: 20, 4: 3}, {3: 10, 4: 15})
         client = get_redis_client()
         results = map(
             int,
@@ -757,4 +760,4 @@ class TestUpdateAlertRuleStats(TestCase):
             ),
         )
 
-        assert results == [1234, 20, 10, 3, 15]
+        assert results == [int(to_timestamp(date)), 20, 10, 3, 15]

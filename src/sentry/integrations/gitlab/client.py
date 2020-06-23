@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from django.core.urlresolvers import reverse
 
 from sentry.integrations.client import ApiClient
-from sentry.integrations.exceptions import ApiError, ApiUnauthorized
+from sentry.shared_integrations.exceptions import ApiError, ApiUnauthorized
 from sentry.utils.http import absolute_uri
 from six.moves.urllib.parse import quote
 
@@ -212,7 +212,8 @@ class GitLabApiClient(ApiClient):
         and use its date to find the block of commits. We only fetch one page
         of commits to match other implementations (github, bitbucket)
 
-        See https://docs.gitlab.com/ee/api/commits.html#get-the-diff-of-a-commit
+        See https://docs.gitlab.com/ee/api/commits.html#get-a-single-commit and
+        https://docs.gitlab.com/ee/api/commits.html#list-repository-commits
         """
         path = GitLabApiClientPath.commit.format(project=project_id, sha=end_sha)
         commit = self.get(path)

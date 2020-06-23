@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount} from 'sentry-test/enzyme';
 
 import TeamActions from 'app/actions/teamActions';
@@ -8,6 +9,8 @@ import withTeamsForUser from 'app/utils/withTeamsForUser';
 describe('withUserTeams HoC', function() {
   const api = new MockApiClient();
   const organization = TestStubs.Organization();
+  delete organization.projects;
+  delete organization.teams;
 
   beforeEach(function() {
     MockApiClient.clearMockResponses();
@@ -61,11 +64,5 @@ describe('withUserTeams HoC', function() {
         .find('MyComponent')
         .prop('teams')
     ).toEqual(mockTeams);
-
-    expect(ProjectActions.loadProjects).toHaveBeenCalledWith([
-      mockProjectB,
-      mockProjectA,
-    ]);
-    expect(TeamActions.loadTeams).toHaveBeenCalledWith(mockTeams);
   });
 });

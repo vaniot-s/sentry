@@ -1,16 +1,18 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import moment from 'moment-timezone';
-import _ from 'lodash';
 
 import ConfigStore from 'app/stores/configStore';
 
-type Props = {
+type DefaultProps = {
+  seconds: boolean;
+};
+
+type Props = DefaultProps & {
   date: moment.MomentInput;
   dateOnly?: boolean;
   timeOnly?: boolean;
   shortDate?: boolean;
-  seconds?: boolean;
   utc?: boolean;
 };
 
@@ -24,7 +26,7 @@ class DateTime extends React.Component<Props> {
     utc: PropTypes.bool,
   };
 
-  static defaultProps = {
+  static defaultProps: DefaultProps = {
     seconds: true,
   };
 
@@ -61,22 +63,22 @@ class DateTime extends React.Component<Props> {
   render() {
     const {
       date,
-      seconds, // eslint-disable-line no-unused-vars
-      shortDate, // eslint-disable-line no-unused-vars
-      dateOnly, // eslint-disable-line no-unused-vars
       utc,
-      timeOnly: _timeOnly, // eslint-disable-line no-unused-vars
+      seconds: _seconds,
+      shortDate: _shortDate,
+      dateOnly: _dateOnly,
+      timeOnly: _timeOnly,
       ...carriedProps
     } = this.props;
     const user = ConfigStore.get('user');
-    const options = user ? user.options : {};
+    const options = user?.options;
     const format = this.getFormat(options);
 
     return (
       <time {...carriedProps}>
         {utc
           ? moment.utc(date).format(format)
-          : moment.tz(date, options.timezone).format(format)}
+          : moment.tz(date, options?.timezone ?? '').format(format)}
       </time>
     );
   }

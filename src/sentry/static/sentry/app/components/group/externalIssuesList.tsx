@@ -1,19 +1,6 @@
 import React from 'react';
+import styled from '@emotion/styled';
 
-import withOrganization from 'app/utils/withOrganization';
-import AsyncComponent from 'app/components/asyncComponent';
-import ExternalIssueActions from 'app/components/group/externalIssueActions';
-import SentryAppExternalIssueActions from 'app/components/group/sentryAppExternalIssueActions';
-import IssueSyncListElement from 'app/components/issueSyncListElement';
-import AlertLink from 'app/components/alertLink';
-import SentryTypes from 'app/sentryTypes';
-import PluginActions from 'app/components/group/pluginActions';
-import {Box} from 'grid-emotion';
-import {t} from 'app/locale';
-import SentryAppInstallationStore from 'app/stores/sentryAppInstallationsStore';
-import SentryAppComponentsStore from 'app/stores/sentryAppComponentsStore';
-import ExternalIssueStore from 'app/stores/externalIssueStore';
-import ErrorBoundary from 'app/components/errorBoundary';
 import {
   Group,
   Project,
@@ -24,6 +11,20 @@ import {
   SentryAppInstallation,
   GroupIntegration,
 } from 'app/types';
+import {t} from 'app/locale';
+import AlertLink from 'app/components/alertLink';
+import AsyncComponent from 'app/components/asyncComponent';
+import ErrorBoundary from 'app/components/errorBoundary';
+import ExternalIssueActions from 'app/components/group/externalIssueActions';
+import ExternalIssueStore from 'app/stores/externalIssueStore';
+import IssueSyncListElement from 'app/components/issueSyncListElement';
+import PluginActions from 'app/components/group/pluginActions';
+import SentryAppComponentsStore from 'app/stores/sentryAppComponentsStore';
+import SentryAppExternalIssueActions from 'app/components/group/sentryAppExternalIssueActions';
+import SentryAppInstallationStore from 'app/stores/sentryAppInstallationsStore';
+import SentryTypes from 'app/sentryTypes';
+import space from 'app/styles/space';
+import withOrganization from 'app/utils/withOrganization';
 
 type Props = AsyncComponent['props'] & {
   group: Group;
@@ -63,8 +64,8 @@ class ExternalIssueList extends AsyncComponent<Props, State> {
     });
   }
 
-  componentWillMount() {
-    super.componentWillMount();
+  UNSAFE_componentWillMount() {
+    super.UNSAFE_componentWillMount();
 
     this.unsubscribables = [
       SentryAppInstallationStore.listen(this.onSentryAppInstallationChange, this),
@@ -110,9 +111,7 @@ class ExternalIssueList extends AsyncComponent<Props, State> {
           ExternalIssueStore.load(data);
           this.setState({externalIssues: data});
         })
-        .catch(_error => {
-          return;
-        });
+        .catch(_error => {});
     }
   }
 
@@ -173,11 +172,9 @@ class ExternalIssueList extends AsyncComponent<Props, State> {
     const {group, project} = this.props;
 
     return group.pluginIssues && group.pluginIssues.length
-      ? group.pluginIssues.map((plugin, i) => {
-          return (
-            <PluginActions group={group} project={project} plugin={plugin} key={i} />
-          );
-        })
+      ? group.pluginIssues.map((plugin, i) => (
+          <PluginActions group={group} project={project} plugin={plugin} key={i} />
+        ))
       : null;
   }
 
@@ -185,13 +182,11 @@ class ExternalIssueList extends AsyncComponent<Props, State> {
     const {group} = this.props;
 
     return group.pluginActions && group.pluginActions.length
-      ? group.pluginActions.map((plugin, i) => {
-          return (
-            <IssueSyncListElement externalIssueLink={plugin[1]} key={i}>
-              {plugin[0]}
-            </IssueSyncListElement>
-          );
-        })
+      ? group.pluginActions.map((plugin, i) => (
+          <IssueSyncListElement externalIssueLink={plugin[1]} key={i}>
+            {plugin[0]}
+          </IssueSyncListElement>
+        ))
       : null;
   }
 
@@ -224,13 +219,17 @@ class ExternalIssueList extends AsyncComponent<Props, State> {
         <h6 data-test-id="linked-issues">
           <span>Linked Issues</span>
         </h6>
-        {sentryAppIssues && <Box mb={2}>{sentryAppIssues}</Box>}
-        {integrationIssues && <Box mb={2}>{integrationIssues}</Box>}
-        {pluginIssues && <Box mb={2}>{pluginIssues}</Box>}
-        {pluginActions && <Box mb={2}>{pluginActions}</Box>}
+        {sentryAppIssues && <Wrapper>{sentryAppIssues}</Wrapper>}
+        {integrationIssues && <Wrapper>{integrationIssues}</Wrapper>}
+        {pluginIssues && <Wrapper>{pluginIssues}</Wrapper>}
+        {pluginActions && <Wrapper>{pluginActions}</Wrapper>}
       </React.Fragment>
     );
   }
 }
+
+const Wrapper = styled('div')`
+  margin-bottom: ${space(2)};
+`;
 
 export default withOrganization(ExternalIssueList);

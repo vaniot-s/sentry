@@ -32,10 +32,11 @@ class CrashContent extends React.Component {
     ) : (
       <ExceptionContent
         type={stackType}
-        view={stackView}
+        stackView={stackView}
         values={exception.values}
         platform={event.platform}
         newestFirst={newestFirst}
+        event={event}
       />
     );
   };
@@ -52,6 +53,7 @@ class CrashContent extends React.Component {
         className="no-exception"
         includeSystemFrames={stackView === 'full'}
         platform={event.platform}
+        event={event}
         newestFirst={newestFirst}
       />
     );

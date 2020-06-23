@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-import mock
+from sentry.utils.compat import mock
 import six
 
 from django.core.urlresolvers import reverse
@@ -23,6 +23,7 @@ from sentry.models import (
     AuditLogEntryEvent,
 )
 from sentry.testutils import APITestCase
+from sentry.utils.compat import zip
 
 
 class ProjectDetailsTest(APITestCase):
@@ -80,10 +81,28 @@ class ProjectDetailsTest(APITestCase):
             project.organization.slug,
             "foobar",
         )
-        assert response["Location"] == "http://testserver/api/0/projects/%s/%s/" % (
-            project.organization.slug,
-            "foobar",
+        redirect_path = "/api/0/projects/%s/%s/" % (project.organization.slug, "foobar")
+        # XXX: AttributeError: 'Response' object has no attribute 'url'
+        # (this is with self.assertRedirects(response, ...))
+        assert response["Location"] == redirect_path
+
+    def test_non_org_rename_403(self):
+        org = self.create_organization()
+        team = self.create_team(organization=org, name="foo", slug="foo")
+        user = self.create_user(is_superuser=False)
+        self.create_member(user=user, organization=org, role="member", teams=[team])
+
+        other_org = self.create_organization()
+        other_project = self.create_project(organization=other_org)
+        ProjectRedirect.record(other_project, "old_slug")
+
+        url = reverse(
+            "sentry-api-0-project-details",
+            kwargs={"organization_slug": other_org.slug, "project_slug": "old_slug"},
         )
+        self.login_as(user=user)
+        response = self.client.get(url)
+        assert response.status_code == 403
 
 
 class ProjectUpdateTest(APITestCase):
@@ -97,6 +116,18 @@ class ProjectUpdateTest(APITestCase):
             },
         )
         self.login_as(user=self.user)
+
+    def test_blank_subject_prefix(self):
+        project = Project.objects.get(id=self.project.id)
+        options = {"mail:subject_prefix": "[Sentry]"}
+        resp = self.client.put(self.path, data={"options": options})
+        assert resp.status_code == 200, resp.content
+        assert project.get_option("mail:subject_prefix") == "[Sentry]"
+
+        options["mail:subject_prefix"] = ""
+        resp = self.client.put(self.path, data={"options": options})
+        assert resp.status_code == 200, resp.content
+        assert project.get_option("mail:subject_prefix") == ""
 
     def test_team_changes_deprecated(self):
         project = self.create_project()
@@ -182,6 +213,10 @@ class ProjectUpdateTest(APITestCase):
         project = Project.objects.get(id=self.project.id)
         assert project.platform == "cocoa"
 
+    def test_platform_invalid(self):
+        resp = self.client.put(self.path, data={"platform": "lol"})
+        assert resp.status_code == 400, resp.content
+
     def test_options(self):
         options = {
             "sentry:resolve_age": 1,
@@ -189,7 +224,7 @@ class ProjectUpdateTest(APITestCase):
             "sentry:scrub_defaults": False,
             "sentry:sensitive_fields": ["foo", "bar"],
             "sentry:safe_fields": ["token"],
-            "sentry:store_crash_reports": False,
+            "sentry:store_crash_reports": 0,
             "sentry:relay_pii_config": '{"applications": {"freeform": []}}',
             "sentry:csp_ignored_sources_defaults": False,
             "sentry:csp_ignored_sources": "foo\nbar",
@@ -227,7 +262,7 @@ class ProjectUpdateTest(APITestCase):
         ).exists()
         assert project.get_option("sentry:safe_fields", []) == options["sentry:safe_fields"]
         assert (
-            project.get_option("sentry:store_crash_reports", False)
+            project.get_option("sentry:store_crash_reports")
             == options["sentry:store_crash_reports"]
         )
 
@@ -409,13 +444,13 @@ class ProjectUpdateTest(APITestCase):
         assert resp.data["safeFields"] == ["foobar.com", "https://example.com"]
 
     def test_store_crash_reports(self):
-        resp = self.client.put(self.path, data={"storeCrashReports": True})
+        resp = self.client.put(self.path, data={"storeCrashReports": 10})
         assert resp.status_code == 200, resp.content
-        assert self.project.get_option("sentry:store_crash_reports") is True
-        assert resp.data["storeCrashReports"] is True
+        assert self.project.get_option("sentry:store_crash_reports") == 10
+        assert resp.data["storeCrashReports"] == 10
 
     def test_relay_pii_config(self):
-        with self.feature("organizations:relay"):
+        with self.feature("organizations:datascrubbers-v2"):
             value = '{"applications": {"freeform": []}}'
             resp = self.client.put(self.path, data={"relayPiiConfig": value})
             assert resp.status_code == 200, resp.content
@@ -426,7 +461,7 @@ class ProjectUpdateTest(APITestCase):
         value = '{"applications": {"freeform": []}}'
         resp = self.client.put(self.path, data={"relayPiiConfig": value})
         assert resp.status_code == 400
-        assert "feature" in resp.content
+        assert b"feature" in resp.content
         assert self.project.get_option("sentry:relay_pii_config") is None
 
     def test_sensitive_fields(self):

@@ -1,8 +1,8 @@
-import {debounce} from 'lodash';
+import debounce from 'lodash/debounce';
 import PropTypes from 'prop-types';
 import React from 'react';
 import keydown from 'react-keydown';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {analytics} from 'app/utils/analytics';
 import {inputStyles} from 'app/styles/input';
@@ -17,6 +17,7 @@ import PlatformIconTile from 'app/components/platformIconTile';
 import categoryList from 'app/data/platformCategories';
 import platforms from 'app/data/platforms';
 import space from 'app/styles/space';
+import {IconClose} from 'app/icons';
 
 const PLATFORM_CATEGORIES = categoryList.concat({id: 'all', name: t('All')});
 
@@ -25,6 +26,7 @@ class PlatformPicker extends React.Component {
     setPlatform: PropTypes.func.isRequired,
     platform: PropTypes.string,
     showOther: PropTypes.bool,
+    listClassName: PropTypes.string,
     listProps: PropTypes.object,
     noAutoFilter: PropTypes.bool,
   };
@@ -72,7 +74,7 @@ class PlatformPicker extends React.Component {
 
   render() {
     const platformList = this.platformList;
-    const {setPlatform, listProps} = this.props;
+    const {setPlatform, listProps, listClassName} = this.props;
     const {filter, category} = this.state;
 
     return (
@@ -106,7 +108,7 @@ class PlatformPicker extends React.Component {
             />
           </SearchBar>
         </NavContainer>
-        <PlatformList {...listProps}>
+        <PlatformList className={listClassName} {...listProps}>
           {platformList.map(platform => (
             <PlatformCard
               data-test-id={`platform-${platform.id}`}
@@ -117,7 +119,7 @@ class PlatformPicker extends React.Component {
                 setPlatform('');
                 e.stopPropagation();
               }}
-              onClick={e => {
+              onClick={() => {
                 analytics('platformpicker.select_platform', {platform: platform.id});
                 setPlatform(platform.id);
               }}
@@ -159,7 +161,7 @@ const NavContainer = styled('div')`
 const SearchBar = styled('div')`
   ${inputStyles};
   padding: 0 8px;
-  color: ${p => p.theme.gray3};
+  color: ${p => p.theme.gray600};
   display: flex;
   align-items: center;
   font-size: 15px;
@@ -201,7 +203,7 @@ const StyledPlatformIconTile = styled(PlatformIconTile)`
 `;
 
 const ClearButton = styled(p => (
-  <Button {...p} icon="icon-circle-close" size="xsmall" borderless />
+  <Button {...p} icon={<IconClose isCircled size="xs" />} size="xsmall" borderless />
 ))`
   position: absolute;
   top: -6px;
@@ -210,7 +212,7 @@ const ClearButton = styled(p => (
   width: 22px;
   border-radius: 50%;
   background: #fff;
-  color: ${p => p.theme.gray4};
+  color: ${p => p.theme.gray700};
 `;
 
 const PlatformCard = styled(({platform, selected, onClear, ...props}) => (

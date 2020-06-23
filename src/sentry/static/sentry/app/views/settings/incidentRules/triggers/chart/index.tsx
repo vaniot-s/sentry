@@ -1,65 +1,62 @@
-import {maxBy} from 'lodash';
 import React from 'react';
-import moment from 'moment-timezone';
-import styled from 'react-emotion';
+import maxBy from 'lodash/maxBy';
+import styled from '@emotion/styled';
 
 import {Client} from 'app/api';
-import {Config, Organization, Project} from 'app/types';
+import {Organization, Project} from 'app/types';
 import {SeriesDataUnit} from 'app/types/echarts';
-import {getFormattedDate} from 'app/utils/dates';
-import EventsRequest from 'app/views/events/utils/eventsRequest';
+import EventsRequest from 'app/components/charts/eventsRequest';
 import LoadingMask from 'app/components/loadingMask';
 import Placeholder from 'app/components/placeholder';
+import space from 'app/styles/space';
+import withApi from 'app/utils/withApi';
 
-import {AlertRuleAggregations, IncidentRule, TimeWindow} from '../../types';
-import DraggableChart from './draggableChart';
+import {IncidentRule, TimeWindow, Trigger} from '../../types';
+import ThresholdsChart from './thresholdsChart';
 
 type Props = {
   api: Client;
-  config: Config;
   organization: Organization;
   projects: Project[];
-  rule: IncidentRule;
-  isInverted: boolean;
-  timeWindow: number;
-  alertThreshold: number | null;
-  resolveThreshold: number | null;
-  onChangeIncidentThreshold: (alertThreshold: number) => void;
-  onChangeResolutionThreshold: (resolveThreshold: number) => void;
+
+  query: IncidentRule['query'];
+  timeWindow: IncidentRule['timeWindow'];
+  environment: string | null;
+  aggregate: IncidentRule['aggregate'];
+  triggers: Trigger[];
 };
 
-class TriggersChart extends React.Component<Props> {
+/**
+ * This is a chart to be used in Metric Alert rules that fetches events based on
+ * query, timewindow, and aggregations.
+ */
+class TriggersChart extends React.PureComponent<Props> {
   render() {
     const {
       api,
-      config,
       organization,
       projects,
-      alertThreshold,
-      resolveThreshold,
-      isInverted,
-      rule,
+      timeWindow,
+      query,
+      aggregate,
+      triggers,
+      environment,
     } = this.props;
-    const {timeWindow} = rule;
 
-    const projectIdsFromRule = rule.projects.map(project => {
-      const found = projects.find(({slug}) => project === slug);
-      return found ? Number(found.id) : -1;
-    });
+    const period = getPeriodForTimeWindow(timeWindow);
 
     return (
       <EventsRequest
         api={api}
         organization={organization}
-        project={projectIdsFromRule}
-        interval={`${timeWindow}s`}
-        period={getPeriodForTimeWindow(timeWindow)}
-        yAxis={
-          rule.aggregations[0] === AlertRuleAggregations.TOTAL
-            ? 'event_count'
-            : 'user_count'
-        }
+        query={query}
+        environment={environment ? [environment] : undefined}
+        project={projects.map(({id}) => Number(id))}
+        interval={`${timeWindow}m`}
+        period={period}
+        yAxis={aggregate}
         includePrevious={false}
+        currentSeriesName={aggregate}
       >
         {({loading, reloading, timeseriesData}) => {
           let maxValue: SeriesDataUnit | undefined;
@@ -68,38 +65,21 @@ class TriggersChart extends React.Component<Props> {
           }
 
           return (
-            <React.Fragment>
+            <StickyWrapper>
               {loading ? (
-                <Placeholder height="200px" bottomGutter={1} />
+                <ChartPlaceholder />
               ) : (
                 <React.Fragment>
                   <TransparentLoadingMask visible={reloading} />
-                  <DraggableChart
-                    xAxis={{
-                      axisLabel: {
-                        formatter: (value: moment.MomentInput, index: number) => {
-                          const firstItem = index === 0;
-                          const format =
-                            timeWindow <= TimeWindow.FIVE_MINUTES && !firstItem
-                              ? 'LT'
-                              : 'MMM Do';
-                          return getFormattedDate(value, format, {
-                            local: config.user.options.timezone !== 'UTC',
-                          });
-                        },
-                      },
-                    }}
+                  <ThresholdsChart
+                    period={period}
                     maxValue={maxValue ? maxValue.value : maxValue}
-                    onChangeIncidentThreshold={this.props.onChangeIncidentThreshold}
-                    alertThreshold={alertThreshold}
-                    onChangeResolutionThreshold={this.props.onChangeResolutionThreshold}
-                    resolveThreshold={resolveThreshold}
-                    isInverted={isInverted}
                     data={timeseriesData}
+                    triggers={triggers}
                   />
                 </React.Fragment>
               )}
-            </React.Fragment>
+            </StickyWrapper>
           );
         }}
       </EventsRequest>
@@ -107,11 +87,9 @@ class TriggersChart extends React.Component<Props> {
   }
 }
 
-export default TriggersChart;
+export default withApi(TriggersChart);
 
-type TimeWindowMapType = {[key in TimeWindow]: string};
-
-const TIME_WINDOW_TO_PERIOD: TimeWindowMapType = {
+const TIME_WINDOW_TO_PERIOD: Record<TimeWindow, string> = {
   [TimeWindow.ONE_MINUTE]: '12h',
   [TimeWindow.FIVE_MINUTES]: '12h',
   [TimeWindow.TEN_MINUTES]: '1d',
@@ -124,9 +102,9 @@ const TIME_WINDOW_TO_PERIOD: TimeWindowMapType = {
 };
 
 /**
- * Gets a reasonable period given a timewindow (in seconds)
+ * Gets a reasonable period given a time window (in minutes)
  *
- * @param timeWindow The time window in seconds
+ * @param timeWindow The time window in minutes
  * @return period The period string to use (e.g. 14d)
  */
 function getPeriodForTimeWindow(timeWindow: TimeWindow): string {
@@ -137,4 +115,18 @@ const TransparentLoadingMask = styled(LoadingMask)<{visible: boolean}>`
   ${p => !p.visible && 'display: none;'};
   opacity: 0.4;
   z-index: 1;
+`;
+
+const ChartPlaceholder = styled(Placeholder)`
+  margin: ${space(2)} 0;
+  height: 184px;
+`;
+
+const StickyWrapper = styled('div')`
+  position: sticky;
+  top: 69px; /* Height of settings breadcrumb 69px */
+  z-index: ${p => p.theme.zIndex.dropdown - 1};
+  padding: ${space(2)} ${space(2)} 0;
+  border-bottom: 1px solid ${p => p.theme.borderLight};
+  background: rgba(255, 255, 255, 0.9);
 `;

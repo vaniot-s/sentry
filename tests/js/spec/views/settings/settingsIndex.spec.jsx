@@ -1,5 +1,6 @@
-import {shallow, mountWithTheme} from 'sentry-test/enzyme';
 import React from 'react';
+
+import {shallow, mountWithTheme} from 'sentry-test/enzyme';
 
 import * as OrgActions from 'app/actionCreators/organizations';
 import {SettingsIndex} from 'app/views/settings/settingsIndex';
@@ -14,7 +15,7 @@ describe('SettingsIndex', function() {
   });
 
   it('has loading when there is no organization', function() {
-    wrapper = shallow(<SettingsIndex organization={null} />);
+    wrapper = mountWithTheme(<SettingsIndex organization={null} />);
 
     expect(wrapper.find('LoadingIndicator')).toHaveLength(1);
   });

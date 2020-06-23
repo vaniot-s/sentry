@@ -1,21 +1,19 @@
-import _ from 'lodash';
+import isEmpty from 'lodash/isEmpty';
+import isNull from 'lodash/isNull';
 
 const GET_META = Symbol('GET_META');
 const IS_PROXY = Symbol('IS_PROXY');
 
 function isAnnotated(meta) {
-  if (_.isEmpty(meta)) {
+  if (isEmpty(meta)) {
     return false;
   }
-  return !_.isEmpty(meta.rem) || !_.isEmpty(meta.err);
+  return !isEmpty(meta.rem) || !isEmpty(meta.err);
 }
 
 export class MetaProxy {
-  constructor(root, local) {
-    // entire meta object
-    this._meta = root;
-
-    this.local = !local ? root : local;
+  constructor(local) {
+    this.local = local;
   }
 
   get(obj, prop, receiver) {
@@ -38,11 +36,7 @@ export class MetaProxy {
     }
 
     const value = Reflect.get(obj, prop, receiver);
-    if (
-      !Reflect.has(obj, prop, receiver) ||
-      typeof value !== 'object' ||
-      _.isNull(value)
-    ) {
+    if (!Reflect.has(obj, prop, receiver) || typeof value !== 'object' || isNull(value)) {
       return value;
     }
 
@@ -54,7 +48,7 @@ export class MetaProxy {
 
     // Make sure we apply proxy to all children (objects and arrays)
     // Do we need to check for annotated inside of objects?
-    return new Proxy(value, new MetaProxy(this._meta, this.local && this.local[prop]));
+    return new Proxy(value, new MetaProxy(this.local && this.local[prop]));
   }
 }
 

@@ -1,11 +1,9 @@
 import {Route} from 'react-router';
-import {
-  User,
-  Organization,
-  Project,
-  IntegrationProvider,
-  IntegrationFeature,
-} from 'app/types';
+
+import {NavigationSection} from 'app/views/settings/types';
+import {User, Organization, Project, IntegrationProvider} from 'app/types';
+import {ExperimentKey} from 'app/types/experiments';
+import FeatureDisabled from 'app/components/acl/featureDisabled';
 
 // XXX(epurkhiser): A Note about `_`.
 //
@@ -18,7 +16,7 @@ import {
 
 /**
  * The Hooks type mapping is the master interface for all external Hooks into
- * the sentry frontent application.
+ * the sentry frontend application.
  */
 export type Hooks = {_: any} & RouteHooks &
   ComponentHooks &
@@ -45,7 +43,6 @@ export type RouteHooks = {
  * Component wrapping hooks
  */
 export type ComponentHooks = {
-  'component:org-members-view': GenericComponentHook;
   'component:header-date-range': GenericComponentHook;
   'component:header-selector-items': GenericComponentHook;
 };
@@ -68,6 +65,7 @@ export type AnalyticsHooks = {
   'analytics:init-user': AnalyticsInitUser;
   'analytics:track-event': AnalyticsTrackEvent;
   'analytics:track-adhoc-event': AnalyticsTrackAdhocEvent;
+  'analytics:log-experiment': AnalyticsLogExperiment;
   'metrics:event': MetricsEvent;
 
   // TODO(epurkhiser): This is deprecated and should be replaced
@@ -80,18 +78,24 @@ export type AnalyticsHooks = {
  */
 export type FeatureDisabledHooks = {
   'feature-disabled:custom-inbound-filters': FeatureDisabledHook;
-  'feature-disabled:discard-groups': FeatureDisabledHook;
+  'feature-disabled:custom-symbol-sources': FeatureDisabledHook;
   'feature-disabled:data-forwarding': FeatureDisabledHook;
+  'feature-disabled:discard-groups': FeatureDisabledHook;
+  'feature-disabled:discover-page': FeatureDisabledHook;
+  'feature-disabled:discover-saved-query-create': FeatureDisabledHook;
+  'feature-disabled:discover-sidebar-item': FeatureDisabledHook;
+  'feature-disabled:discover2-page': FeatureDisabledHook;
+  'feature-disabled:discover2-sidebar-item': FeatureDisabledHook;
+  'feature-disabled:events-page': FeatureDisabledHook;
+  'feature-disabled:events-sidebar-item': FeatureDisabledHook;
+  'feature-disabled:grid-editable-actions': FeatureDisabledHook;
+  'feature-disabled:performance-page': FeatureDisabledHook;
+  'feature-disabled:performance-sidebar-item': FeatureDisabledHook;
+  'feature-disabled:project-selector-checkbox': FeatureDisabledHook;
   'feature-disabled:rate-limits': FeatureDisabledHook;
   'feature-disabled:sso-basic': FeatureDisabledHook;
   'feature-disabled:sso-rippling': FeatureDisabledHook;
   'feature-disabled:sso-saml2': FeatureDisabledHook;
-  'feature-disabled:events-page': FeatureDisabledHook;
-  'feature-disabled:events-sidebar-item': FeatureDisabledHook;
-  'feature-disabled:discover-page': FeatureDisabledHook;
-  'feature-disabled:discover-sidebar-item': FeatureDisabledHook;
-  'feature-disabled:project-selector-checkbox': FeatureDisabledHook;
-  'feature-disabled:custom-symbol-sources': FeatureDisabledHook;
 };
 
 /**
@@ -99,7 +103,7 @@ export type FeatureDisabledHooks = {
  */
 export type InterfaceChromeHooks = {
   footer: GenericComponentHook;
-  'organization:header': GenericOrganizationComponentHook;
+  'organization:header': OrganizationHeaderComponentHook;
   'sidebar:help-menu': GenericOrganizationComponentHook;
   'sidebar:organization-dropdown-menu': GenericOrganizationComponentHook;
   'sidebar:bottom-items': SidebarBottomItemsHook;
@@ -112,14 +116,16 @@ export type InterfaceChromeHooks = {
 export type OnboardingHooks = {
   'onboarding:invite-members': OnboardingInviteMembersHook;
   'onboarding:extra-chrome': GenericComponentHook;
+  'onboarding-wizard:skip-help': GenericOrganizationComponentHook;
 };
 
 /**
  * Settings navigation hooks.
  */
 export type SettingsHooks = {
-  'settings:organization-navigation': GenericOrganizationComponentHook;
+  'settings:organization-navigation': OrganizationSettingsHook;
   'settings:organization-navigation-config': SettingsConfigHook;
+  'settings:organization-general-settings': GeneralSettingsHook;
 };
 
 /**
@@ -138,6 +144,11 @@ type RoutesHook = () => Route[];
 type GenericOrganizationComponentHook = (opts: {
   organization: Organization;
 }) => React.ReactNode;
+
+// TODO(ts): We should correct the organization header hook to conform to the
+// GenericOrganizationComponentHook, passing org as a prop object, not direct
+// as the only argument.
+type OrganizationHeaderComponentHook = (org: Organization) => React.ReactNode;
 
 /**
  * A FeatureDisabledHook returns a react element when a feature is not enabled.
@@ -159,6 +170,8 @@ type FeatureDisabledHook = (opts: {
    * Weather the feature is or is not enabled.
    */
   hasFeature: boolean;
+
+  children: FeatureDisabled['props']['children'];
 }) => React.ReactNode;
 
 /**
@@ -185,11 +198,32 @@ type AnalyticsTrackEvent = (opts: {
 }) => void;
 
 /**
- * Trigger adhoc analytics tracking in the hook store.
+ * Trigger ad hoc analytics tracking in the hook store.
  */
-type AnalyticsTrackAdhocEvent = (
-  opts: Omit<Parameters<AnalyticsTrackEvent>[0], 'eventName'>
-) => void;
+type AnalyticsTrackAdhocEvent = (opts: {
+  /**
+   * The key used to identify the event.
+   */
+  eventKey: string;
+  /**
+   * Arbitrary data to track
+   */
+  [key: string]: any;
+}) => void;
+
+/**
+ * Trigger experiment observed logging.
+ */
+type AnalyticsLogExperiment = (opts: {
+  /**
+   * The organization. Must be provided for organization experiments.
+   */
+  organization?: Organization;
+  /**
+   * The experiment key
+   */
+  key: ExperimentKey;
+}) => void;
 
 /**
  * Trigger analytics tracking in the hook store.
@@ -206,7 +240,7 @@ type LegacyAnalyticsEvent = (
   /**
    * Arbitrary data to track
    */
-  data: {[key: string]: number | string | boolean}
+  data: {[key: string]: any}
 ) => void;
 
 /**
@@ -228,28 +262,35 @@ type MetricsEvent = (
 ) => void;
 
 /**
- * Provides additional setting configurations
- *
- * TODO(ts): The returned object should come from a settings configuration type
- * once we convert settings configurations into typescript.
+ * Provides additional navigation components
  */
-type SettingsConfigHook = (opts: {
-  organization: Organization;
-}) => {
-  name: string;
-  items: object[];
-};
+type OrganizationSettingsHook = (organization: Organization) => React.ReactElement;
+
+/**
+ * Provides additional setting configurations
+ */
+type SettingsConfigHook = (organization: Organization) => NavigationSection;
+
+/**
+ * Provides additional general setting components
+ */
+type GeneralSettingsHook = () => React.ReactElement;
 
 /**
  * Each sidebar label is wrapped with this hook, to allow sidebar item
  * augmentation.
  */
-type SidebarItemLabelHook = (opts: {
+type SidebarItemLabelHook = () => React.ComponentType<{
   /**
-   * The key of the item label currently being rendered.
+   * The key of the item label currently being rendered. If no id is provided
+   * the hook will have no effect.
    */
-  id: string;
-}) => React.ReactNode;
+  id?: string;
+  /**
+   * The item label being wrapped
+   */
+  children: React.ReactNode;
+}>;
 
 /**
  * Returns an additional list of sidebar items.
@@ -281,11 +322,23 @@ type OnboardingInviteMembersHook = () => React.ComponentType<{
   organization: Organization;
 }>;
 
+/**
+ * The DecoratedIntegrationFeature differs from the IntegrationFeature as it is
+ * expected to have been transformed into marked up content.
+ */
+type DecoratedIntegrationFeature = {
+  /**
+   * Marked up description
+   */
+  description: React.ReactNode;
+  featureGate: string;
+};
+
 type IntegrationFeatureGroup = {
   /**
    * The list of features within this group
    */
-  features: IntegrationFeature[];
+  features: DecoratedIntegrationFeature[];
   /**
    * Weather the group has all of the features enabled within this group
    * or not.
@@ -301,7 +354,7 @@ type FeatureGateSharedProps = {
   /**
    * The list of features, typically this is provided by the backend.
    */
-  features: IntegrationFeature[];
+  features: DecoratedIntegrationFeature[];
 };
 
 type IntegrationFeaturesProps = FeatureGateSharedProps & {
@@ -312,7 +365,7 @@ type IntegrationFeaturesProps = FeatureGateSharedProps & {
     /**
      * This is the list of features which have *not* been gated in any way.
      */
-    ungatedFeatures: IntegrationFeature[];
+    ungatedFeatures: DecoratedIntegrationFeature[];
     /**
      * Features grouped based on specific gating criteria (for example, in
      * sentry.io this is features grouped by plans).
@@ -344,10 +397,12 @@ type IntegrationsFeatureGatesHook = () => {
    * features.
    */
   IntegrationFeatures: React.ComponentType<IntegrationFeaturesProps>;
+  IntegrationDirectoryFeatures: React.ComponentType<IntegrationFeaturesProps>;
   /**
    * This component renders the list of integration features.
    */
   FeatureList: React.ComponentType<IntegrationFeatureListProps>;
+  IntegrationDirectoryFeatureList: React.ComponentType<IntegrationFeatureListProps>;
 };
 
 /**

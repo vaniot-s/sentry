@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import Orderby from 'app/views/discover/sidebar/orderby';
@@ -9,7 +10,10 @@ describe('orderBy', function() {
     project = TestStubs.Project();
     organization = TestStubs.Organization({projects: [project]});
     onChangeMock = jest.fn();
-    columns = [{value: 'timestamp', label: 'timestamp'}, {value: 'id', label: 'id'}];
+    columns = [
+      {value: 'timestamp', label: 'timestamp'},
+      {value: 'id', label: 'id'},
+    ];
 
     wrapper = mountWithTheme(
       <Orderby value="-timestamp" columns={columns} onChange={onChangeMock} />,
@@ -23,14 +27,20 @@ describe('orderBy', function() {
         .find('StyledSelect')
         .at(0)
         .prop('options')
-    ).toEqual([{value: 'timestamp', label: 'timestamp'}, {value: 'id', label: 'id'}]);
+    ).toEqual([
+      {value: 'timestamp', label: 'timestamp'},
+      {value: 'id', label: 'id'},
+    ]);
 
     expect(
       wrapper
         .find('StyledSelect')
         .at(1)
         .prop('options')
-    ).toEqual([{value: 'asc', label: 'asc'}, {value: 'desc', label: 'desc'}]);
+    ).toEqual([
+      {value: 'asc', label: 'asc'},
+      {value: 'desc', label: 'desc'},
+    ]);
 
     expect(
       wrapper

@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {analytics} from 'app/utils/analytics';
 import {stepPropTypes} from 'app/views/onboarding/onboarding';
@@ -79,7 +79,7 @@ const ActionGroup = styled('div')`
 `;
 
 const SecondaryAction = styled('small')`
-  color: ${p => p.theme.gray3};
+  color: ${p => p.theme.gray600};
 `;
 
 export default withOrganization(withConfig(OnboardingWelcome));

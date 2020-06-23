@@ -82,7 +82,7 @@ class U2fInterface extends React.Component {
                   response: u2fResponse,
                   challenge,
                 })
-                .catch(err => {
+                .catch(() => {
                   // This is kind of gross but I want to limit the amount of changes to this component
                   this.setState({
                     deviceFailure: 'UNKNOWN_ERROR',
@@ -148,8 +148,7 @@ class U2fInterface extends React.Component {
               `
              Unfortunately your browser does not support U2F. You need to use
              a different two-factor method or switch to a browser that supports
-             it (Google Chrome or Microsoft Edge).
-            `
+             it (Google Chrome or Microsoft Edge).`
             )}
           </p>
         </div>
@@ -157,9 +156,7 @@ class U2fInterface extends React.Component {
     );
   };
 
-  canTryAgain = () => {
-    return this.state.deviceFailure !== 'BAD_APPID';
-  };
+  canTryAgain = () => this.state.deviceFailure !== 'BAD_APPID';
 
   renderFailure = () => {
     const {deviceFailure} = this.state;

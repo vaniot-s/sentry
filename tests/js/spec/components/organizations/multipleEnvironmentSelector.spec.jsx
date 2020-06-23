@@ -1,6 +1,7 @@
 import React from 'react';
 
 import {mountWithTheme} from 'sentry-test/enzyme';
+
 import MultipleEnvironmentSelector from 'app/components/organizations/multipleEnvironmentSelector';
 import {ALL_ACCESS_PROJECTS} from 'app/constants/globalSelectionHeader';
 
@@ -10,26 +11,25 @@ describe('MultipleEnvironmentSelector', function() {
   const onUpdate = jest.fn();
 
   const envs = ['production', 'staging', 'dev'];
-  const organization = TestStubs.Organization({
-    projects: [
-      TestStubs.Project({
-        id: '1',
-        slug: 'first',
-        environments: ['production', 'staging'],
-      }),
-      TestStubs.Project({
-        id: '2',
-        slug: 'second',
-        environments: ['dev'],
-      }),
-      TestStubs.Project({
-        id: '3',
-        slug: 'no member',
-        environments: ['no-env'],
-        isMember: false,
-      }),
-    ],
-  });
+  const projects = [
+    TestStubs.Project({
+      id: '1',
+      slug: 'first',
+      environments: ['production', 'staging'],
+    }),
+    TestStubs.Project({
+      id: '2',
+      slug: 'second',
+      environments: ['dev'],
+    }),
+    TestStubs.Project({
+      id: '3',
+      slug: 'no member',
+      environments: ['no-env'],
+      isMember: false,
+    }),
+  ];
+  const organization = TestStubs.Organization({projects});
   const selectedProjects = [1, 2];
   const routerContext = TestStubs.routerContext([
     {
@@ -43,6 +43,8 @@ describe('MultipleEnvironmentSelector', function() {
     wrapper = mountWithTheme(
       <MultipleEnvironmentSelector
         organization={organization}
+        projects={projects}
+        loadingProjects={false}
         selectedProjects={selectedProjects}
         onChange={onChange}
         onUpdate={onUpdate}
@@ -109,6 +111,17 @@ describe('MultipleEnvironmentSelector', function() {
     const items = wrapper.find('MultipleEnvironmentSelector GlobalSelectionHeaderRow');
     expect(items.length).toEqual(1);
     expect(items.at(0).text()).toBe('dev');
+  });
+
+  it('shows non-member project environments when selected', async function() {
+    wrapper.setProps({selectedProjects: [3]});
+    wrapper.update();
+
+    await wrapper.find('MultipleEnvironmentSelector HeaderItem').simulate('click');
+    const items = wrapper.find('MultipleEnvironmentSelector GlobalSelectionHeaderRow');
+
+    expect(items.length).toEqual(1);
+    expect(items.at(0).text()).toBe('no-env');
   });
 
   it('shows member project environments when there are no projects selected', async function() {

@@ -1,17 +1,18 @@
 import {browserHistory} from 'react-router';
-import {isEqual, omit, pickBy, uniq} from 'lodash';
 import Cookies from 'js-cookie';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
 import classNames from 'classnames';
 import createReactClass from 'create-react-class';
+import isEqual from 'lodash/isEqual';
+import pickBy from 'lodash/pickBy';
 import qs from 'query-string';
 
 import {Client} from 'app/api';
-import {DEFAULT_STATS_PERIOD} from 'app/constants';
+import {DEFAULT_QUERY, DEFAULT_STATS_PERIOD} from 'app/constants';
 import {Panel, PanelBody} from 'app/components/panels';
-import {analytics} from 'app/utils/analytics';
+import {analytics, metric} from 'app/utils/analytics';
 import {defined} from 'app/utils';
 import {
   deleteSavedSearch,
@@ -20,46 +21,39 @@ import {
 } from 'app/actionCreators/savedSearches';
 import {extractSelectionParameters} from 'app/components/organizations/globalSelectionHeader/utils';
 import {fetchOrgMembers, indexMembersByProject} from 'app/actionCreators/members';
-import {fetchOrganizationTags, fetchTagValues} from 'app/actionCreators/tags';
+import {loadOrganizationTags, fetchTagValues} from 'app/actionCreators/tags';
 import {getUtcDateString} from 'app/utils/dates';
-import {t} from 'app/locale';
 import CursorPoller from 'app/utils/cursorPoller';
-import EmptyStateWarning from 'app/components/emptyStateWarning';
-import ErrorRobot from 'app/components/errorRobot';
 import GroupStore from 'app/stores/groupStore';
 import LoadingError from 'app/components/loadingError';
 import LoadingIndicator from 'app/components/loadingIndicator';
 import Pagination from 'app/components/pagination';
 import ProcessingIssueList from 'app/components/stream/processingIssueList';
-import SelectedGroupStore from 'app/stores/selectedGroupStore';
 import SentryTypes from 'app/sentryTypes';
 import StreamGroup from 'app/components/stream/group';
 import StreamManager from 'app/utils/streamManager';
-import TagStore from 'app/stores/tagStore';
 import parseApiError from 'app/utils/parseApiError';
 import parseLinkHeader from 'app/utils/parseLinkHeader';
+import withProfiler from 'app/utils/withProfiler';
 import withGlobalSelection from 'app/utils/withGlobalSelection';
 import withOrganization from 'app/utils/withOrganization';
 import withSavedSearches from 'app/utils/withSavedSearches';
+import withIssueTags from 'app/utils/withIssueTags';
 
 import IssueListActions from './actions';
 import IssueListFilters from './filters';
 import IssueListSidebar from './sidebar';
+import NoGroupsHandler from './noGroupsHandler';
 
 const MAX_ITEMS = 25;
-const DEFAULT_QUERY = 'is:unresolved';
 const DEFAULT_SORT = 'date';
 // the default period for the graph in each issue row
 const DEFAULT_GRAPH_STATS_PERIOD = '24h';
 // the allowed period choices for graph in each issue row
 const STATS_PERIODS = new Set(['14d', '24h']);
 
-const CongratsRobots = React.lazy(() =>
-  import(/* webpackChunkName: "CongratsRobots" */ 'app/views/issueList/congratsRobots')
-);
-
-const IssueList = createReactClass({
-  displayName: 'IssueList',
+const IssueListOverview = createReactClass({
+  displayName: 'IssueListOverview',
 
   propTypes: {
     organization: SentryTypes.Organization,
@@ -67,13 +61,13 @@ const IssueList = createReactClass({
     savedSearch: SentryTypes.SavedSearch,
     savedSearches: PropTypes.arrayOf(SentryTypes.SavedSearch),
     savedSearchLoading: PropTypes.bool.isRequired,
+    tags: PropTypes.object,
+
+    // TODO(apm): manual profiling
+    finishProfile: PropTypes.func,
   },
 
-  mixins: [
-    Reflux.listenTo(GroupStore, 'onGroupChange'),
-    Reflux.listenTo(SelectedGroupStore, 'onSelectedGroupChange'),
-    Reflux.listenTo(TagStore, 'onTagsChange'),
-  ],
+  mixins: [Reflux.listenTo(GroupStore, 'onGroupChange')],
 
   getInitialState() {
     const realtimeActiveCookie = Cookies.get('realtimeActive');
@@ -93,7 +87,6 @@ const IssueList = createReactClass({
       issuesLoading: true,
       tagsLoading: true,
       memberList: {},
-      tags: TagStore.getAllTags(),
       // the project for the selected issues
       // Will only be set if selected issues all belong
       // to one project.
@@ -117,6 +110,35 @@ const IssueList = createReactClass({
   },
 
   componentDidUpdate(prevProps, prevState) {
+    // Fire off profiling/metrics first
+    if (prevState.issuesLoading && !this.state.issuesLoading) {
+      if (typeof this.props.finishProfile === 'function') {
+        this.props.finishProfile();
+      }
+
+      // First Meaningful Paint for /organizations/:orgId/issues/
+      if (prevState.queryCount === null) {
+        metric.measure({
+          name: 'app.page.perf.issue-list',
+          start: 'page-issue-list-start',
+          data: {
+            // start_type is set on 'page-issue-list-start'
+            org_id: parseInt(this.props.organization.id, 10),
+            group: this.props.organization.features.includes('enterprise-perf')
+              ? 'enterprise-perf'
+              : 'control',
+            milestone: 'first-meaningful-paint',
+            is_enterprise: this.props.organization.features
+              .includes('enterprise-orgs')
+              .toString(),
+            is_outlier: this.props.organization.features
+              .includes('enterprise-orgs-outliers')
+              .toString(),
+          },
+        });
+      }
+    }
+
     if (prevState.realtimeActive !== this.state.realtimeActive) {
       // User toggled realtime button
       if (this.state.realtimeActive) {
@@ -133,9 +155,6 @@ const IssueList = createReactClass({
       this.fetchTags();
     }
 
-    const prevQuery = prevProps.location.query;
-    const newQuery = this.props.location.query;
-
     // Wait for saved searches to load before we attempt to fetch stream data
     if (this.props.savedSearchLoading) {
       return;
@@ -143,6 +162,9 @@ const IssueList = createReactClass({
       this.fetchData();
       return;
     }
+
+    const prevQuery = prevProps.location.query;
+    const newQuery = this.props.location.query;
 
     // If any important url parameter changed or saved search changed
     // reload data.
@@ -247,21 +269,12 @@ const IssueList = createReactClass({
     return new Set(this.props.organization.features);
   },
 
-  /**
-   * Get the projects that are selected in the global filters
-   */
-  getGlobalSearchProjects() {
-    let {projects} = this.props.selection;
-
-    // Not sure how this worked before for "omits null values" test
-    projects = (projects && projects.map(p => p.toString())) || [];
-
-    return this.props.organization.projects.filter(p => projects.indexOf(p.id) > -1);
+  getGlobalSearchProjectIds() {
+    return this.props.selection.projects;
   },
 
   fetchMemberList() {
-    const projects = this.getGlobalSearchProjects();
-    const projectIds = projects.map(p => p.id);
+    const projectIds = this.getGlobalSearchProjectIds();
 
     fetchOrgMembers(this.api, this.props.organization.slug, projectIds).then(members => {
       this.setState({memberList: indexMembersByProject(members)});
@@ -270,7 +283,10 @@ const IssueList = createReactClass({
 
   fetchTags() {
     const {organization, selection} = this.props;
-    fetchOrganizationTags(this.api, organization.slug, selection.projects);
+    this.setState({tagsLoading: true});
+    loadOrganizationTags(this.api, organization.slug, selection).then(() =>
+      this.setState({tagsLoading: false})
+    );
   },
 
   fetchData() {
@@ -442,15 +458,6 @@ const IssueList = createReactClass({
     this.transitionTo({cursor, page: nextPage});
   },
 
-  onTagsChange(tags) {
-    // Exclude the environment tag as it lives in global search.
-    // Exclude the timestamp tag since we use event.timestamp instead here
-    this.setState({
-      tags: omit(tags, ['environment', 'timestamp']),
-      tagsLoading: false,
-    });
-  },
-
   onSidebarToggle() {
     const {organization} = this.props;
     this.setState({
@@ -459,28 +466,6 @@ const IssueList = createReactClass({
     analytics('issue.search_sidebar_clicked', {
       org_id: parseInt(organization.id, 10),
     });
-  },
-
-  onSelectedGroupChange() {
-    const selected = SelectedGroupStore.getSelectedIds();
-    const projects = [...selected]
-      .map(id => GroupStore.get(id))
-      .filter(group => group && group.project)
-      .map(group => group.project.slug);
-
-    const uniqProjects = uniq(projects);
-
-    // we only want selectedProject set if there is 1 project
-    // more or fewer should result in a null so that the action toolbar
-    // can behave correctly.
-    if (uniqProjects.length !== 1) {
-      this.setState({selectedProject: null});
-      return;
-    }
-    const selectedProject = this.props.organization.projects.find(
-      p => p.slug === uniqProjects[0]
-    );
-    this.setState({selectedProject});
   },
 
   /**
@@ -556,51 +541,28 @@ const IssueList = createReactClass({
     return <PanelBody>{groupNodes}</PanelBody>;
   },
 
-  renderEmpty() {
-    return (
-      <EmptyStateWarning>
-        <p>{t('Sorry, no issues match your filters.')}</p>
-      </EmptyStateWarning>
-    );
-  },
-
   renderLoading() {
     return <LoadingIndicator />;
   },
 
-  renderNoUnresolvedIssues() {
-    return (
-      <React.Suspense fallback={this.renderLoading()}>
-        <CongratsRobots data-test-id="congrats-robots" />
-      </React.Suspense>
-    );
-  },
-
   renderStreamBody() {
     let body;
-    const {organization} = this.props;
-    const selectedProjects = this.getGlobalSearchProjects();
-    const query = this.getQuery();
-
-    // If no projects are selected, then we must check every project the user is a
-    // member of and make sure there are no first events for all of the projects
-    const projects = !selectedProjects.length
-      ? organization.projects.filter(p => p.isMember)
-      : selectedProjects;
-    const noFirstEvents = projects.every(p => !p.firstEvent);
-
     if (this.state.issuesLoading) {
       body = this.renderLoading();
     } else if (this.state.error) {
       body = <LoadingError message={this.state.error} onRetry={this.fetchData} />;
     } else if (this.state.groupIds.length > 0) {
       body = this.renderGroupNodes(this.state.groupIds, this.getGroupStatsPeriod());
-    } else if (noFirstEvents) {
-      body = this.renderAwaitingEvents(projects);
-    } else if (query === DEFAULT_QUERY) {
-      body = this.renderNoUnresolvedIssues();
     } else {
-      body = this.renderEmpty();
+      body = (
+        <NoGroupsHandler
+          api={this.api}
+          organization={this.props.organization}
+          query={this.getQuery()}
+          selectedProjectIds={this.props.selection.projects}
+          groupIds={this.state.groupIds}
+        />
+      );
     }
     return body;
   },
@@ -633,26 +595,12 @@ const IssueList = createReactClass({
     });
   },
 
-  renderAwaitingEvents(projects) {
-    const {organization} = this.props;
-    const project = projects.length > 0 ? projects[0] : null;
-
-    const sampleIssueId = this.state.groupIds.length > 0 ? this.state.groupIds[0] : '';
-    return (
-      <ErrorRobot
-        org={organization}
-        project={project}
-        sampleIssueId={sampleIssueId}
-        gradient
-      />
-    );
-  },
-
   tagValueLoader(key, search) {
     const {orgId} = this.props.params;
-    const projectIds = this.getGlobalSearchProjects().map(p => p.id);
+    const projectIds = this.getGlobalSearchProjectIds();
+    const endpointParams = this.getEndpointParams();
 
-    return fetchTagValues(this.api, orgId, key, search, projectIds);
+    return fetchTagValues(this.api, orgId, key, search, projectIds, endpointParams);
   },
 
   render() {
@@ -664,34 +612,14 @@ const IssueList = createReactClass({
       classes.push('show-sidebar');
     }
 
-    const {params, organization, savedSearch, savedSearches} = this.props;
-    const {selectedProject} = this.state;
+    const {params, organization, savedSearch, savedSearches, tags} = this.props;
     const query = this.getQuery();
-
-    // If we have a selected project set release data up
-    // enabling stream actions
-    let hasReleases = false;
-    let projectId = null;
-    let latestRelease = null;
-
-    const projects = this.getGlobalSearchProjects();
-
-    if (selectedProject) {
-      hasReleases = new Set(selectedProject.features).has('releases');
-      latestRelease = selectedProject.latestRelease;
-      projectId = selectedProject.slug;
-    } else if (projects.length === 1) {
-      // If the user has filtered down to a single project
-      // we can hint the autocomplete/savedsearch picker with that.
-      projectId = projects[0].slug;
-    }
 
     return (
       <div className={classNames(classes)}>
         <div className="stream-content">
           <IssueListFilters
             organization={organization}
-            projectId={projectId}
             searchId={params.searchId}
             query={query}
             savedSearch={savedSearch}
@@ -707,17 +635,14 @@ const IssueList = createReactClass({
             isSearchDisabled={this.state.isSidebarVisible}
             savedSearchList={savedSearches}
             tagValueLoader={this.tagValueLoader}
-            tags={this.state.tags}
+            tags={tags}
           />
 
           <Panel>
             <IssueListActions
               organization={organization}
               orgId={organization.slug}
-              projectId={projectId}
               selection={this.props.selection}
-              hasReleases={hasReleases}
-              latestRelease={latestRelease}
               query={query}
               queryCount={this.state.queryCount}
               onSelectStatsPeriod={this.onSelectStatsPeriod}
@@ -740,7 +665,7 @@ const IssueList = createReactClass({
         </div>
         <IssueListSidebar
           loading={this.state.tagsLoading}
-          tags={this.state.tags}
+          tags={tags}
           query={query}
           onQueryChange={this.onIssueListSidebarSearch}
           orgId={organization.slug}
@@ -751,5 +676,7 @@ const IssueList = createReactClass({
   },
 });
 
-export default withSavedSearches(withGlobalSelection(withOrganization(IssueList)));
-export {IssueList};
+export default withGlobalSelection(
+  withSavedSearches(withOrganization(withIssueTags(withProfiler(IssueListOverview))))
+);
+export {IssueListOverview};

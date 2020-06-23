@@ -2,6 +2,7 @@ import React from 'react';
 
 import {initializeOrg} from 'sentry-test/initializeOrg';
 import {mountWithTheme} from 'sentry-test/enzyme';
+
 import GroupSidebar from 'app/components/group/sidebar';
 
 describe('GroupSidebar', function() {
@@ -38,6 +39,11 @@ describe('GroupSidebar', function() {
     MockApiClient.addMockResponse({
       url: '/issues/1/',
       body: group,
+    });
+
+    MockApiClient.addMockResponse({
+      url: '/groups/1/external-issues/',
+      body: [],
     });
 
     tagsMock = MockApiClient.addMockResponse({

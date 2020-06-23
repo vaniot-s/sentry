@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {Panel} from 'app/components/panels';
 import {t} from 'app/locale';
@@ -22,13 +22,11 @@ class MergedList extends React.Component {
     projectId: PropTypes.string.isRequired,
   };
 
-  renderEmpty = () => {
-    return (
-      <EmptyStateWarning>
-        <p>{t("There don't seem to be any hashes for this issue.")}</p>
-      </EmptyStateWarning>
-    );
-  };
+  renderEmpty = () => (
+    <EmptyStateWarning>
+      <p>{t("There don't seem to be any hashes for this issue.")}</p>
+    </EmptyStateWarning>
+  );
 
   render() {
     const {items, pageLinks, onToggleCollapse, onUnmerge, orgId, projectId} = this.props;
@@ -57,6 +55,7 @@ class MergedList extends React.Component {
           {itemsWithLatestEvent.map(({id, latestEvent}) => (
             <MergedItem
               key={id}
+              orgId={orgId}
               disabled={items.length === 1}
               event={latestEvent}
               fingerprint={id}

@@ -1,18 +1,18 @@
 import React from 'react';
-
 import {number, string} from '@storybook/addon-knobs';
 import {storiesOf} from '@storybook/react';
 import {withInfo} from '@storybook/addon-info';
+
 import SeenByList from 'app/components/seenByList';
 
 const USER = {
   id: 1,
-  name: 'Jane Doe',
-  email: 'janedoe@example.com',
+  name: 'Jane Bloggs',
+  email: 'janebloggs@example.com',
 };
 
 // eslint-disable-next-line
-storiesOf('UI|Other/SeenByList', module).add(
+storiesOf('UI|SeenByList', module).add(
   'default',
   withInfo('This displays a list of avatars but filters out the current user')(() => {
     const user = {...USER};

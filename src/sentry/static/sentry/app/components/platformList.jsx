@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import PlatformIcon from 'app/components/platformIcon';
 
@@ -31,17 +31,16 @@ class PlatformList extends React.Component {
     consistentWidth: false,
   };
 
-  getIcon = platform => {
+  getIcon = (platform, index) => {
     const {size} = this.props;
-    return <StyledPlatformIcon key={platform} platform={platform} size={size} />;
+    return <StyledPlatformIcon key={platform + index} platform={platform} size={size} />;
   };
 
-  getIcons = platforms => {
-    return platforms
+  getIcons = platforms =>
+    platforms
       .slice()
       .reverse()
       .map(this.getIcon);
-  };
 
   render() {
     const {platforms, max, size, direction, consistentWidth, className} = this.props;

@@ -1,16 +1,28 @@
-import {getFormattedDate} from 'app/utils/dates';
+import {getFormattedDate, getTimeFormat} from 'app/utils/dates';
 import theme from 'app/utils/theme';
-import {truncationFormatter} from '../utils';
+
+import {truncationFormatter, useShortInterval} from '../utils';
 
 export default function XAxis({
   isGroupedByDate,
-  shouldRenderTimeOnly,
+  useShortDate,
+  axisLabel,
+  axisTick,
+  axisLine,
+
+  start,
+  end,
+  period,
   utc,
   ...props
 } = {}) {
-  const axisLabelFormatter = value => {
+  const axisLabelFormatter = (value, index) => {
     if (isGroupedByDate) {
-      const format = shouldRenderTimeOnly === 'hour' ? 'LT' : 'MMM Do';
+      const timeFormat = getTimeFormat();
+      const dateFormat = useShortDate ? 'MMM Do' : `MMM D ${timeFormat}`;
+      const firstItem = index === 0;
+      const format =
+        useShortInterval({start, end, period}) && !firstItem ? timeFormat : dateFormat;
       return getFormattedDate(value, format, {local: !utc});
     } else if (props.truncate) {
       return truncationFormatter(value, props.truncate);
@@ -24,23 +36,29 @@ export default function XAxis({
     boundaryGap: false,
     axisLine: {
       lineStyle: {
-        color: theme.gray1,
-        ...(props.axisLine || {}),
+        color: theme.gray400,
+        ...(axisLine || {}),
       },
     },
     axisTick: {
       lineStyle: {
-        color: theme.gray1,
+        color: theme.gray400,
       },
-      ...(props.axisTick || {}),
+      ...(axisTick || {}),
     },
     splitLine: {
       show: false,
     },
     axisLabel: {
       margin: 12,
+
+      // This was default with ChartZoom, we are making it default for all charts now
+      // Otherwise the xAxis can look congested when there is always a min/max label
+      showMaxLabel: false,
+      showMinLabel: false,
+
       formatter: axisLabelFormatter,
-      ...(props.axisLabel || {}),
+      ...(axisLabel || {}),
     },
     axisPointer: {
       show: true,

@@ -1,13 +1,12 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import {Flex} from 'grid-emotion';
+import styled from '@emotion/styled';
 
 import LoadingIndicator from 'app/components/loadingIndicator';
 import LoadingError from 'app/components/loadingError';
-import Avatar from 'app/components/avatar';
-
+import UserAvatar from 'app/components/avatar/userAvatar';
 import withApi from 'app/utils/withApi';
-
+import space from 'app/styles/space';
 import {t} from 'app/locale';
 import {Panel, PanelItem, PanelBody} from 'app/components/panels';
 
@@ -102,9 +101,7 @@ class CommitAuthorStats extends React.Component {
     const commitAuthorValues = Object.values(commitAuthors);
 
     // sort commitAuthors by highest commitCount to lowest commitCount
-    commitAuthorValues.sort((a, b) => {
-      return b.commitCount - a.commitCount;
-    });
+    commitAuthorValues.sort((a, b) => b.commitCount - a.commitCount);
 
     return (
       <div style={{marginTop: 5}}>
@@ -115,17 +112,17 @@ class CommitAuthorStats extends React.Component {
             {commitAuthorValues.map((commitAuthor, i) => {
               const {author, commitCount} = commitAuthor;
               return (
-                <PanelItem key={i} p={1} align="center">
-                  <Flex>
-                    <Avatar user={author} size={20} hasTooltip />
-                  </Flex>
-                  <Flex flex="1" px={1}>
+                <PanelItem key={i} p={1} alignItems="center">
+                  <AvatarWrapper>
+                    <UserAvatar user={author} size={20} hasTooltip />
+                  </AvatarWrapper>
+                  <CommitBarContainer>
                     <CommitBar
                       style={{marginLeft: 5}}
                       totalCommits={commitList.length}
                       authorCommits={commitCount}
                     />
-                  </Flex>
+                  </CommitBarContainer>
                   <div>{commitCount}</div>
                 </PanelItem>
               );
@@ -136,5 +133,15 @@ class CommitAuthorStats extends React.Component {
     );
   }
 }
+
+const AvatarWrapper = styled('div')`
+  display: flex;
+`;
+
+const CommitBarContainer = styled('div')`
+  display: flex;
+  flex-grow: 1;
+  padding: ${space(1)};
+`;
 
 export default withApi(CommitAuthorStats);

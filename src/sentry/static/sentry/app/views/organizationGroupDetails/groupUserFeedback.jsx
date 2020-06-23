@@ -1,5 +1,5 @@
 import React from 'react';
-import {isEqual} from 'lodash';
+import isEqual from 'lodash/isEqual';
 
 import SentryTypes from 'app/sentryTypes';
 import EventUserFeedback from 'app/components/events/userFeedback';
@@ -9,6 +9,7 @@ import {Panel} from 'app/components/panels';
 import Pagination from 'app/components/pagination';
 import withOrganization from 'app/utils/withOrganization';
 import UserFeedbackEmpty from 'app/views/userFeedback/userFeedbackEmpty';
+
 import {fetchGroupUserReports} from './utils';
 
 class GroupUserFeedback extends React.Component {
@@ -74,16 +75,14 @@ class GroupUserFeedback extends React.Component {
       return (
         <div className="row">
           <div className="col-md-9">
-            {reportList.map((item, idx) => {
-              return (
-                <EventUserFeedback
-                  key={idx}
-                  report={item}
-                  orgId={organization.slug}
-                  issueId={group.id}
-                />
-              );
-            })}
+            {reportList.map((item, idx) => (
+              <EventUserFeedback
+                key={idx}
+                report={item}
+                orgId={organization.slug}
+                issueId={group.id}
+              />
+            ))}
             <Pagination pageLinks={this.state.pageLinks} />
           </div>
         </div>

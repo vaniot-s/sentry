@@ -2,16 +2,17 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
 import createReactClass from 'create-react-class';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import SentryTypes from 'app/sentryTypes';
-import {Member, User} from 'app/types';
-
+import {User} from 'app/types';
 import {assignToUser, assignToActor, clearAssignment} from 'app/actionCreators/group';
+import {openInviteMembersModal} from 'app/actionCreators/modal';
 import {t} from 'app/locale';
 import {valueIsEqual, buildUserId, buildTeamId} from 'app/utils';
 import ActorAvatar from 'app/components/avatar/actorAvatar';
-import Avatar from 'app/components/avatar';
+import UserAvatar from 'app/components/avatar/userAvatar';
+import TeamAvatar from 'app/components/avatar/teamAvatar';
 import ConfigStore from 'app/stores/configStore';
 import DropdownAutoComplete from 'app/components/dropdownAutoComplete';
 import DropdownBubble from 'app/components/dropdownBubble';
@@ -24,17 +25,18 @@ import MemberListStore from 'app/stores/memberListStore';
 import ProjectsStore from 'app/stores/projectsStore';
 import TextOverflow from 'app/components/textOverflow';
 import space from 'app/styles/space';
+import {IconAdd, IconChevron, IconUser} from 'app/icons';
 
 type Props = {
   id: string | null;
   size: number;
-  memberList?: Member[];
+  memberList?: User[];
 };
 
 type State = {
   loading: boolean;
   assignedTo: User;
-  memberList: Member[];
+  memberList: User[] | undefined;
 };
 
 const AssigneeSelectorComponent = createReactClass<Props, State>({
@@ -69,7 +71,7 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
 
   getInitialState() {
     const group = GroupStore.get(this.props.id);
-    const memberList = MemberListStore.loaded ? MemberListStore.getAll() : null;
+    const memberList = MemberListStore.loaded ? MemberListStore.getAll() : undefined;
     const loading = GroupStore.hasStatus(this.props.id, 'assignTo');
 
     return {
@@ -108,13 +110,13 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
     // XXX(billyvg): this means that once `memberList` is not-null, this component will never update due to `memberList` changes
     // Note: this allows us to show a "loading" state for memberList, but only before `MemberListStore.loadInitialData`
     // is called
-    if (currentMembers === null && nextState.memberList !== currentMembers) {
+    if (currentMembers === undefined && nextState.memberList !== currentMembers) {
       return true;
     }
     return !valueIsEqual(nextState.assignedTo, this.state.assignedTo, true);
   },
 
-  memberList() {
+  memberList(): User[] | undefined {
     return this.props.memberList ? this.props.memberList : this.state.memberList;
   },
 
@@ -179,51 +181,47 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
     const {size} = this.props;
     const members = putSessionUserFirst(this.memberList());
 
-    return members.map(member => {
-      return {
-        value: {type: 'member', assignee: member},
-        searchKey: `${member.email} ${member.name}`,
-        label: ({inputValue}) => (
-          <MenuItemWrapper
-            data-test-id="assignee-option"
-            key={buildUserId(member.id)}
-            onSelect={this.assignToUser.bind(this, member)}
-          >
-            <IconContainer>
-              <Avatar user={member} size={size} />
-            </IconContainer>
-            <Label>
-              <Highlight text={inputValue}>{member.name || member.email}</Highlight>
-            </Label>
-          </MenuItemWrapper>
-        ),
-      };
-    });
+    return members.map(member => ({
+      value: {type: 'member', assignee: member},
+      searchKey: `${member.email} ${member.name}`,
+      label: ({inputValue}) => (
+        <MenuItemWrapper
+          data-test-id="assignee-option"
+          key={buildUserId(member.id)}
+          onSelect={this.assignToUser.bind(this, member)}
+        >
+          <IconContainer>
+            <UserAvatar user={member} size={size} />
+          </IconContainer>
+          <Label>
+            <Highlight text={inputValue}>{member.name || member.email}</Highlight>
+          </Label>
+        </MenuItemWrapper>
+      ),
+    }));
   },
 
   renderNewTeamNodes() {
     const {size} = this.props;
 
-    return this.assignableTeams().map(({id, display, team}) => {
-      return {
-        value: {type: 'team', assignee: team},
-        searchKey: team.slug,
-        label: ({inputValue}) => (
-          <MenuItemWrapper
-            data-test-id="assignee-option"
-            key={id}
-            onSelect={this.assignToTeam.bind(this, team)}
-          >
-            <IconContainer>
-              <Avatar team={team} size={size} />
-            </IconContainer>
-            <Label>
-              <Highlight text={inputValue}>{display}</Highlight>
-            </Label>
-          </MenuItemWrapper>
-        ),
-      };
-    });
+    return this.assignableTeams().map(({id, display, team}) => ({
+      value: {type: 'team', assignee: team},
+      searchKey: team.slug,
+      label: ({inputValue}) => (
+        <MenuItemWrapper
+          data-test-id="assignee-option"
+          key={id}
+          onSelect={this.assignToTeam.bind(this, team)}
+        >
+          <IconContainer>
+            <TeamAvatar team={team} size={size} />
+          </IconContainer>
+          <Label>
+            <Highlight text={inputValue}>{display}</Highlight>
+          </Label>
+        </MenuItemWrapper>
+      ),
+    }));
   },
 
   renderNewDropdownItems() {
@@ -238,10 +236,7 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
 
   render() {
     const {className} = this.props;
-    const {organization} = this.context;
     const {loading, assignedTo} = this.state;
-    const canInvite = ConfigStore.get('invitesEnabled');
-    const hasOrgWrite = organization.access.includes('org:write');
     const memberList = this.memberList();
 
     return (
@@ -260,8 +255,8 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
               }
               e.stopPropagation();
             }}
-            busy={memberList === null}
-            items={memberList !== null ? this.renderNewDropdownItems() : null}
+            busy={memberList === undefined}
+            items={memberList !== undefined ? this.renderNewDropdownItems() : null}
             alignMenu="right"
             onSelect={this.handleAssign}
             itemSize="small"
@@ -283,37 +278,31 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
               )
             }
             menuFooter={
-              canInvite &&
-              hasOrgWrite && (
-                <InviteMemberLink
-                  data-test-id="invite-member"
-                  disabled={loading}
-                  to={`/settings/${
-                    this.context.organization.slug
-                  }/members/new/?referrer=assignee_selector`}
-                >
-                  <MenuItemWrapper>
-                    <IconContainer>
-                      <InviteMemberIcon />
-                    </IconContainer>
-                    <Label>{t('Invite Member')}</Label>
-                  </MenuItemWrapper>
-                </InviteMemberLink>
-              )
+              <InviteMemberLink
+                to=""
+                data-test-id="invite-member"
+                disabled={loading}
+                onClick={() => openInviteMembersModal({source: 'assignee_selector'})}
+              >
+                <MenuItemWrapper>
+                  <IconContainer>
+                    <InviteMemberIcon />
+                  </IconContainer>
+                  <Label>{t('Invite Member')}</Label>
+                </MenuItemWrapper>
+              </InviteMemberLink>
             }
           >
-            {({getActorProps}) => {
-              return (
-                <DropdownButton {...getActorProps({})}>
-                  {assignedTo ? (
-                    <ActorAvatar actor={assignedTo} className="avatar" size={24} />
-                  ) : (
-                    <IconUser src="icon-user" />
-                  )}
-                  <StyledChevron src="icon-chevron-down" />
-                </DropdownButton>
-              );
-            }}
+            {({getActorProps}) => (
+              <DropdownButton {...getActorProps({})}>
+                {assignedTo ? (
+                  <ActorAvatar actor={assignedTo} className="avatar" size={24} />
+                ) : (
+                  <StyledIconUser size="20px" color="gray600" />
+                )}
+                <StyledChevron direction="down" size="xs" />
+              </DropdownButton>
+            )}
           </DropdownAutoComplete>
         )}
       </div>
@@ -321,7 +310,7 @@ const AssigneeSelectorComponent = createReactClass<Props, State>({
   },
 });
 
-export function putSessionUserFirst(members: Member[]): Member[] {
+export function putSessionUserFirst(members: User[] | undefined): User[] {
   // If session user is in the filtered list of members, put them at the top
   if (!members) {
     return [];
@@ -361,11 +350,7 @@ const getSvgStyle = () => `
   opacity: 0.3;
 `;
 
-const IconUser = styled(InlineSvg)`
-  color: ${p => p.theme.gray3};
-  height: 20px;
-  width: 20px;
-
+const StyledIconUser = styled(IconUser)`
   /* We need this to center with Avatar */
   margin-right: 2px;
 `;
@@ -381,8 +366,9 @@ const IconContainer = styled('div')`
 
 const MenuItemWrapper = styled('div')<{
   py?: number;
+  disabled?: boolean;
 }>`
-  cursor: pointer;
+  cursor: ${p => (p.disabled ? 'not-allowed' : 'pointer')};
   display: flex;
   align-items: center;
   font-size: 13px;
@@ -395,7 +381,7 @@ const MenuItemWrapper = styled('div')<{
 `;
 
 const InviteMemberLink = styled(Link)`
-  color: ${p => p.theme.textColor};
+  color: ${p => (p.disabled ? p.theme.disabled : p.theme.textColor)};
 `;
 
 const Label = styled(TextOverflow)`
@@ -408,14 +394,12 @@ const ClearAssigneeIcon = styled(props => (
   ${getSvgStyle};
 `;
 
-const InviteMemberIcon = styled(props => <InlineSvg {...props} src="icon-circle-add" />)`
+const InviteMemberIcon = styled(props => <IconAdd {...props} size="xs" isCircled />)`
   ${getSvgStyle};
 `;
 
-const StyledChevron = styled(InlineSvg)`
+const StyledChevron = styled(IconChevron)`
   margin-left: ${space(1)};
-  width: 12px;
-  height: 12px;
 `;
 
 const DropdownButton = styled('div')`

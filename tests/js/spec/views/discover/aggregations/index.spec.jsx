@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import Aggregations from 'app/views/discover/aggregations';
@@ -6,9 +7,15 @@ import Aggregations from 'app/views/discover/aggregations';
 describe('Aggregations', function() {
   let wrapper, onChangeMock, aggregations;
   beforeEach(function() {
-    aggregations = [['count()', null, 'count'], ['uniq', 'col1', 'uniq_col1']];
+    aggregations = [
+      ['count()', null, 'count'],
+      ['uniq', 'col1', 'uniq_col1'],
+    ];
     onChangeMock = jest.fn();
-    const columns = [{name: 'col1', type: 'string'}, {name: 'col2', type: 'number'}];
+    const columns = [
+      {name: 'col1', type: 'string'},
+      {name: 'col2', type: 'number'},
+    ];
     const value = [];
     wrapper = mountWithTheme(
       <Aggregations columns={columns} onChange={onChangeMock} value={value} />,
@@ -29,7 +36,8 @@ describe('Aggregations', function() {
   it('addRow()', function() {
     wrapper
       .find('AddText')
-      .find('Link')
+      .find("[data-test-id='aggregation-add-text-link']")
+      .hostNodes()
       .simulate('click');
     expect(onChangeMock).toHaveBeenCalledWith([[null, null, null]]);
   });

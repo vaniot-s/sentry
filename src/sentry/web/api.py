@@ -3,7 +3,6 @@ from __future__ import absolute_import, print_function
 import base64
 import math
 
-import os
 import io
 import jsonschema
 import logging
@@ -28,11 +27,11 @@ from django.views.generic.base import View as BaseView
 from functools import wraps
 from querystring_parser import parser
 from symbolic import ProcessMinidumpError, Unreal4Crash, Unreal4Error
-import semaphore
+from sentry_relay import ProcessingErrorInvalidTransaction
 
 from sentry import features, options, quotas
 from sentry.attachments import CachedAttachment
-from sentry.constants import ObjectStatus
+from sentry.constants import DataCategory, ObjectStatus
 from sentry.coreapi import (
     Auth,
     APIError,
@@ -46,7 +45,6 @@ from sentry.coreapi import (
     logger as api_logger,
 )
 from sentry.event_manager import EventManager
-from sentry.ingest.outcomes_consumer import mark_signal_sent
 from sentry.interfaces import schemas
 from sentry.interfaces.base import get_interface
 from sentry.lang.native.unreal import (
@@ -64,19 +62,19 @@ from sentry.lang.native.minidump import (
     MINIDUMP_ATTACHMENT_TYPE,
 )
 from sentry.models import Project, File, EventAttachment, Organization
-from sentry.signals import event_accepted, event_dropped, event_filtered, event_received
+from sentry.signals import event_accepted, event_received
 from sentry.quotas.base import RateLimit
 from sentry.utils import json, metrics
 from sentry.utils.data_filters import FilterStatKeys
-from sentry.utils.data_scrubber import SensitiveDataFilter, ensure_does_not_have_ip
 from sentry.utils.http import is_valid_origin, get_origins, is_same_domain, origin_from_request
-from sentry.utils.outcomes import Outcome, track_outcome, decide_signals_in_consumer
+from sentry.utils.outcomes import Outcome, track_outcome
 from sentry.utils.pubsub import QueuedPublisherService, KafkaPublisher
 from sentry.utils.safe import safe_execute
 from sentry.utils.sdk import configure_scope
 from sentry.web.helpers import render_to_response
 from sentry.web.client_config import get_client_config
 from sentry.relay.config import get_project_config
+from sentry.datascrubbing import scrub_data
 
 logger = logging.getLogger("sentry")
 minidumps_logger = logging.getLogger("sentry.minidumps")
@@ -124,7 +122,7 @@ def allow_cors_options(func):
         response["Access-Control-Allow-Methods"] = allow
         response["Access-Control-Allow-Headers"] = (
             "X-Sentry-Auth, X-Requested-With, Origin, Accept, "
-            "Content-Type, Authentication, Authorization"
+            "Content-Type, Authentication, Authorization, Content-Encoding"
         )
         response["Access-Control-Expose-Headers"] = "X-Sentry-Error, Retry-After"
 
@@ -201,16 +199,9 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
     del event_manager
 
     event_id = data["event_id"]
+    data_category = DataCategory.from_event_type(data.get("type"))
 
     if should_filter:
-        signals_in_consumer = decide_signals_in_consumer()
-
-        if not signals_in_consumer:
-            # Mark that the event_filtered signal is sent. Do this before emitting
-            # the outcome to avoid a potential race between OutcomesConsumer and
-            # `event_filtered.send_robust` below.
-            mark_signal_sent(project_config.project_id, event_id)
-
         track_outcome(
             project_config.organization_id,
             project_config.project_id,
@@ -218,11 +209,9 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
             Outcome.FILTERED,
             filter_reason,
             event_id=event_id,
+            category=data_category,
         )
         metrics.incr("events.blacklisted", tags={"reason": filter_reason}, skip_internal=False)
-
-        if not signals_in_consumer:
-            event_filtered.send_robust(ip=remote_addr, project=project, sender=process_event)
 
         # relay will no longer be able to provide information about filter
         # status so to see the impact we're adding a way to turn on relay
@@ -245,14 +234,6 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
         if rate_limit is None:
             api_logger.debug("Dropped event due to error with rate limiter")
 
-        signals_in_consumer = decide_signals_in_consumer()
-
-        if not signals_in_consumer:
-            # Mark that the event_dropped signal is sent. Do this before emitting
-            # the outcome to avoid a potential race between OutcomesConsumer and
-            # `event_dropped.send_robust` below.
-            mark_signal_sent(project_config.project_id, event_id)
-
         reason = rate_limit.reason_code if rate_limit else None
         track_outcome(
             project_config.organization_id,
@@ -261,12 +242,9 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
             Outcome.RATE_LIMITED,
             reason,
             event_id=event_id,
+            category=data_category,
         )
         metrics.incr("events.dropped", tags={"reason": reason or "unknown"}, skip_internal=False)
-        if not signals_in_consumer:
-            event_dropped.send_robust(
-                ip=remote_addr, project=project, reason_code=reason, sender=process_event
-            )
 
         if rate_limit is not None:
             raise APIRateLimited(rate_limit.retry_after)
@@ -275,6 +253,13 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
     # supplied by the user
     cache_key = "ev:%s:%s" % (project_config.project_id, event_id)
 
+    # XXX(markus): I believe this code is extremely broken:
+    #
+    # * it practically uses memcached in prod which has no consistency
+    #   guarantees (no idea how we don't run into issues there)
+    #
+    # * a TTL of 1h basically doesn't guarantee any deduplication at all. It
+    #   just guarantees a good error message... for one hour.
     if cache.get(cache_key) is not None:
         track_outcome(
             project_config.organization_id,
@@ -283,13 +268,11 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
             Outcome.INVALID,
             "duplicate",
             event_id=event_id,
+            category=data_category,
         )
         raise APIForbidden("An event with the same ID already exists (%s)" % (event_id,))
 
-    config = project_config.config
-    datascrubbing_settings = config.get("datascrubbingSettings") or {}
-
-    data = _scrub_event_data(data, datascrubbing_settings)
+    data = scrub_data(project_config, dict(data))
 
     # mutates data (strips a lot of context if not queued)
     helper.insert_data_to_database(data, start_time=start_time, attachments=attachments)
@@ -301,63 +284,6 @@ def process_event(event_manager, project, key, remote_addr, helper, attachments,
     event_accepted.send_robust(ip=remote_addr, data=data, project=project, sender=process_event)
 
     return event_id
-
-
-def _scrub_event_data(data, datascrubbing_settings):
-    scrub_ip_address = datascrubbing_settings.get("scrubIpAddresses")
-    scrub_data = datascrubbing_settings.get("scrubData")
-
-    if os.environ.get("SENTRY_USE_RUST_DATASCRUBBER") == "true":
-        sample_rust_scrubber = True
-        use_rust_scrubber = True
-    elif os.environ.get("SENTRY_USE_RUST_DATASCRUBBER") == "false":
-        sample_rust_scrubber = False
-        use_rust_scrubber = False
-    else:
-        sample_rust_scrubber = random.random() < options.get("store.sample-rust-data-scrubber", 0.0)
-        use_rust_scrubber = options.get("store.use-rust-data-scrubber", False)
-
-    if sample_rust_scrubber:
-        rust_scrubbed_data = safe_execute(
-            semaphore.scrub_event, datascrubbing_settings, dict(data), _with_transaction=False
-        )
-    else:
-        rust_scrubbed_data = None
-
-    if rust_scrubbed_data and use_rust_scrubber:
-        data = rust_scrubbed_data
-        data["_rust_data_scrubbed"] = True  # TODO: Remove after sampling
-    else:
-        if scrub_data:
-            # We filter data immediately before it ever gets into the queue
-            sensitive_fields = datascrubbing_settings.get("sensitiveFields")
-            exclude_fields = datascrubbing_settings.get("excludeFields")
-            scrub_defaults = datascrubbing_settings.get("scrubDefaults")
-
-            SensitiveDataFilter(
-                fields=sensitive_fields,
-                include_defaults=scrub_defaults,
-                exclude_fields=exclude_fields,
-            ).apply(data)
-
-        if scrub_ip_address:
-            # We filter data immediately before it ever gets into the queue
-            ensure_does_not_have_ip(data)
-
-    return data
-
-
-def _get_project_from_id(project_id):
-    if not project_id:
-        return None
-    if not project_id.isdigit():
-        track_outcome(0, 0, None, Outcome.INVALID, "project_id")
-        raise APIError("Invalid project_id: %r" % project_id)
-    try:
-        return Project.objects.get_from_cache(id=project_id)
-    except Project.DoesNotExist:
-        track_outcome(0, 0, None, Outcome.INVALID, "project_id")
-        raise APIError("Invalid project_id: %r" % project_id)
 
 
 class APIView(BaseView):
@@ -445,7 +371,7 @@ class APIView(BaseView):
                 value=json.dumps([meta, base64.b64encode(data), project_config.to_dict()]),
             )
         except Exception as e:
-            logger.debug("Cannot publish event to Kafka: {}".format(e.message))
+            logger.debug("Cannot publish event to Kafka: {}".format(six.text_type(e)))
 
     @csrf_exempt
     @never_cache
@@ -464,7 +390,7 @@ class APIView(BaseView):
                 project_id, request, self.auth_helper_cls, helper
             )
 
-            project = _get_project_from_id(six.text_type(project_id))
+            project = self._get_project_from_id(six.text_type(project_id))
 
             # Explicitly bind Organization so we don't implicitly query it later
             # this just allows us to comfortably assure that `project.organization` is safe.
@@ -472,7 +398,9 @@ class APIView(BaseView):
             # implicitly fetched from database.
             project.organization = Organization.objects.get_from_cache(id=project.organization_id)
 
-            project_config = get_project_config(project, for_store=True)
+            # XXX: This never returns a disabled project since visibility of the
+            # project is already verified in `self._get_project_from_id`.
+            project_config = get_project_config(project)
 
             helper.context.bind_project(project_config.project)
 
@@ -538,7 +466,7 @@ class APIView(BaseView):
 
         project = project_config.project
         config = project_config.config
-        allowed = config.get("allowed_domains")
+        allowed = config.get("allowedDomains")
 
         if origin is not None:
             if not is_valid_origin(origin, allowed=allowed):
@@ -680,7 +608,19 @@ class StoreView(APIView):
         del data
 
         self.pre_normalize(event_manager, helper)
-        event_manager.normalize()
+
+        try:
+            event_manager.normalize()
+        except ProcessingErrorInvalidTransaction as e:
+            track_outcome(
+                organization_id,
+                project_id,
+                key.id,
+                Outcome.INVALID,
+                "invalid_transaction",
+                category=DataCategory.TRANSACTION,
+            )
+            raise APIError(six.text_type(e).split("\n", 1)[0])
 
         data = event_manager.get_data()
         dict_data = dict(data)
@@ -695,6 +635,7 @@ class StoreView(APIView):
                 Outcome.INVALID,
                 "too_large",
                 event_id=dict_data.get("event_id"),
+                category=DataCategory.from_event_type(dict_data.get("type")),
             )
             raise APIForbidden("Event size exceeded 10MB after normalization.")
 
@@ -802,6 +743,9 @@ class MinidumpView(StoreView):
         request_files = request.FILES or {}
         content_type = request.META.get("CONTENT_TYPE")
 
+        # Track these submissions statically as ERROR. Relay infers properly.
+        data_category = DataCategory.ERROR
+
         if content_type in self.dump_types:
             minidump = io.BytesIO(request.body)
             minidump_name = "Minidump"
@@ -832,7 +776,7 @@ class MinidumpView(StoreView):
             # Merge additional form fields from the request with `extra` data
             # from the event payload and set defaults for processing. This is
             # sent by clients like Breakpad or Crashpad.
-            extra.update(data.get("extra", {}))
+            extra.update(data.get("extra") or ())
             data["extra"] = extra
 
         if not minidump:
@@ -842,6 +786,7 @@ class MinidumpView(StoreView):
                 None,
                 Outcome.INVALID,
                 "missing_minidump_upload",
+                category=data_category,
             )
             raise APIError("Missing minidump upload")
 
@@ -882,6 +827,7 @@ class MinidumpView(StoreView):
                     None,
                     Outcome.INVALID,
                     "missing_minidump_upload",
+                    category=data_category,
                 )
                 raise APIError("Missing minidump upload")
 
@@ -893,6 +839,7 @@ class MinidumpView(StoreView):
                 None,
                 Outcome.INVALID,
                 "invalid_minidump",
+                category=data_category,
             )
             raise APIError("Uploaded file was not a minidump")
 
@@ -1017,6 +964,9 @@ class UnrealView(StoreView):
         )
 
     def post(self, request, project, project_config, **kwargs):
+        # Track these submissions statically as ERROR. Relay infers properly.
+        data_category = DataCategory.ERROR
+
         attachments_enabled = features.has(
             "organizations:event-attachments", project.organization, actor=request.user
         )
@@ -1038,8 +988,9 @@ class UnrealView(StoreView):
                 None,
                 Outcome.INVALID,
                 "process_unreal",
+                category=data_category,
             )
-            raise APIError(e.message.split("\n", 1)[0])
+            raise APIError(six.text_type(e).split("\n", 1)[0])
 
         try:
             unreal_context = unreal.get_context()
@@ -1174,6 +1125,9 @@ class SecurityReportView(StoreView):
         )
 
     def post(self, request, project, helper, key, project_config, **kwargs):
+        # This endpoint only accepts security reports.
+        data_category = DataCategory.SECURITY
+
         json_body = safely_load_json_string(request.body)
         report_type = self.security_report_type(json_body)
         if report_type is None:
@@ -1183,6 +1137,7 @@ class SecurityReportView(StoreView):
                 key.id,
                 Outcome.INVALID,
                 "security_report_type",
+                category=data_category,
             )
             raise APIError("Unrecognized security report type")
         interface = get_interface(report_type)
@@ -1196,6 +1151,7 @@ class SecurityReportView(StoreView):
                 key.id,
                 Outcome.INVALID,
                 "security_report",
+                category=data_category,
             )
             raise APIError("Invalid security report: %s" % str(e).splitlines()[0])
 
@@ -1208,6 +1164,7 @@ class SecurityReportView(StoreView):
                 key.id,
                 Outcome.INVALID,
                 FilterStatKeys.CORS,
+                category=data_category,
             )
             raise APIForbidden("Invalid origin")
 

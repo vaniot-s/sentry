@@ -1,12 +1,13 @@
 import {browserHistory} from 'react-router';
-import {clonedeep} from 'lodash';
+import cloneDeep from 'lodash/cloneDeep';
 import React from 'react';
 
 import {initializeOrg} from 'sentry-test/initializeOrg';
 import {mountWithTheme, shallow} from 'sentry-test/enzyme';
+
 import ErrorRobot from 'app/components/errorRobot';
 import GroupStore from 'app/stores/groupStore';
-import IssueListWithStores, {IssueList} from 'app/views/issueList/overview';
+import IssueListWithStores, {IssueListOverview} from 'app/views/issueList/overview';
 import StreamGroup from 'app/components/stream/group';
 import TagStore from 'app/stores/tagStore';
 
@@ -14,12 +15,15 @@ import TagStore from 'app/stores/tagStore';
 jest.mock('app/views/issueList/sidebar', () => jest.fn(() => null));
 jest.mock('app/views/issueList/actions', () => jest.fn(() => null));
 jest.mock('app/components/stream/group', () => jest.fn(() => null));
+jest.mock('app/views/issueList/noGroupsHandler/congratsRobots', () =>
+  jest.fn(() => null)
+);
 
 const DEFAULT_LINKS_HEADER =
   '<http://127.0.0.1:8000/api/0/organizations/org-slug/issues/?cursor=1443575731:0:1>; rel="previous"; results="false"; cursor="1443575731:0:1", ' +
   '<http://127.0.0.1:8000/api/0/organizations/org-slug/issues/?cursor=1443575000:0:0>; rel="next"; results="true"; cursor="1443575000:0:0"';
 
-describe('IssueList,', function() {
+describe('IssueList', function() {
   let wrapper;
   let props;
 
@@ -71,6 +75,11 @@ describe('IssueList,', function() {
       body: [],
     });
     MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/recent-searches/',
+      method: 'POST',
+      body: [],
+    });
+    MockApiClient.addMockResponse({
       url: '/organizations/org-slug/processingissues/',
       method: 'GET',
       body: [
@@ -82,15 +91,24 @@ describe('IssueList,', function() {
         },
       ],
     });
+    const tags = TestStubs.Tags();
     fetchTagsRequest = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/tags/',
       method: 'GET',
-      body: TestStubs.Tags(),
+      body: tags,
     });
     fetchMembersRequest = MockApiClient.addMockResponse({
       url: '/organizations/org-slug/users/',
       method: 'GET',
       body: [TestStubs.Member({projects: [project.slug]})],
+    });
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/sent-first-event/',
+      body: {sentFirstEvent: true},
+    });
+    MockApiClient.addMockResponse({
+      url: '/organizations/org-slug/projects/',
+      body: [project],
     });
 
     TagStore.init();
@@ -107,6 +125,11 @@ describe('IssueList,', function() {
       location: {query: {query: 'is:unresolved'}, search: 'query=is:unresolved'},
       params: {orgId: organization.slug},
       organization,
+      tags: tags.reduce((acc, tag) => {
+        acc[tag.key] = tag;
+
+        return acc;
+      }),
     };
   });
 
@@ -464,7 +487,7 @@ describe('IssueList,', function() {
 
       wrapper.find('IssueListSortOptions DropdownButton').simulate('click');
       wrapper
-        .find('IssueListSortOptions MenuItem a')
+        .find('IssueListSortOptions MenuItem span')
         .at(3)
         .simulate('click');
 
@@ -475,6 +498,7 @@ describe('IssueList,', function() {
             environment: [],
             project: [],
             sort: 'freq',
+            statsPeriod: '14d',
           },
         })
       );
@@ -514,6 +538,7 @@ describe('IssueList,', function() {
             environment: [],
             project: [],
             query: 'dogs',
+            statsPeriod: '14d',
           },
         })
       );
@@ -556,6 +581,8 @@ describe('IssueList,', function() {
           }),
         })
       );
+
+      await tick();
 
       wrapper.setProps({
         location: {
@@ -650,12 +677,15 @@ describe('IssueList,', function() {
         .first()
         .simulate('click');
 
+      await tick();
+
       expect(browserHistory.push).toHaveBeenLastCalledWith(
         expect.objectContaining({
           pathname: '/organizations/org-slug/issues/searches/789/',
           query: {
             environment: [],
             project: ['3559'],
+            statsPeriod: '14d',
           },
         })
       );
@@ -711,6 +741,7 @@ describe('IssueList,', function() {
           query: {
             project: [],
             environment: [],
+            statsPeriod: '14d',
           },
         })
       );
@@ -800,6 +831,8 @@ describe('IssueList,', function() {
         .simulate('change', {target: {value: 'assigned:me level:fatal'}});
       wrapper.find('SmartSearchBar form').simulate('submit');
 
+      await tick();
+
       expect(browserHistory.push).toHaveBeenLastCalledWith(
         expect.objectContaining({
           query: expect.objectContaining({
@@ -882,11 +915,12 @@ describe('IssueList,', function() {
       let pushArgs;
       createWrapper();
       await tick();
+      await tick();
       wrapper.update();
 
       expect(
         wrapper
-          .find('Pagination a')
+          .find('Pagination Button')
           .first()
           .prop('disabled')
       ).toBe(true);
@@ -902,9 +936,12 @@ describe('IssueList,', function() {
 
       // Click next
       wrapper
-        .find('Pagination a')
+        .find('Pagination Button')
         .last()
         .simulate('click');
+
+      await tick();
+
       pushArgs = {
         pathname: '/organizations/org-slug/issues/',
         query: {
@@ -913,25 +950,28 @@ describe('IssueList,', function() {
           environment: [],
           project: [],
           query: 'is:unresolved',
+          statsPeriod: '14d',
         },
       };
       expect(browserHistory.push).toHaveBeenLastCalledWith(pushArgs);
       wrapper.setProps({location: pushArgs});
       wrapper.setContext({location: pushArgs});
-      wrapper.update();
 
       expect(
         wrapper
-          .find('Pagination a')
+          .find('Pagination Button')
           .first()
           .prop('disabled')
       ).toBe(false);
 
       // Click next again
       wrapper
-        .find('Pagination a')
+        .find('Pagination Button')
         .last()
         .simulate('click');
+
+      await tick();
+
       pushArgs = {
         pathname: '/organizations/org-slug/issues/',
         query: {
@@ -940,18 +980,21 @@ describe('IssueList,', function() {
           environment: [],
           project: [],
           query: 'is:unresolved',
+          statsPeriod: '14d',
         },
       };
       expect(browserHistory.push).toHaveBeenLastCalledWith(pushArgs);
       wrapper.setProps({location: pushArgs});
       wrapper.setContext({location: pushArgs});
-      wrapper.update();
 
       // Click previous
       wrapper
-        .find('Pagination a')
+        .find('Pagination Button')
         .first()
         .simulate('click');
+
+      await tick();
+
       pushArgs = {
         pathname: '/organizations/org-slug/issues/',
         query: {
@@ -960,26 +1003,30 @@ describe('IssueList,', function() {
           environment: [],
           project: [],
           query: 'is:unresolved',
+          statsPeriod: '14d',
         },
       };
       expect(browserHistory.push).toHaveBeenLastCalledWith(pushArgs);
       wrapper.setProps({location: pushArgs});
       wrapper.setContext({location: pushArgs});
-      wrapper.update();
 
       // Click previous back to initial page
       wrapper
-        .find('Pagination a')
+        .find('Pagination Button')
         .first()
         .simulate('click');
+      await tick();
 
       // cursor is undefined because "prev" cursor is === initial "next" cursor
       expect(browserHistory.push).toHaveBeenLastCalledWith({
         pathname: '/organizations/org-slug/issues/',
         query: {
+          cursor: undefined,
           environment: [],
+          page: undefined,
           project: [],
           query: 'is:unresolved',
+          statsPeriod: '14d',
         },
       });
     });
@@ -988,7 +1035,7 @@ describe('IssueList,', function() {
   describe('transitionTo', function() {
     let instance;
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />, {
+      wrapper = shallow(<IssueListOverview {...props} />, {
         disableLifecycleMethods: false,
       });
       instance = wrapper.instance();
@@ -1107,7 +1154,7 @@ describe('IssueList,', function() {
 
   describe('getEndpointParams', function() {
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />, {
+      wrapper = shallow(<IssueListOverview {...props} />, {
         disableLifecycleMethods: false,
       });
     });
@@ -1154,7 +1201,7 @@ describe('IssueList,', function() {
 
   describe('componentDidMount', function() {
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />);
+      wrapper = shallow(<IssueListOverview {...props} />);
     });
 
     it('fetches tags and sets state', async function() {
@@ -1162,7 +1209,6 @@ describe('IssueList,', function() {
       await instance.componentDidMount();
 
       expect(fetchTagsRequest).toHaveBeenCalled();
-      expect(instance.state.tags.assigned).toBeTruthy();
       expect(instance.state.tagsLoading).toBeFalsy();
     });
 
@@ -1197,7 +1243,7 @@ describe('IssueList,', function() {
         },
       });
       fetchDataMock.mockReset();
-      wrapper = shallow(<IssueList {...props} />, {
+      wrapper = shallow(<IssueListOverview {...props} />, {
         disableLifecycleMethods: false,
       });
     });
@@ -1218,20 +1264,22 @@ describe('IssueList,', function() {
       expect(fetchDataMock).toHaveBeenCalled();
     });
 
-    it('fetches data on location change', function() {
+    it('fetches data on location change', async function() {
       const queryAttrs = ['query', 'sort', 'statsPeriod', 'cursor', 'groupStatsPeriod'];
-      let location = clonedeep(props.location);
-      queryAttrs.forEach(async (attr, i) => {
+      const location = cloneDeep(props.location);
+      for (const [i, attr] of queryAttrs.entries()) {
         // reclone each iteration so that only one property changes.
-        location = clonedeep(location);
-        location.query[attr] = 'newValue';
-        wrapper.setProps({location});
+        const newLocation = cloneDeep(location);
+        newLocation.query[attr] = 'newValue';
+        wrapper.setProps({location: newLocation});
         await tick();
         wrapper.update();
 
-        // Each property change should cause a new fetch incrementing the call count.
-        expect(fetchDataMock).toHaveBeenCalledTimes(i + 1);
-      });
+        // Each property change after the first will actually cause two new
+        // fetchData calls, one from the property change and another from a
+        // change in this.state.issuesLoading going from false to true.
+        expect(fetchDataMock).toHaveBeenCalledTimes(2 * i + 1);
+      }
     });
 
     it('uses correct statsPeriod when fetching issues list and no datetime given', async function() {
@@ -1250,7 +1298,7 @@ describe('IssueList,', function() {
 
   describe('componentDidUpdate fetching members', function() {
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />, {
+      wrapper = shallow(<IssueListOverview {...props} />, {
         disableLifecycleMethods: false,
       });
       wrapper.instance().fetchData = jest.fn();
@@ -1273,7 +1321,7 @@ describe('IssueList,', function() {
 
   describe('componentDidUpdate fetching tags', function() {
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />, {
+      wrapper = shallow(<IssueListOverview {...props} />, {
         disableLifecycleMethods: false,
       });
       wrapper.instance().fetchData = jest.fn();
@@ -1297,7 +1345,7 @@ describe('IssueList,', function() {
 
   describe('processingIssues', function() {
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />);
+      wrapper = shallow(<IssueListOverview {...props} />);
     });
 
     it('fetches and displays processing issues', async function() {
@@ -1318,7 +1366,7 @@ describe('IssueList,', function() {
 
   describe('render states', function() {
     beforeEach(function() {
-      wrapper = shallow(<IssueList {...props} />, {
+      wrapper = mountWithTheme(<IssueListOverview {...props} />, {
         disableLifecycleMethods: false,
       });
     });
@@ -1340,18 +1388,20 @@ describe('IssueList,', function() {
       expect(error.props().message).toEqual('Things broke');
     });
 
-    it('displays congrats robots animation with only is:unresolved query', function() {
+    it('displays congrats robots animation with only is:unresolved query', async function() {
       wrapper.setState({
         savedSearchLoading: false,
         issuesLoading: false,
         error: false,
         groupIds: [],
       });
+      await tick();
+      wrapper.update();
 
-      expect(wrapper.find('lazy[data-test-id="congrats-robots"]').exists()).toBe(true);
+      expect(wrapper.find('NoUnresolvedIssues').exists()).toBe(true);
     });
 
-    it('displays an empty resultset with is:unresolved and level:error query', function() {
+    it('displays an empty resultset with is:unresolved and level:error query', async function() {
       const errorsOnlyQuery = {
         ...props,
         location: {
@@ -1359,7 +1409,7 @@ describe('IssueList,', function() {
         },
       };
 
-      wrapper = shallow(<IssueList {...errorsOnlyQuery} />, {
+      wrapper = mountWithTheme(<IssueListOverview {...errorsOnlyQuery} />, {
         disableLifecycleMethods: false,
       });
 
@@ -1368,11 +1418,16 @@ describe('IssueList,', function() {
         issuesLoading: false,
         error: false,
         groupIds: [],
+        fetchingSentFirstEvent: false,
+        sentFirstEvent: true,
       });
+      await tick();
+      wrapper.update();
+
       expect(wrapper.find('EmptyStateWarning').exists()).toBe(true);
     });
 
-    it('displays an empty resultset with has:browser query', function() {
+    it('displays an empty resultset with has:browser query', async function() {
       const hasBrowserQuery = {
         ...props,
         location: {
@@ -1380,7 +1435,7 @@ describe('IssueList,', function() {
         },
       };
 
-      wrapper = shallow(<IssueList {...hasBrowserQuery} />, {
+      wrapper = mountWithTheme(<IssueListOverview {...hasBrowserQuery} />, {
         disableLifecycleMethods: false,
       });
 
@@ -1389,7 +1444,12 @@ describe('IssueList,', function() {
         issuesLoading: false,
         error: false,
         groupIds: [],
+        fetchingSentFirstEvent: false,
+        sentFirstEvent: true,
       });
+      await tick();
+      wrapper.update();
+
       expect(wrapper.find('EmptyStateWarning').exists()).toBe(true);
     });
   });
@@ -1397,6 +1457,7 @@ describe('IssueList,', function() {
   describe('Error Robot', function() {
     const createWrapper = moreProps => {
       const defaultProps = {
+        ...props,
         savedSearchLoading: false,
         useOrgSavedSearches: true,
         selection: {
@@ -1411,7 +1472,7 @@ describe('IssueList,', function() {
         }),
         ...moreProps,
       };
-      const localWrapper = shallow(<IssueList {...defaultProps} />, {
+      const localWrapper = mountWithTheme(<IssueListOverview {...defaultProps} />, {
         disableLifecycleMethods: false,
       });
       localWrapper.setState({
@@ -1423,65 +1484,125 @@ describe('IssueList,', function() {
       return localWrapper;
     };
 
-    it('displays when no projects selected and all projects user is member of, does not have first event', function() {
+    it('displays when no projects selected and all projects user is member of, does not have first event', async function() {
+      const projects = [
+        TestStubs.Project({
+          id: '1',
+          slug: 'foo',
+          isMember: true,
+          firstEvent: false,
+        }),
+        TestStubs.Project({
+          id: '2',
+          slug: 'bar',
+          isMember: true,
+          firstEvent: false,
+        }),
+        TestStubs.Project({
+          id: '3',
+          slug: 'baz',
+          isMember: true,
+          firstEvent: false,
+        }),
+      ];
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/sent-first-event/',
+        query: {
+          is_member: true,
+        },
+        body: {sentFirstEvent: false},
+      });
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/projects/',
+        body: projects,
+      });
       wrapper = createWrapper({
         organization: TestStubs.Organization({
-          projects: [
-            TestStubs.Project({
-              id: '1',
-              slug: 'foo',
-              isMember: true,
-              firstEvent: false,
-            }),
-            TestStubs.Project({
-              id: '2',
-              slug: 'bar',
-              isMember: true,
-              firstEvent: false,
-            }),
-            TestStubs.Project({
-              id: '3',
-              slug: 'baz',
-              isMember: true,
-              firstEvent: false,
-            }),
-          ],
+          projects,
         }),
       });
+      await tick();
+      wrapper.update();
 
       expect(wrapper.find(ErrorRobot)).toHaveLength(1);
     });
 
-    it('does not display when no projects selected and any projects have a first event', function() {
+    it('does not display when no projects selected and any projects have a first event', async function() {
+      const projects = [
+        TestStubs.Project({
+          id: '1',
+          slug: 'foo',
+          isMember: true,
+          firstEvent: false,
+        }),
+        TestStubs.Project({
+          id: '2',
+          slug: 'bar',
+          isMember: true,
+          firstEvent: true,
+        }),
+        TestStubs.Project({
+          id: '3',
+          slug: 'baz',
+          isMember: true,
+          firstEvent: false,
+        }),
+      ];
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/sent-first-event/',
+        query: {
+          is_member: true,
+        },
+        body: {sentFirstEvent: true},
+      });
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/projects/',
+        body: projects,
+      });
       wrapper = createWrapper({
         organization: TestStubs.Organization({
-          projects: [
-            TestStubs.Project({
-              id: '1',
-              slug: 'foo',
-              isMember: true,
-              firstEvent: false,
-            }),
-            TestStubs.Project({
-              id: '2',
-              slug: 'bar',
-              isMember: true,
-              firstEvent: true,
-            }),
-            TestStubs.Project({
-              id: '3',
-              slug: 'baz',
-              isMember: true,
-              firstEvent: false,
-            }),
-          ],
+          projects,
         }),
       });
+      await tick();
+      wrapper.update();
 
       expect(wrapper.find(ErrorRobot)).toHaveLength(0);
     });
 
-    it('displays when all selected projects do not have first event', function() {
+    it('displays when all selected projects do not have first event', async function() {
+      const projects = [
+        TestStubs.Project({
+          id: '1',
+          slug: 'foo',
+          isMember: true,
+          firstEvent: false,
+        }),
+        TestStubs.Project({
+          id: '2',
+          slug: 'bar',
+          isMember: true,
+          firstEvent: false,
+        }),
+        TestStubs.Project({
+          id: '3',
+          slug: 'baz',
+          isMember: true,
+          firstEvent: false,
+        }),
+      ];
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/sent-first-event/',
+        query: {
+          project: [1, 2],
+        },
+        body: {sentFirstEvent: false},
+      });
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/projects/',
+        body: projects,
+      });
+
       wrapper = createWrapper({
         selection: {
           projects: [1, 2],
@@ -1489,33 +1610,48 @@ describe('IssueList,', function() {
           datetime: {period: '14d'},
         },
         organization: TestStubs.Organization({
-          projects: [
-            TestStubs.Project({
-              id: '1',
-              slug: 'foo',
-              isMember: true,
-              firstEvent: false,
-            }),
-            TestStubs.Project({
-              id: '2',
-              slug: 'bar',
-              isMember: true,
-              firstEvent: false,
-            }),
-            TestStubs.Project({
-              id: '3',
-              slug: 'baz',
-              isMember: true,
-              firstEvent: false,
-            }),
-          ],
+          projects,
         }),
       });
+      await tick();
+      wrapper.update();
 
       expect(wrapper.find(ErrorRobot)).toHaveLength(1);
     });
 
     it('does not display when any selected projects have first event', function() {
+      const projects = [
+        TestStubs.Project({
+          id: '1',
+          slug: 'foo',
+          isMember: true,
+          firstEvent: false,
+        }),
+        TestStubs.Project({
+          id: '2',
+          slug: 'bar',
+          isMember: true,
+          firstEvent: true,
+        }),
+        TestStubs.Project({
+          id: '3',
+          slug: 'baz',
+          isMember: true,
+          firstEvent: true,
+        }),
+      ];
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/sent-first-event/',
+        query: {
+          project: [1, 2],
+        },
+        body: {sentFirstEvent: true},
+      });
+      MockApiClient.addMockResponse({
+        url: '/organizations/org-slug/projects/',
+        body: projects,
+      });
+
       wrapper = createWrapper({
         selection: {
           projects: [1, 2],
@@ -1523,34 +1659,11 @@ describe('IssueList,', function() {
           datetime: {period: '14d'},
         },
         organization: TestStubs.Organization({
-          projects: [
-            TestStubs.Project({
-              id: '1',
-              slug: 'foo',
-              isMember: true,
-              firstEvent: false,
-            }),
-            TestStubs.Project({
-              id: '2',
-              slug: 'bar',
-              isMember: true,
-              firstEvent: true,
-            }),
-            TestStubs.Project({
-              id: '3',
-              slug: 'baz',
-              isMember: true,
-              firstEvent: true,
-            }),
-          ],
+          projects,
         }),
       });
 
       expect(wrapper.find(ErrorRobot)).toHaveLength(0);
     });
-  });
-
-  describe('Incidents', function() {
-    it.todo('creates an incident by selecting issues from stream');
   });
 });

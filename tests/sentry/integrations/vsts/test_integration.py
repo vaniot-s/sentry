@@ -3,10 +3,10 @@ from __future__ import absolute_import
 import pytest
 import six
 import responses
-from mock import patch, Mock
+from sentry.utils.compat.mock import patch, Mock
 
 from sentry.identity.vsts import VSTSIdentityProvider
-from sentry.integrations.exceptions import IntegrationError
+from sentry.shared_integrations.exceptions import IntegrationError
 from sentry.integrations.vsts import VstsIntegration, VstsIntegrationProvider
 from sentry.models import (
     Integration,
@@ -147,7 +147,7 @@ class VstsIntegrationProviderTest(VstsIntegrationTestCase):
         # OAuth redirect back to Sentry (identity_pipeline_view)
         resp = self.make_oauth_redirect_request(query["state"][0])
         assert resp.status_code == 200, resp.content
-        assert "No accounts found" in resp.content
+        assert b"No accounts found" in resp.content
 
     def test_webhook_subscription_created_once(self):
         self.assert_installation()

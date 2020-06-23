@@ -3,7 +3,7 @@
 from __future__ import absolute_import, print_function
 
 import logging
-import mock
+from sentry.utils.compat import mock
 import pytest
 import uuid
 
@@ -12,14 +12,15 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from time import time
 
+from sentry import nodestore
 from sentry.app import tsdb
 from sentry.constants import MAX_VERSION_LENGTH
+from sentry.eventstore.models import Event
 from sentry.event_manager import HashDiscarded, EventManager, EventUser
 from sentry.grouping.utils import hash_from_values
 from sentry.models import (
     Activity,
     Environment,
-    Event,
     ExternalIssue,
     Group,
     GroupEnvironment,
@@ -35,7 +36,7 @@ from sentry.models import (
     OrganizationIntegration,
     UserReport,
 )
-from sentry.signals import event_discarded, event_saved
+from sentry.utils.outcomes import Outcome
 from sentry.testutils import assert_mock_called_once_with_partial, TestCase
 from sentry.utils.data_filters import FilterStatKeys
 from sentry.relay.config import get_project_config
@@ -83,21 +84,24 @@ class EventManagerTest(TestCase):
         assert group.platform == "python"
         assert event.platform == "python"
 
-    def test_dupe_message_id(self):
+    @mock.patch("sentry.event_manager.eventstream.insert")
+    def test_dupe_message_id(self, eventstream_insert):
+        # Saves the latest event to nodestore and eventstream
+        project_id = 1
         event_id = "a" * 32
+        node_id = Event.generate_node_id(project_id, event_id)
 
-        manager = EventManager(make_event(event_id=event_id))
+        manager = EventManager(make_event(event_id=event_id, message="first"))
         manager.normalize()
-        manager.save(1)
+        manager.save(project_id)
+        assert nodestore.get(node_id)["logentry"]["formatted"] == "first"
 
-        assert Event.objects.count() == 1
-
-        # ensure that calling it again doesn't raise a db error
-        manager = EventManager(make_event(event_id=event_id))
+        manager = EventManager(make_event(event_id=event_id, message="second"))
         manager.normalize()
-        manager.save(1)
+        manager.save(project_id)
+        assert nodestore.get(node_id)["logentry"]["formatted"] == "second"
 
-        assert Event.objects.count() == 1
+        assert eventstream_insert.call_count == 2
 
     def test_updates_group(self):
         timestamp = time() - 300
@@ -629,12 +633,6 @@ class EventManagerTest(TestCase):
             tsdb.models.frequent_issues_by_project, (event.project.id,), event.datetime
         ) == {event.project.id: [(event.group_id, 1.0)]}
 
-        assert tsdb.get_most_frequent(
-            tsdb.models.frequent_projects_by_organization,
-            (event.project.organization_id,),
-            event.datetime,
-        ) == {event.project.organization_id: [(event.project_id, 1.0)]}
-
     def test_event_user(self):
         manager = EventManager(
             make_event(
@@ -747,7 +745,7 @@ class EventManagerTest(TestCase):
             manager = EventManager(
                 make_event(
                     **{
-                        "event_id": uuid.uuid1().hex,  # don't deduplicate
+                        "event_id": uuid.uuid1().hex,
                         "environment": "beta",
                         "release": release_version,
                     }
@@ -778,6 +776,7 @@ class EventManagerTest(TestCase):
             is_new_group_environment=True,
             primary_hash="acbd18db4cc2f85cedef654fccc4a4d8",
             skip_consume=False,
+            received_timestamp=event.data["received"],
         )
 
         event = save_event()
@@ -792,6 +791,7 @@ class EventManagerTest(TestCase):
             is_new_group_environment=False,
             primary_hash="acbd18db4cc2f85cedef654fccc4a4d8",
             skip_consume=False,
+            received_timestamp=event.data["received"],
         )
 
     def test_default_fingerprint(self):
@@ -900,6 +900,7 @@ class EventManagerTest(TestCase):
                         }
                     },
                     "spans": [],
+                    "timestamp": "2019-06-14T14:01:40Z",
                     "start_timestamp": "2019-06-14T14:01:40Z",
                     "type": "transaction",
                 }
@@ -930,6 +931,20 @@ class EventManagerTest(TestCase):
         event = manager.save(self.project.id)
 
         assert event.message == "hello world"
+
+    def test_search_message(self):
+        manager = EventManager(
+            make_event(
+                **{
+                    "message": "test",
+                    "logentry": {"message": "hello world"},
+                    "transaction": "sentry.tasks.process",
+                }
+            )
+        )
+        manager.normalize()
+        event = manager.save(self.project.id)
+        assert event.search_message == "hello world sentry.tasks.process"
 
     def test_stringified_message(self):
         manager = EventManager(make_event(**{"message": 1234}))
@@ -1000,31 +1015,40 @@ class EventManagerTest(TestCase):
 
         manager = EventManager(make_event(message="foo", event_id="b" * 32, fingerprint=["a" * 32]))
 
-        mock_event_discarded = mock.Mock()
-        event_discarded.connect(mock_event_discarded)
-        mock_event_saved = mock.Mock()
-        event_saved.connect(mock_event_saved)
+        from sentry.utils.outcomes import track_outcome
 
-        with self.tasks():
-            with self.assertRaises(HashDiscarded):
-                event = manager.save(1)
+        mock_track_outcome = mock.Mock(wraps=track_outcome)
+        with mock.patch("sentry.event_manager.track_outcome", mock_track_outcome):
+            with self.tasks():
+                with self.assertRaises(HashDiscarded):
+                    event = manager.save(1)
 
-        assert not mock_event_saved.called
         assert_mock_called_once_with_partial(
-            mock_event_discarded, project=group.project, sender=EventManager, signal=event_discarded
+            mock_track_outcome, outcome=Outcome.FILTERED, reason=FilterStatKeys.DISCARDED_HASH
         )
 
-    def test_event_saved_signal(self):
-        mock_event_saved = mock.Mock()
-        event_saved.connect(mock_event_saved)
+        def query(model, key, **kwargs):
+            return tsdb.get_sums(model, [key], event.datetime, event.datetime, **kwargs)[key]
 
+        # Ensure that we incremented TSDB counts
+        assert query(tsdb.models.organization_total_received, event.project.organization.id) == 2
+        assert query(tsdb.models.project_total_received, event.project.id) == 2
+
+        assert query(tsdb.models.project, event.project.id) == 1
+        assert query(tsdb.models.group, event.group.id) == 1
+
+        assert query(tsdb.models.organization_total_blacklisted, event.project.organization.id) == 1
+        assert query(tsdb.models.project_total_blacklisted, event.project.id) == 1
+
+    def test_event_accepted_outcome(self):
         manager = EventManager(make_event(message="foo"))
         manager.normalize()
-        event = manager.save(1)
 
-        assert_mock_called_once_with_partial(
-            mock_event_saved, project=event.group.project, sender=EventManager, signal=event_saved
-        )
+        mock_track_outcome = mock.Mock()
+        with mock.patch("sentry.event_manager.track_outcome", mock_track_outcome):
+            manager.save(1)
+
+        assert_mock_called_once_with_partial(mock_track_outcome, outcome=Outcome.ACCEPTED)
 
     def test_checksum_rehashed(self):
         checksum = "invalid checksum hash"
@@ -1060,7 +1084,7 @@ class EventManagerTest(TestCase):
 
         data = {"exception": {"values": [item.value for item in items]}}
 
-        project_config = get_project_config(self.project, for_store=True)
+        project_config = get_project_config(self.project)
         manager = EventManager(data, project=self.project, project_config=project_config)
 
         mock_is_valid_error_message.side_effect = [item.result for item in items]
@@ -1107,6 +1131,7 @@ class EventManagerTest(TestCase):
                     }
                 },
                 spans=[],
+                timestamp="2019-06-14T14:01:40Z",
                 start_timestamp="2019-06-14T14:01:40Z",
                 type="transaction",
                 platform="python",
@@ -1141,6 +1166,7 @@ class EventManagerTest(TestCase):
                     }
                 },
                 spans=[],
+                timestamp="2019-06-14T14:01:40Z",
                 start_timestamp="2019-06-14T14:01:40Z",
                 type="transaction",
                 platform="python",

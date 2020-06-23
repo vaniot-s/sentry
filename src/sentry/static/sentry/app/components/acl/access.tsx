@@ -2,11 +2,12 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 import {t} from 'app/locale';
-import {Config, Organization} from 'app/types';
+import {Config, Organization, Scope} from 'app/types';
 import Alert from 'app/components/alert';
 import SentryTypes from 'app/sentryTypes';
 import withConfig from 'app/utils/withConfig';
 import withOrganization from 'app/utils/withOrganization';
+import {isRenderFunc} from 'app/utils/isRenderFunc';
 
 const DEFAULT_NO_ACCESS_MESSAGE = (
   <Alert type="error" icon="icon-circle-info">
@@ -21,11 +22,6 @@ export type ChildRenderProps = {
 };
 
 type ChildFunction = (props: ChildRenderProps) => React.ReactNode;
-
-// Type guard for render func.
-function isRenderFunc(func: React.ReactNode | Function): func is ChildFunction {
-  return typeof func === 'function';
-}
 
 type DefaultProps = {
   /**
@@ -47,7 +43,7 @@ type DefaultProps = {
   /**
    * List of required access levels
    */
-  access: string[];
+  access: Scope[];
 };
 
 const defaultProps: DefaultProps = {
@@ -104,7 +100,7 @@ class Access extends React.Component<Props> {
     const method = requireAll ? 'every' : 'some';
 
     const hasAccess = !access || access[method](acc => orgAccess.includes(acc));
-    const hasSuperuser = !!config.user.isSuperuser;
+    const hasSuperuser = !!(config.user && config.user.isSuperuser);
 
     const renderProps: ChildRenderProps = {
       hasAccess,
@@ -119,7 +115,7 @@ class Access extends React.Component<Props> {
       return DEFAULT_NO_ACCESS_MESSAGE;
     }
 
-    if (isRenderFunc(children)) {
+    if (isRenderFunc<ChildFunction>(children)) {
       return children(renderProps);
     }
 

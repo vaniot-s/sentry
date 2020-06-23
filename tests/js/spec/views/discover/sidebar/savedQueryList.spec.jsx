@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount} from 'sentry-test/enzyme';
 
 import SavedQueryList from 'app/views/discover/sidebar/savedQueryList';
@@ -34,9 +35,10 @@ describe('savedQueryList', function() {
     mockResponse.push(...savedQueries);
     const wrapper = mount(<SavedQueryList organization={organization} />);
     await tick();
-    savedQueries.forEach(query => {
-      expect(wrapper.text()).toContain(query.name);
-      expect(wrapper.text()).toContain('Updated Sep 24 00:00:00 (UTC)');
-    });
+
+    const text = wrapper.text();
+    expect(text).toContain('Updated Sep 24 00:00:00 (UTC)');
+    expect(text).toContain(savedQueries[0].name);
+    expect(text).toContain(savedQueries[1].name);
   });
 });

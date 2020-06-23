@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import Condition from 'app/views/discover/conditions/condition';
@@ -93,7 +94,10 @@ describe('Condition', function() {
     const onChangeMock = jest.fn();
     beforeEach(function() {
       focusSpy = jest.spyOn(Condition.prototype, 'focus');
-      const columns = [{name: 'col1', type: 'string'}, {name: 'col2', type: 'number'}];
+      const columns = [
+        {name: 'col1', type: 'string'},
+        {name: 'col2', type: 'number'},
+      ];
       wrapper = mountWithTheme(
         <Condition
           value={[null, null, null]}
@@ -132,7 +136,10 @@ describe('Condition', function() {
     let wrapper;
     const onChangeMock = jest.fn();
     beforeEach(function() {
-      const columns = [{name: 'col1', type: 'string'}, {name: 'col2', type: 'number'}];
+      const columns = [
+        {name: 'col1', type: 'string'},
+        {name: 'col2', type: 'number'},
+      ];
       wrapper = mountWithTheme(
         <Condition
           value={[null, null, null]}

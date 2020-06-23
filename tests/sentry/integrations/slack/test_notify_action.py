@@ -5,7 +5,7 @@ import responses
 from six.moves.urllib.parse import parse_qs
 
 from sentry.utils import json
-from sentry.models import Integration, GroupStatus
+from sentry.models import Integration
 from sentry.testutils.cases import RuleTestCase
 from sentry.integrations.slack import SlackNotifyServiceAction
 
@@ -23,6 +23,11 @@ class SlackNotifyActionTest(RuleTestCase):
             metadata={"access_token": "xoxp-xxxxxxxxx-xxxxxxxxxx-xxxxxxxxxxxx"},
         )
         self.integration.add_organization(event.project.organization, self.user)
+
+    def assert_form_valid(self, form, expected_channel_id, expected_channel):
+        assert form.is_valid()
+        assert form.cleaned_data["channel_id"] == expected_channel_id
+        assert form.cleaned_data["channel"] == expected_channel
 
     @responses.activate
     def test_applies_correctly(self):
@@ -98,6 +103,7 @@ class SlackNotifyActionTest(RuleTestCase):
 
         form = rule.get_form_instance()
         assert form.is_valid()
+        self.assert_form_valid(form, "chan-id", "#my-channel")
 
     @responses.activate
     def test_valid_private_channel_selected(self):
@@ -132,7 +138,7 @@ class SlackNotifyActionTest(RuleTestCase):
         )
 
         form = rule.get_form_instance()
-        assert form.is_valid()
+        self.assert_form_valid(form, "chan-id", "#my-private-channel")
 
     @responses.activate
     def test_valid_member_selected(self):
@@ -183,7 +189,7 @@ class SlackNotifyActionTest(RuleTestCase):
         )
 
         form = rule.get_form_instance()
-        assert form.is_valid()
+        self.assert_form_valid(form, "morty-id", "@morty")
 
     @responses.activate
     def test_invalid_channel_selected(self):
@@ -225,13 +231,3 @@ class SlackNotifyActionTest(RuleTestCase):
 
         assert not form.is_valid()
         assert len(form.errors) == 1
-
-    def test_dont_notify_ignored(self):
-        event = self.get_event()
-        event.group.status = GroupStatus.IGNORED
-        event.group.save()
-
-        rule = self.get_rule(data={"workspace": self.integration.id, "channel": "#my-channel"})
-
-        results = list(rule.after(event=event, state=self.get_state()))
-        assert len(results) == 0

@@ -1,14 +1,16 @@
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
+import {RouteComponentProps} from 'react-router/lib/Router';
 
 import {openInviteMembersModal} from 'app/actionCreators/modal';
-import {OrganizationDetailed} from 'app/types';
+import {Organization, Member} from 'app/types';
 import {Panel} from 'app/components/panels';
 import {t} from 'app/locale';
+import {trackAnalyticsEvent} from 'app/utils/analytics';
 import AsyncView from 'app/views/asyncView';
 import Badge from 'app/components/badge';
 import Button from 'app/components/button';
-import InlineSvg from 'app/components/inlineSvg';
+import {IconMail} from 'app/icons';
 import ListLink from 'app/components/links/listLink';
 import NavTabs from 'app/components/navTabs';
 import routeTitleGen from 'app/utils/routeTitle';
@@ -16,12 +18,16 @@ import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader
 import space from 'app/styles/space';
 import withOrganization from 'app/utils/withOrganization';
 
-type Props = AsyncView['props'] & {
+type Props = {
   children?: any;
-  organization: OrganizationDetailed;
+  organization: Organization;
+} & RouteComponentProps<{orgId: string}, {}>;
+
+type State = AsyncView['state'] & {
+  inviteRequests: Member[];
 };
 
-class OrganizationMembersWrapper extends AsyncView<Props> {
+class OrganizationMembersWrapper extends AsyncView<Props, State> {
   getEndpoints(): [string, string][] {
     const {orgId} = this.props.params;
 
@@ -36,16 +42,8 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
     return routeTitleGen(t('Members'), orgId, false);
   }
 
-  get hasExperiment() {
-    const {organization} = this.props;
-
-    if (!organization || !organization.experiments) {
-      return false;
-    }
-    return (
-      organization.experiments.JoinRequestExperiment === 1 ||
-      organization.experiments.InviteRequestExperiment === 1
-    );
+  get onRequestsTab() {
+    return location.pathname.includes('/requests/');
   }
 
   get hasWriteAccess() {
@@ -57,16 +55,15 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
   }
 
   get showInviteRequests() {
-    return this.hasWriteAccess && this.hasExperiment;
+    return this.hasWriteAccess;
   }
 
   get showNavTabs() {
     const {requestList} = this.state;
 
     // show the requests tab if there are pending team requests,
-    // or if the organization is exposed to the experiment and
-    // the user has access to approve or deny requests
-    return requestList.length > 0 || this.showInviteRequests;
+    // or if the user has access to approve or deny invite requests
+    return (requestList && requestList.length > 0) || this.showInviteRequests;
   }
 
   get requestCount() {
@@ -81,21 +78,30 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
     return count ? count.toString() : null;
   }
 
-  updateRequestList = (id: string) =>
+  removeAccessRequest = (id: string) =>
     this.setState(state => ({
-      requestList: state.requestList.filter(({id: existingId}) => existingId !== id),
+      requestList: state.requestList.filter(request => request.id !== id),
     }));
 
-  updateInviteRequests = (id: string) =>
+  removeInviteRequest = (id: string) =>
     this.setState(state => ({
-      inviteRequests: state.inviteRequests.filter(
-        ({id: existingId}) => existingId !== id
-      ),
+      inviteRequests: state.inviteRequests.filter(request => request.id !== id),
     }));
+
+  updateInviteRequest = (id: string, data: Partial<Member>) =>
+    this.setState(state => {
+      const inviteRequests = [...state.inviteRequests];
+      const inviteIndex = inviteRequests.findIndex(request => request.id === id);
+
+      inviteRequests[inviteIndex] = {...inviteRequests[inviteIndex], ...data};
+
+      return {inviteRequests};
+    });
 
   renderBody() {
     const {
       children,
+      organization,
       params: {orgId},
     } = this.props;
     const {requestList, inviteRequests} = this.state;
@@ -105,7 +111,7 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
         <SettingsPageHeader title="Members" />
 
         <StyledPanel>
-          <InlineSvg src="icon-mail" size="36px" />
+          <IconMail size="lg" />
           <TextContainer>
             <Heading>{t('Invite new members')}</Heading>
             <SubText>
@@ -114,14 +120,7 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
           </TextContainer>
           <Button
             priority="primary"
-            size="small"
-            onClick={openInviteMembersModal}
-            disabled={!this.hasWriteAccess}
-            title={
-              !this.hasWriteAccess
-                ? t('You do not have enough permission to add new members')
-                : undefined
-            }
+            onClick={() => openInviteMembersModal({source: 'members_settings'})}
           >
             {t('Invite Members')}
           </Button>
@@ -131,15 +130,23 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
           <NavTabs underlined>
             <ListLink
               to={`/settings/${orgId}/members/`}
-              isActive={() => !location.pathname.includes('/requests/')}
+              isActive={() => !this.onRequestsTab}
               data-test-id="members-tab"
             >
               {t('Members')}
             </ListLink>
             <ListLink
               to={`/settings/${orgId}/members/requests/`}
-              isActive={() => location.pathname.includes('/requests/')}
+              isActive={() => this.onRequestsTab}
               data-test-id="requests-tab"
+              onClick={() => {
+                this.showInviteRequests &&
+                  trackAnalyticsEvent({
+                    eventKey: 'invite_request.tab_clicked',
+                    eventName: 'Invite Request Tab Clicked',
+                    organization_id: organization.id,
+                  });
+              }}
             >
               {t('Requests')}
             </ListLink>
@@ -151,8 +158,9 @@ class OrganizationMembersWrapper extends AsyncView<Props> {
           React.cloneElement(children, {
             requestList,
             inviteRequests,
-            onUpdateInviteRequests: this.updateInviteRequests,
-            onUpdateRequestList: this.updateRequestList,
+            onRemoveInviteRequest: this.removeInviteRequest,
+            onUpdateInviteRequest: this.updateInviteRequest,
+            onRemoveAccessRequest: this.removeAccessRequest,
             showInviteRequests: this.showInviteRequests,
           })}
       </React.Fragment>
@@ -167,7 +175,6 @@ const StyledPanel = styled(Panel)`
   display: grid;
   grid-template-columns: max-content auto max-content;
   grid-gap: ${space(3)};
-  align-items: center;
   align-content: center;
 `;
 
@@ -184,7 +191,7 @@ const Heading = styled('h1')`
 
 const SubText = styled('p')`
   margin: 0;
-  color: ${p => p.theme.gray3};
+  color: ${p => p.theme.gray600};
   font-size: 15px;
 `;
 

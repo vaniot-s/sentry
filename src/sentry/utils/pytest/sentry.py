@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-import mock
+from sentry.utils.compat import mock
 import os
 
 from django.conf import settings
@@ -44,8 +44,6 @@ def pytest_configure(config):
             # an actual migration.
         else:
             raise RuntimeError("oops, wrong database: %r" % test_db)
-
-    settings.TEMPLATE_DEBUG = True
 
     # Disable static compiling in tests
     settings.STATIC_BUNDLES = {}
@@ -96,10 +94,13 @@ def pytest_configure(config):
 
     settings.DISABLE_RAVEN = True
 
-    settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+    settings.CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+        "nodedata": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    }
 
     if os.environ.get("USE_SNUBA", False):
-        settings.SENTRY_SEARCH = "sentry.search.snuba.SnubaSearchBackend"
+        settings.SENTRY_SEARCH = "sentry.search.snuba.EventsDatasetSnubaSearchBackend"
         settings.SENTRY_TSDB = "sentry.tsdb.redissnuba.RedisSnubaTSDB"
         settings.SENTRY_EVENTSTREAM = "sentry.eventstream.snuba.SnubaEventStream"
 
@@ -114,11 +115,14 @@ def pytest_configure(config):
             "slack.client-id": "slack-client-id",
             "slack.client-secret": "slack-client-secret",
             "slack.verification-token": "slack-verification-token",
+            "slack.legacy-app": True,
             "github-app.name": "sentry-test-app",
             "github-app.client-id": "github-client-id",
             "github-app.client-secret": "github-client-secret",
             "vsts.client-id": "vsts-client-id",
             "vsts.client-secret": "vsts-client-secret",
+            "vercel.client-id": "vercel-client-id",
+            "vercel.client-secret": "vercel-client-secret",
         }
     )
 
@@ -128,23 +132,24 @@ def pytest_configure(config):
     patcher.start()
 
     if not settings.MIGRATIONS_TEST_MIGRATE:
-        # TODO: In Django 1.9 the value can be set to `None` rather than a nonexistent
-        # module.
-        settings.MIGRATION_MODULES["sentry"] = "sentry.migrations_not_used_in_tests"
+        # Migrations for the "sentry" app take a long time to run, which makes test startup time slow in dev.
+        # This is a hack to force django to sync the database state from the models rather than use migrations.
+        settings.MIGRATION_MODULES["sentry"] = None
 
     from sentry.runner.initializer import (
         bind_cache_to_option_store,
         bootstrap_options,
         configure_structlog,
-        fix_south,
         initialize_receivers,
+        monkeypatch_model_unpickle,
         monkeypatch_django_migrations,
         setup_services,
     )
 
     bootstrap_options(settings)
     configure_structlog()
-    fix_south(settings)
+
+    monkeypatch_model_unpickle()
 
     import django
 
@@ -180,10 +185,13 @@ def register_extensions():
 
     from sentry import integrations
     from sentry.integrations.bitbucket import BitbucketIntegrationProvider
+    from sentry.integrations.bitbucket_server import BitbucketServerIntegrationProvider
     from sentry.integrations.example import (
         ExampleIntegrationProvider,
         AliasedIntegrationProvider,
         ExampleRepositoryProvider,
+        ServerExampleProvider,
+        FeatureFlagIntegration,
     )
     from sentry.integrations.github import GitHubIntegrationProvider
     from sentry.integrations.github_enterprise import GitHubEnterpriseIntegrationProvider
@@ -196,8 +204,11 @@ def register_extensions():
     from sentry.integrations.pagerduty.integration import PagerDutyIntegrationProvider
 
     integrations.register(BitbucketIntegrationProvider)
+    integrations.register(BitbucketServerIntegrationProvider)
     integrations.register(ExampleIntegrationProvider)
     integrations.register(AliasedIntegrationProvider)
+    integrations.register(ServerExampleProvider)
+    integrations.register(FeatureFlagIntegration)
     integrations.register(GitHubIntegrationProvider)
     integrations.register(GitHubEnterpriseIntegrationProvider)
     integrations.register(GitlabIntegrationProvider)

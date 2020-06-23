@@ -42,14 +42,21 @@ register(
 )
 register("redis.options", type=Dict, flags=FLAG_NOSTORE)
 
-# symbolizer specifics
+# Processing worker caches
 register(
     "dsym.cache-path", type=String, default="/tmp/sentry-dsym-cache", flags=FLAG_PRIORITIZE_DISK
 )
+register(
+    "releasefile.cache-path",
+    type=String,
+    default="/tmp/sentry-releasefile-cache",
+    flags=FLAG_PRIORITIZE_DISK,
+)
+register("releasefile.cache-limit", type=Int, default=10 * 1024 * 1024, flags=FLAG_PRIORITIZE_DISK)
 
 # Mail
 register("mail.backend", default="smtp", flags=FLAG_NOSTORE)
-register("mail.host", default="localhost", flags=FLAG_REQUIRED | FLAG_PRIORITIZE_DISK)
+register("mail.host", default="127.0.0.1", flags=FLAG_REQUIRED | FLAG_PRIORITIZE_DISK)
 register("mail.port", default=25, flags=FLAG_REQUIRED | FLAG_PRIORITIZE_DISK)
 register("mail.username", flags=FLAG_REQUIRED | FLAG_ALLOW_EMPTY | FLAG_PRIORITIZE_DISK)
 register("mail.password", flags=FLAG_REQUIRED | FLAG_ALLOW_EMPTY | FLAG_PRIORITIZE_DISK)
@@ -114,6 +121,13 @@ register("cloudflare.secret-key", default="")
 register("slack.client-id", flags=FLAG_PRIORITIZE_DISK)
 register("slack.client-secret", flags=FLAG_PRIORITIZE_DISK)
 register("slack.verification-token", flags=FLAG_PRIORITIZE_DISK)
+register("slack.signing-secret", flags=FLAG_PRIORITIZE_DISK)
+register("slack.legacy-app", flags=FLAG_PRIORITIZE_DISK, type=Bool, default=True)
+
+# Slack V2 Integration
+register("slack-v2.client-id", flags=FLAG_PRIORITIZE_DISK)
+register("slack-v2.client-secret", flags=FLAG_PRIORITIZE_DISK)
+register("slack-v2.signing-secret", flags=FLAG_PRIORITIZE_DISK)
 
 # GitHub Integration
 register("github-app.id", default=0)
@@ -130,6 +144,11 @@ register("vsts.client-secret", flags=FLAG_PRIORITIZE_DISK)
 # PagerDuty Integration
 register("pagerduty.app-id", default="")
 
+# Vercel Integration
+register("vercel.client-id", flags=FLAG_PRIORITIZE_DISK)
+register("vercel.client-secret", flags=FLAG_PRIORITIZE_DISK)
+register("vercel.integration-slug", default="sentry")
+
 # Snuba
 register("snuba.search.pre-snuba-candidates-optimizer", type=Bool, default=False)
 register("snuba.search.pre-snuba-candidates-percentage", default=0.2)
@@ -141,6 +160,9 @@ register("snuba.search.max-chunk-size", default=2000)
 register("snuba.search.max-total-chunk-time-seconds", default=30.0)
 register("snuba.search.hits-sample-size", default=100)
 register("snuba.track-outcomes-sample-rate", default=0.0)
+
+# The percentage of tagkeys that we want to cache. Set to 1.0 in order to cache everything, <=0.0 to stop caching
+register("snuba.tagstore.cache-tagkeys-rate", default=0.0, flags=FLAG_PRIORITIZE_DISK)
 
 # Kafka Publisher
 register("kafka-publisher.raw-event-sample-rate", default=0.0)
@@ -156,9 +178,17 @@ register("store.projects-normalize-in-rust-percent-opt-in", default=0.0)  # unus
 # From 0.0 to 1.0: Randomly disable normalization code in interfaces when loading from db
 register("store.empty-interface-sample-rate", default=0.0)
 
+# Enable multiple topics for eventstream. It allows specific event types to be sent
+# to specific topic.
+register("store.eventstream-per-type-topic", default=False, flags=FLAG_PRIORITIZE_DISK)
+
 # if this is turned to `True` sentry will behave like relay would do with
 # regards to filter responses.
 register("store.lie-about-filter-status", default=False)
+
+# Toggles between processing transactions directly in the ingest consumer
+# (``False``) and spawning a save_event task (``True``).
+register("store.transactions-celery", default=False)
 
 # Symbolicator refactors
 # - Disabling minidump stackwalking in endpoints
@@ -187,3 +217,34 @@ register("transaction-events.force-disable-internal-project", default=False)
 # Moving signals and TSDB into outcomes consumer
 register("outcomes.signals-in-consumer-sample-rate", default=0.0)
 register("outcomes.tsdb-in-consumer-sample-rate", default=0.0)
+
+# Node data save rate
+register("nodedata.cache-sample-rate", default=0.0, flags=FLAG_PRIORITIZE_DISK)
+register("nodedata.cache-on-save", default=False, flags=FLAG_PRIORITIZE_DISK)
+
+# Use nodestore for eventstore.get_events
+register("eventstore.use-nodestore", default=False, flags=FLAG_PRIORITIZE_DISK)
+
+# Discover2 incremental rollout rate. Tied to feature handlers in getsentry
+register("discover2.rollout-rate", default=0, flags=FLAG_PRIORITIZE_DISK)
+
+# Alerts / Workflow incremental rollout rate. Tied to feature handlers in getsentry
+register("workflow.rollout-rate", default=0, flags=FLAG_PRIORITIZE_DISK)
+
+# Performance metric alerts incremental rollout rate. Tied to feature handlers
+# in getsentry
+register("incidents-performance.rollout-rate", default=0, flags=FLAG_PRIORITIZE_DISK)
+
+# Max number of tags to combine in a single query in Discover2 tags facet.
+register("discover2.max_tags_to_combine", default=3, flags=FLAG_PRIORITIZE_DISK)
+
+# Killswitch for datascrubbing after stacktrace processing. Set to False to
+# disable datascrubbers.
+register("processing.can-use-scrubbers", default=True)
+
+# Killswitch for sending internal errors to the internal project or
+# `SENTRY_SDK_CONFIG.relay_dsn`. Set to `0` to only send to
+# `SENTRY_SDK_CONFIG.dsn` (the "upstream transport") and nothing else.
+#
+# Note: A value that is neither 0 nor 1 is regarded as 0
+register("store.use-relay-dsn-sample-rate", default=1)

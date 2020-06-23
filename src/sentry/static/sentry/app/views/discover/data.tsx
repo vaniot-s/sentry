@@ -87,10 +87,10 @@ export const COLUMNS = [
   {name: 'stack.in_app', type: TYPES.BOOLEAN},
   {name: 'stack.colno', type: TYPES.NUMBER},
   {name: 'stack.lineno', type: TYPES.NUMBER},
-  {name: 'stack.stack_level', type: TYPES.STRING},
+  {name: 'stack.stack_level', type: TYPES.NUMBER},
 ];
 
-export const NON_SNUBA_FIELDS = ['project.name'];
+export const NON_SNUBA_FIELDS = ['project.name', 'issue'];
 
 export const NON_CONDITIONS_FIELDS = [...NON_SNUBA_FIELDS, 'project.id'];
 

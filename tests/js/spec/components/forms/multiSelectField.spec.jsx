@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {shallow} from 'sentry-test/enzyme';
 
 import {MultiSelectField} from 'app/components/forms';
@@ -8,7 +9,10 @@ describe('MultiSelectField', function() {
     it('renders without form context', function() {
       const wrapper = shallow(
         <MultiSelectField
-          options={[{label: 'a', value: 'a'}, {label: 'b', value: 'b'}]}
+          options={[
+            {label: 'a', value: 'a'},
+            {label: 'b', value: 'b'},
+          ]}
           name="fieldName"
         />
       );
@@ -18,7 +22,10 @@ describe('MultiSelectField', function() {
     it('has the right value from props', function() {
       const wrapper = shallow(
         <MultiSelectField
-          options={[{label: 'a', value: 'a'}, {label: 'b', value: 'b'}]}
+          options={[
+            {label: 'a', value: 'a'},
+            {label: 'b', value: 'b'},
+          ]}
           name="fieldName"
           value={['a']}
         />
@@ -29,7 +36,10 @@ describe('MultiSelectField', function() {
     it('renders with form context', function() {
       const wrapper = shallow(
         <MultiSelectField
-          options={[{label: 'a', value: 'a'}, {label: 'b', value: 'b'}]}
+          options={[
+            {label: 'a', value: 'a'},
+            {label: 'b', value: 'b'},
+          ]}
           name="fieldName"
         />,
         {

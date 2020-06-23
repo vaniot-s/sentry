@@ -1,12 +1,17 @@
 from __future__ import absolute_import
 
+import six
+
 from sentry import analytics
-from sentry import http
+
 from sentry.api import client
 from sentry.api.base import Endpoint
 from sentry.models import Group, Project, Identity, IdentityProvider, ApiKey
 from sentry.utils import json
+from sentry.web.decorators import transaction_start
+from sentry.shared_integrations.exceptions import ApiError
 
+from .client import SlackClient
 from .link_identity import build_linking_url
 from .requests import SlackActionRequest, SlackRequestError
 from .utils import build_group_attachment, logger
@@ -31,8 +36,12 @@ class SlackActionEndpoint(Endpoint):
     authentication_classes = ()
     permission_classes = ()
 
-    def api_error(self, error):
-        logger.info("slack.action.api-error", extra={"response": error.body})
+    def api_error(self, error, action_type, logging_data):
+        logging_data = logging_data.copy()
+        logging_data["response"] = six.text_type(error.body)
+        logging_data["action_type"] = action_type
+        logger.info("slack.action.api-error-pre-message: %s" % six.text_type(logging_data))
+        logger.info("slack.action.api-error", extra=logging_data)
         return self.respond(
             {
                 "response_type": "ephemeral",
@@ -114,11 +123,11 @@ class SlackActionEndpoint(Endpoint):
             "token": integration.metadata["access_token"],
         }
 
-        session = http.build_session()
-        req = session.post("https://slack.com/api/dialog.open", data=payload)
-        resp = req.json()
-        if not resp.get("ok"):
-            logger.error("slack.action.response-error", extra={"response": resp})
+        slack_client = SlackClient()
+        try:
+            slack_client.post("/dialog.open", data=payload)
+        except ApiError as e:
+            logger.error("slack.action.response-error", extra={"error": six.text_type(e)})
 
     def construct_reply(self, attachment, is_message=False):
         # XXX(epurkhiser): Slack is inconsistent about it's expected responses
@@ -141,6 +150,7 @@ class SlackActionEndpoint(Endpoint):
         # posted messages will not have the type at all.
         return data.get("original_message", {}).get("type") == "message"
 
+    @transaction_start("SlackActionEndpoint")
     def post(self, request):
         logging_data = {}
 
@@ -155,11 +165,15 @@ class SlackActionEndpoint(Endpoint):
         channel_id = data.get("channel", {}).get("id")
         user_id = data.get("user", {}).get("id")
 
+        logging_data["channel_id"] = channel_id
+        logging_data["slack_user_id"] = user_id
+
         integration = slack_request.integration
         logging_data["integration_id"] = integration.id
 
         # Determine the issue group action is being taken on
         group_id = slack_request.callback_data["issue"]
+        logging_data["group_id"] = group_id
 
         # Actions list may be empty when receiving a dialog response
         action_list = data.get("actions", [])
@@ -174,6 +188,8 @@ class SlackActionEndpoint(Endpoint):
         except Group.DoesNotExist:
             logger.error("slack.action.invalid-issue", extra=logging_data)
             return self.respond(status=403)
+
+        logging_data["organization_id"] = group.organization.id
 
         # Determine the acting user by slack identity
         try:
@@ -205,7 +221,7 @@ class SlackActionEndpoint(Endpoint):
             try:
                 self.on_status(request, identity, group, action, data, integration)
             except client.ApiError as e:
-                return self.api_error(e)
+                return self.api_error(e, "status_dialog", logging_data)
 
             group = Group.objects.get(id=group.id)
             attachment = build_group_attachment(group, identity=identity, actions=[action])
@@ -215,11 +231,13 @@ class SlackActionEndpoint(Endpoint):
             )
 
             # use the original response_url to update the link attachment
-            session = http.build_session()
-            req = session.post(slack_request.callback_data["orig_response_url"], json=body)
-            resp = req.json()
-            if not resp.get("ok"):
-                logger.error("slack.action.response-error", extra={"response": resp})
+            slack_client = SlackClient()
+            try:
+                slack_client.post(
+                    slack_request.callback_data["orig_response_url"], data=body, json=True
+                )
+            except ApiError as e:
+                logger.error("slack.action.response-error", extra={"error": six.text_type(e)})
 
             return self.respond()
 
@@ -230,6 +248,7 @@ class SlackActionEndpoint(Endpoint):
         defer_attachment_update = False
 
         # Handle interaction actions
+        action_type = None
         try:
             for action in action_list:
                 action_type = action["name"]
@@ -242,7 +261,7 @@ class SlackActionEndpoint(Endpoint):
                     self.open_resolve_dialog(data, group, integration)
                     defer_attachment_update = True
         except client.ApiError as e:
-            return self.api_error(e)
+            return self.api_error(e, action_type, logging_data)
 
         if defer_attachment_update:
             return self.respond()

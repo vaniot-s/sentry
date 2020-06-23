@@ -10,7 +10,7 @@ from threading import Lock
 import rb
 from django.utils.functional import SimpleLazyObject
 from pkg_resources import resource_string
-from redis.client import Script
+from redis.client import Script, StrictRedis
 from redis.connection import ConnectionPool
 from redis.exceptions import ConnectionError, BusyLoadingError
 from rediscluster import StrictRedisCluster
@@ -20,6 +20,7 @@ from sentry.exceptions import InvalidConfiguration
 from sentry.utils import warnings
 from sentry.utils.warnings import DeprecatedSettingWarning
 from sentry.utils.versioning import Version, check_versions
+from sentry.utils.compat import map
 
 logger = logging.getLogger(__name__)
 
@@ -100,20 +101,34 @@ class RetryingStrictRedisCluster(StrictRedisCluster):
 
 class _RedisCluster(object):
     def supports(self, config):
-        return config.get("is_redis_cluster", False)
+        # _RedisCluster supports two configurations:
+        #  * Explicitly configured with is_redis_cluster. This mode is for real redis-cluster.
+        #  * No is_redis_cluster, but only 1 host. This represents a singular node Redis running
+        #    in non-cluster mode.
+        return config.get("is_redis_cluster", False) or len(config.get("hosts")) == 1
 
     def factory(self, **config):
         # StrictRedisCluster expects a list of { host, port } dicts. Coerce the
         # configuration into the correct format if necessary.
         hosts = config.get("hosts")
-        hosts = hosts.values() if isinstance(hosts, dict) else hosts
+        # TODO(joshuarli): modernize dict_six fixer
+        hosts = list(hosts.values()) if isinstance(hosts, dict) else hosts
 
         # Redis cluster does not wait to attempt to connect. We'd prefer to not
         # make TCP connections on boot. Wrap the client in a lazy proxy object.
         def cluster_factory():
-            return RetryingStrictRedisCluster(
-                startup_nodes=hosts, decode_responses=True, skip_full_coverage_check=True
-            )
+            if config.get("is_redis_cluster", False):
+                return RetryingStrictRedisCluster(
+                    startup_nodes=hosts,
+                    decode_responses=True,
+                    skip_full_coverage_check=True,
+                    max_connections=16,
+                    max_connections_per_node=True,
+                )
+            else:
+                host = hosts[0].copy()
+                host["decode_responses"] = True
+                return StrictRedis(**host)
 
         return SimpleLazyObject(cluster_factory)
 
@@ -187,6 +202,28 @@ def get_cluster_from_options(setting, options, cluster_manager=clusters):
         cluster = cluster_manager.get(options.pop(cluster_option_name, default_cluster_name))
 
     return cluster, options
+
+
+def get_dynamic_cluster_from_options(setting, config):
+    cluster_name = config.get("cluster", "default")
+    cluster_opts = options.default_manager.get("redis.clusters").get(cluster_name)
+    if cluster_opts is not None and cluster_opts.get("is_redis_cluster"):
+        # RedisCluster
+        return True, redis_clusters.get(cluster_name), config
+
+    # RBCluster
+    return (False,) + get_cluster_from_options(setting, config)
+
+
+def validate_dynamic_cluster(is_redis_cluster, cluster):
+    try:
+        if is_redis_cluster:
+            cluster.ping()
+        else:
+            with cluster.all() as client:
+                client.ping()
+    except Exception as e:
+        raise InvalidConfiguration(six.text_type(e))
 
 
 def check_cluster_versions(cluster, required, recommended=None, label=None):

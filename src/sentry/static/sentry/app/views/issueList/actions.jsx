@@ -1,28 +1,31 @@
-import {Flex, Box} from 'grid-emotion';
-import {capitalize} from 'lodash';
+import capitalize from 'lodash/capitalize';
+import uniq from 'lodash/uniq';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
 import createReactClass from 'create-react-class';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
-import {openCreateIncidentModal} from 'app/actionCreators/modal';
+import {addLoadingMessage, clearIndicators} from 'app/actionCreators/indicator';
 import {t, tct, tn} from 'app/locale';
+import {IconEllipsis, IconPause, IconPlay} from 'app/icons';
+import space from 'app/styles/space';
+import theme from 'app/utils/theme';
 import ActionLink from 'app/components/actions/actionLink';
 import Checkbox from 'app/components/checkbox';
 import DropdownLink from 'app/components/dropdownLink';
 import ExternalLink from 'app/components/links/externalLink';
-import Feature from 'app/components/acl/feature';
+import GroupStore from 'app/stores/groupStore';
 import IgnoreActions from 'app/components/actions/ignore';
-import IndicatorStore from 'app/stores/indicatorStore';
-import InlineSvg from 'app/components/inlineSvg';
 import MenuItem from 'app/components/menuItem';
+import Projects from 'app/utils/projects';
 import ResolveActions from 'app/components/actions/resolve';
 import SelectedGroupStore from 'app/stores/selectedGroupStore';
 import SentryTypes from 'app/sentryTypes';
 import ToolbarHeader from 'app/components/toolbarHeader';
 import Tooltip from 'app/components/tooltip';
 import withApi from 'app/utils/withApi';
+import QuestionTooltip from 'app/components/questionTooltip';
 
 const BULK_LIMIT = 1000;
 const BULK_LIMIT_STR = BULK_LIMIT.toLocaleString();
@@ -47,8 +50,8 @@ const getBulkConfirmMessage = (action, queryCount) => {
   );
 };
 
-const getConfirm = (numIssues, allInQuerySelected, query, queryCount) => {
-  return function(action, canBeUndone, append = '') {
+const getConfirm = (numIssues, allInQuerySelected, query, queryCount) =>
+  function(action, canBeUndone, append = '') {
     const question = allInQuerySelected
       ? getBulkConfirmMessage(`${action}${append}`, queryCount)
       : tn(
@@ -83,10 +86,9 @@ const getConfirm = (numIssues, allInQuerySelected, query, queryCount) => {
       </div>
     );
   };
-};
 
-const getLabel = (numIssues, allInQuerySelected) => {
-  return function(action, append = '') {
+const getLabel = (numIssues, allInQuerySelected) =>
+  function(action, append = '') {
     const capitalized = capitalize(action);
     const text = allInQuerySelected
       ? t(`Bulk ${action} issues`)
@@ -98,7 +100,6 @@ const getLabel = (numIssues, allInQuerySelected) => {
 
     return text + append;
   };
-};
 
 const ExtraDescription = ({all, query, queryCount}) => {
   if (!all) {
@@ -144,7 +145,6 @@ const IssueListActions = createReactClass({
     api: PropTypes.object,
     allResultsVisible: PropTypes.bool,
     orgId: PropTypes.string.isRequired,
-    projectId: PropTypes.string,
     selection: SentryTypes.GlobalSelection.isRequired,
     groupIds: PropTypes.instanceOf(Array).isRequired,
     onRealtimeChange: PropTypes.func.isRequired,
@@ -153,9 +153,6 @@ const IssueListActions = createReactClass({
     statsPeriod: PropTypes.string.isRequired,
     query: PropTypes.string.isRequired,
     queryCount: PropTypes.number,
-    hasReleases: PropTypes.bool,
-    latestRelease: PropTypes.object,
-    organization: SentryTypes.Organization,
   },
 
   mixins: [Reflux.listenTo(SelectedGroupStore, 'handleSelectedGroupChange')],
@@ -200,12 +197,29 @@ const IssueListActions = createReactClass({
 
   // Handler for when `SelectedGroupStore` changes
   handleSelectedGroupChange() {
+    const selected = SelectedGroupStore.getSelectedIds();
+    const projects = [...selected]
+      .map(id => GroupStore.get(id))
+      .filter(group => group && group.project)
+      .map(group => group.project.slug);
+
+    const uniqProjects = uniq(projects);
+
+    let selectedProjectSlug = null;
+    // we only want selectedProjectSlug set if there is 1 project
+    // more or fewer should result in a null so that the action toolbar
+    // can behave correctly.
+    if (uniqProjects.length === 1) {
+      selectedProjectSlug = uniqProjects[0];
+    }
+
     this.setState({
       pageSelected: SelectedGroupStore.allSelected(),
       multiSelected: SelectedGroupStore.multiSelected(),
       anySelected: SelectedGroupStore.anySelected(),
       allInQuerySelected: false, // any change resets
       selectedIds: SelectedGroupStore.getSelectedIds(),
+      selectedProjectSlug,
     });
   },
 
@@ -222,7 +236,7 @@ const IssueListActions = createReactClass({
   handleUpdate(data) {
     const {selection} = this.props;
     this.actionSelectedGroups(itemIds => {
-      const loadingIndicator = IndicatorStore.add(t('Saving changes..'));
+      addLoadingMessage(t('Saving changes..'));
 
       // If `itemIds` is undefined then it means we expect to bulk update all items
       // that match the query.
@@ -244,7 +258,7 @@ const IssueListActions = createReactClass({
         },
         {
           complete: () => {
-            IndicatorStore.remove(loadingIndicator);
+            clearIndicators();
           },
         }
       );
@@ -252,8 +266,9 @@ const IssueListActions = createReactClass({
   },
 
   handleDelete() {
-    const loadingIndicator = IndicatorStore.add(t('Removing events..'));
     const {selection} = this.props;
+
+    addLoadingMessage(t('Removing events..'));
 
     this.actionSelectedGroups(itemIds => {
       this.props.api.bulkDelete(
@@ -267,7 +282,7 @@ const IssueListActions = createReactClass({
         },
         {
           complete: () => {
-            IndicatorStore.remove(loadingIndicator);
+            clearIndicators();
           },
         }
       );
@@ -275,8 +290,9 @@ const IssueListActions = createReactClass({
   },
 
   handleMerge() {
-    const loadingIndicator = IndicatorStore.add(t('Merging events..'));
     const {selection} = this.props;
+
+    addLoadingMessage(t('Merging events..'));
 
     this.actionSelectedGroups(itemIds => {
       this.props.api.merge(
@@ -290,17 +306,11 @@ const IssueListActions = createReactClass({
         },
         {
           complete: () => {
-            IndicatorStore.remove(loadingIndicator);
+            clearIndicators();
           },
         }
       );
     });
-  },
-
-  handleCreateIncident() {
-    const {organization} = this.props;
-    const issues = this.state.selectedIds;
-    openCreateIncidentModal({organization, issues: Array.from(issues)});
   },
 
   handleSelectAll() {
@@ -328,13 +338,44 @@ const IssueListActions = createReactClass({
     }
   },
 
+  renderResolveActions({
+    hasReleases,
+    latestRelease,
+    projectId,
+    confirm,
+    label,
+    loadingProjects,
+    projectFetchError,
+  }) {
+    const {orgId} = this.props;
+    const {anySelected} = this.state;
+
+    // resolve requires a single project to be active in an org context
+    // projectId is null when 0 or >1 projects are selected.
+    const resolveDisabled = !anySelected || projectFetchError;
+    const resolveDropdownDisabled =
+      !(anySelected && projectId) || loadingProjects || projectFetchError;
+    return (
+      <ResolveActions
+        hasRelease={hasReleases}
+        latestRelease={latestRelease}
+        orgId={orgId}
+        projectId={projectId}
+        onUpdate={this.handleUpdate}
+        shouldConfirm={this.shouldConfirm('resolve')}
+        confirmMessage={confirm('resolve', true)}
+        confirmLabel={label('resolve')}
+        disabled={resolveDisabled}
+        disableDropdown={resolveDropdownDisabled}
+        projectFetchError={projectFetchError}
+      />
+    );
+  },
+
   render() {
     const {
       allResultsVisible,
-      hasReleases,
-      latestRelease,
       orgId,
-      projectId,
       queryCount,
       query,
       realtimeActive,
@@ -342,36 +383,51 @@ const IssueListActions = createReactClass({
     } = this.props;
     const issues = this.state.selectedIds;
     const numIssues = issues.size;
-    const {allInQuerySelected, anySelected, multiSelected, pageSelected} = this.state;
+    const {
+      allInQuerySelected,
+      anySelected,
+      multiSelected,
+      pageSelected,
+      selectedProjectSlug,
+    } = this.state;
     const confirm = getConfirm(numIssues, allInQuerySelected, query, queryCount);
     const label = getLabel(numIssues, allInQuerySelected);
 
-    // resolve and merge require a single project to be active
-    // in an org context projectId is null when 0 or >1 projects are selected.
-    const resolveDisabled = !anySelected;
-    const resolveDropdownDisabled = !(anySelected && projectId);
-    const mergeDisabled = !(multiSelected && projectId);
-    const createNewIncidentDisabled = !anySelected || allInQuerySelected;
+    // merges require a single project to be active in an org context
+    // selectedProjectSlug is null when 0 or >1 projects are selected.
+    const mergeDisabled = !(multiSelected && selectedProjectSlug);
 
     return (
       <Sticky>
-        <StyledFlex py={1}>
-          <ActionsCheckbox pl={2}>
+        <StyledFlex>
+          <ActionsCheckbox>
             <Checkbox onChange={this.handleSelectAll} checked={pageSelected} />
           </ActionsCheckbox>
-          <ActionSet w={[8 / 12, 8 / 12, 6 / 12]} mx={1} flex="1">
-            <ResolveActions
-              hasRelease={hasReleases}
-              latestRelease={latestRelease}
-              orgId={orgId}
-              projectId={projectId}
-              onUpdate={this.handleUpdate}
-              shouldConfirm={this.shouldConfirm('resolve')}
-              confirmMessage={confirm('resolve', true)}
-              confirmLabel={label('resolve')}
-              disabled={resolveDisabled}
-              disableDropdown={resolveDropdownDisabled}
-            />
+          <ActionSet>
+            {selectedProjectSlug ? (
+              <Projects orgId={orgId} slugs={[selectedProjectSlug]}>
+                {({projects, initiallyLoaded, fetchError}) => {
+                  const selectedProject = projects[0];
+                  return this.renderResolveActions({
+                    hasReleases: new Set(selectedProject.features).has('releases'),
+                    latestRelease: selectedProject.latestRelease,
+                    projectId: selectedProject.slug,
+                    confirm,
+                    label,
+                    loadingProjects: !initiallyLoaded,
+                    projectFetchError: !!fetchError,
+                  });
+                }}
+              </Projects>
+            ) : (
+              this.renderResolveActions({
+                hasReleases: false,
+                latestRelease: null,
+                projectId: null,
+                confirm,
+                label,
+              })
+            )}
             <IgnoreActions
               onUpdate={this.handleUpdate}
               shouldConfirm={this.shouldConfirm('ignore')}
@@ -379,7 +435,7 @@ const IssueListActions = createReactClass({
               confirmLabel={label('ignore')}
               disabled={!anySelected}
             />
-            <div className="btn-group hidden-sm hidden-xs">
+            <div className="btn-group hidden-md hidden-sm hidden-xs">
               <ActionLink
                 className="btn btn-default btn-sm action-merge"
                 disabled={mergeDisabled}
@@ -392,53 +448,21 @@ const IssueListActions = createReactClass({
                 {t('Merge')}
               </ActionLink>
             </div>
-            <div className="btn-group hidden-xs">
-              <ActionLink
-                className="btn btn-default btn-sm action-bookmark hidden-md hidden-sm hidden-xs"
-                onAction={() => this.handleUpdate({isBookmarked: true})}
-                shouldConfirm={this.shouldConfirm('bookmark')}
-                message={confirm('bookmark', false)}
-                confirmLabel={label('bookmark')}
-                title={t('Add to Bookmarks')}
-                disabled={!anySelected}
-              >
-                <i aria-hidden="true" className="icon-star-solid" />
-              </ActionLink>
-            </div>
-
-            <Feature features={['incidents']}>
-              <div className="btn-group hidden-xs">
-                <ActionLink
-                  className="btn btn-default btn-sm hidden-sm hidden-xs"
-                  title={t('Create new incident')}
-                  disabled={createNewIncidentDisabled}
-                  onAction={this.handleCreateIncident}
-                >
-                  <IncidentLabel>
-                    <IncidentIcon
-                      data-test-id="create-incident"
-                      size="16"
-                      src="icon-siren-add"
-                    />
-                    <CreateIncidentText className="hidden-md">
-                      {t('Create Incident')}
-                    </CreateIncidentText>
-                  </IncidentLabel>
-                </ActionLink>
-              </div>
-            </Feature>
-
             <div className="btn-group">
               <DropdownLink
                 key="actions"
                 btnGroup
                 caret={false}
                 className="btn btn-sm btn-default action-more"
-                title={<span className="icon-ellipsis" />}
+                title={
+                  <IconPad>
+                    <IconEllipsis size="xs" />
+                  </IconPad>
+                }
               >
                 <MenuItem noAnchor>
                   <ActionLink
-                    className="action-merge hidden-md hidden-lg hidden-xl"
+                    className="action-merge hidden-lg hidden-xl"
                     disabled={mergeDisabled}
                     onAction={this.handleMerge}
                     shouldConfirm={this.shouldConfirm('merge')}
@@ -449,20 +473,10 @@ const IssueListActions = createReactClass({
                     {t('Merge')}
                   </ActionLink>
                 </MenuItem>
+                <MenuItem divider className="hidden-lg hidden-xl" />
                 <MenuItem noAnchor>
                   <ActionLink
-                    className="hidden-md hidden-lg hidden-xl"
-                    disabled={createNewIncidentDisabled}
-                    onAction={this.handleCreateIncident}
-                    title={t('Create new incident')}
-                  >
-                    {t('Create Incident')}
-                  </ActionLink>
-                </MenuItem>
-                <MenuItem divider className="hidden-md hidden-lg hidden-xl" />
-                <MenuItem noAnchor>
-                  <ActionLink
-                    className="action-bookmark hidden-lg hidden-xl"
+                    className="action-bookmark"
                     disabled={!anySelected}
                     onAction={() => this.handleUpdate({isBookmarked: true})}
                     shouldConfirm={this.shouldConfirm('bookmark')}
@@ -473,7 +487,7 @@ const IssueListActions = createReactClass({
                     {t('Add to Bookmarks')}
                   </ActionLink>
                 </MenuItem>
-                <MenuItem divider className="hidden-lg hidden-xl" />
+                <MenuItem divider />
                 <MenuItem noAnchor>
                   <ActionLink
                     className="action-remove-bookmark"
@@ -527,17 +541,15 @@ const IssueListActions = createReactClass({
                   className="btn btn-default btn-sm hidden-xs"
                   onClick={this.handleRealtimeChange}
                 >
-                  {realtimeActive ? (
-                    <span className="icon icon-pause" />
-                  ) : (
-                    <span className="icon icon-play" />
-                  )}
+                  <IconPad>
+                    {realtimeActive ? <IconPause size="xs" /> : <IconPlay size="xs" />}
+                  </IconPad>
                 </a>
               </Tooltip>
             </div>
           </ActionSet>
-          <Box w={160} mx={2} className="hidden-xs hidden-sm">
-            <Flex>
+          <GraphHeaderWrapper className="hidden-xs hidden-sm">
+            <GraphHeader>
               <StyledToolbarHeader>{t('Graph:')}</StyledToolbarHeader>
               <GraphToggle
                 active={statsPeriod === '24h'}
@@ -552,17 +564,25 @@ const IssueListActions = createReactClass({
               >
                 {t('14d')}
               </GraphToggle>
-            </Flex>
-          </Box>
-          <Box w={[40, 60, 80, 80]} mx={2} className="align-right">
-            <ToolbarHeader>{t('Events')}</ToolbarHeader>
-          </Box>
-          <Box w={[40, 60, 80, 80]} mx={2} className="align-right">
-            <ToolbarHeader>{t('Users')}</ToolbarHeader>
-          </Box>
-          <Box w={80} mx={2} className="align-right hidden-xs hidden-sm">
+            </GraphHeader>
+          </GraphHeaderWrapper>
+          <EventsOrUsersLabel className="align-right">
+            {t('Events')}
+            <StyledQuestionTooltip
+              title={t('Number of events since the issue was created')}
+              size="xs"
+            />
+          </EventsOrUsersLabel>
+          <EventsOrUsersLabel className="align-right">
+            {t('Users')}
+            <StyledQuestionTooltip
+              title={t('Unique users affected since the issue was created')}
+              size="xs"
+            />
+          </EventsOrUsersLabel>
+          <AssigneesLabel className="align-right hidden-xs hidden-sm">
             <ToolbarHeader>{t('Assignee')}</ToolbarHeader>
-          </Box>
+          </AssigneesLabel>
         </StyledFlex>
 
         {!allResultsVisible && pageSelected && (
@@ -616,27 +636,52 @@ const Sticky = styled('div')`
   top: -1px;
 `;
 
-const StyledFlex = styled(Flex)`
+const StyledFlex = styled('div')`
+  display: flex;
+  padding-top: ${space(1)};
+  padding-bottom: ${space(1)};
   align-items: center;
-  background: ${p => p.theme.offWhite};
+  background: ${p => p.theme.gray100};
   border-bottom: 1px solid ${p => p.theme.borderDark};
   border-radius: ${p => p.theme.borderRadius} ${p => p.theme.borderRadius} 0 0;
   margin-bottom: -1px;
 `;
 
-const ActionsCheckbox = styled(Box)`
+const ActionsCheckbox = styled('div')`
+  padding-left: ${space(2)};
   & input[type='checkbox'] {
     margin: 0;
     display: block;
   }
 `;
 
-const ActionSet = styled(Box)`
+const ActionSet = styled('div')`
+  @media (min-width: ${theme.breakpoints[0]}) {
+    width: 66.66%;
+  }
+  @media (min-width: ${theme.breakpoints[2]}) {
+    width: 50%;
+  }
+  flex: 1;
+  margin-left: ${space(1)};
+  margin-right: ${space(1)};
+
   display: flex;
 
   .btn-group {
+    display: flex;
     margin-right: 6px;
   }
+`;
+
+const GraphHeaderWrapper = styled('div')`
+  width: 160px;
+  margin-left: ${space(2)};
+  margin-right: ${space(2)};
+`;
+
+const GraphHeader = styled('div')`
+  display: flex;
 `;
 
 const StyledToolbarHeader = styled(ToolbarHeader)`
@@ -651,20 +696,49 @@ const GraphToggle = styled('a')`
   &:hover,
   &:focus,
   &:active {
-    color: ${p => (p.active ? p.theme.gray4 : p.theme.disabled)};
+    color: ${p => (p.active ? p.theme.gray700 : p.theme.disabled)};
   }
 `;
 
-const IncidentLabel = styled('div')`
-  display: flex;
+const StyledQuestionTooltip = styled(QuestionTooltip)`
+  @media (max-width: ${p => p.theme.breakpoints[0]}) {
+    display: none;
+  }
+`;
+
+const EventsOrUsersLabel = styled(ToolbarHeader)`
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-gap: ${space(0.5)};
   align-items: center;
+
+  margin-left: ${space(1.5)};
+  margin-right: ${space(1.5)};
+  @media (min-width: ${theme.breakpoints[0]}) {
+    width: 60px;
+  }
+  @media (min-width: ${theme.breakpoints[1]}) {
+    width: 60px;
+  }
+  @media (min-width: ${theme.breakpoints[2]}) {
+    width: 80px;
+    margin-left: ${space(2)};
+    margin-right: ${space(2)};
+  }
 `;
-const IncidentIcon = styled(InlineSvg)`
+
+const AssigneesLabel = styled('div')`
+  width: 80px;
+  margin-left: ${space(2)};
+  margin-right: ${space(2)};
+`;
+
+// New icons are misaligned inside bootstrap buttons.
+// This is a shim that can be removed when buttons are upgraded
+// to styled components.
+const IconPad = styled('span')`
   position: relative;
-  top: -1px;
-`;
-const CreateIncidentText = styled('span')`
-  margin-left: 5px; /* consistent with other items in bar */
+  top: ${space(0.25)};
 `;
 
 export {IssueListActions};

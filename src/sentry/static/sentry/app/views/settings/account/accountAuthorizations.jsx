@@ -1,13 +1,14 @@
 import {Link} from 'react-router';
 import PropTypes from 'prop-types';
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {Panel, PanelBody, PanelHeader, PanelItem} from 'app/components/panels';
 import {addSuccessMessage, addErrorMessage} from 'app/actionCreators/indicator';
 import {t, tct} from 'app/locale';
 import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
+import {IconDelete} from 'app/icons';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
 import SettingsPageHeader from 'app/views/settings/components/settingsPageHeader';
 import space from 'app/styles/space';
@@ -37,9 +38,7 @@ class AuthorizationRow extends React.Component {
           )}
           <Scopes>{authorization.scopes.join(', ')}</Scopes>
         </ApplicationDetails>
-        <Button size="small" onClick={this.handleRevoke}>
-          <span className="icon icon-trash" />
-        </Button>
+        <Button size="small" onClick={this.handleRevoke} icon={<IconDelete />} />
       </PanelItemCenter>
     );
   }
@@ -103,15 +102,13 @@ class AccountAuthorizations extends AsyncView {
 
             {!isEmpty && (
               <div>
-                {data.map(authorization => {
-                  return (
-                    <AuthorizationRow
-                      key={authorization.id}
-                      authorization={authorization}
-                      onRevoke={this.handleRevoke}
-                    />
-                  );
-                })}
+                {data.map(authorization => (
+                  <AuthorizationRow
+                    key={authorization.id}
+                    authorization={authorization}
+                    onRevoke={this.handleRevoke}
+                  />
+                ))}
               </div>
             )}
           </PanelBody>
@@ -153,6 +150,6 @@ const Url = styled('div')`
 `;
 
 const Scopes = styled('div')`
-  color: ${p => p.theme.gray2};
+  color: ${p => p.theme.gray500};
   font-size: ${p => p.theme.fontSizeRelativeSmall};
 `;

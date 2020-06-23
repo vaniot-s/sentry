@@ -10,10 +10,11 @@ import six
 import time
 
 from sentry import tsdb, options
+from sentry.constants import DataCategory
 from sentry.utils import json, metrics
 from sentry.utils.data_filters import FILTER_STAT_KEYS_TO_VALUES
 from sentry.utils.dates import to_datetime
-from sentry.utils.pubsub import QueuedPublisherService, KafkaPublisher
+from sentry.utils.pubsub import KafkaPublisher
 
 # valid values for outcome
 
@@ -28,11 +29,6 @@ class Outcome(IntEnum):
 
 outcomes = settings.KAFKA_TOPICS[settings.KAFKA_OUTCOMES]
 outcomes_publisher = None
-
-
-def decide_signals_in_consumer():
-    rate = options.get("outcomes.signals-in-consumer-sample-rate")
-    return rate and rate > random.random()
 
 
 def decide_tsdb_in_consumer():
@@ -97,7 +93,17 @@ def tsdb_increments_from_outcome(org_id, project_id, key_id, outcome, reason):
             yield (FILTER_STAT_KEYS_TO_VALUES[reason], project_id)
 
 
-def track_outcome(org_id, project_id, key_id, outcome, reason=None, timestamp=None, event_id=None):
+def track_outcome(
+    org_id,
+    project_id,
+    key_id,
+    outcome,
+    reason=None,
+    timestamp=None,
+    event_id=None,
+    category=None,
+    quantity=None,
+):
     """
     This is a central point to track org/project counters per incoming event.
     NB: This should only ever be called once per incoming event, which means
@@ -110,15 +116,18 @@ def track_outcome(org_id, project_id, key_id, outcome, reason=None, timestamp=No
     """
     global outcomes_publisher
     if outcomes_publisher is None:
-        outcomes_publisher = QueuedPublisherService(
-            KafkaPublisher(settings.KAFKA_CLUSTERS[outcomes["cluster"]])
-        )
+        outcomes_publisher = KafkaPublisher(settings.KAFKA_CLUSTERS[outcomes["cluster"]])
+
+    if quantity is None:
+        quantity = 1
 
     assert isinstance(org_id, six.integer_types)
     assert isinstance(project_id, six.integer_types)
     assert isinstance(key_id, (type(None), six.integer_types))
     assert isinstance(outcome, Outcome)
     assert isinstance(timestamp, (type(None), datetime))
+    assert isinstance(category, (type(None), DataCategory))
+    assert isinstance(quantity, int)
 
     timestamp = timestamp or to_datetime(time.time())
 
@@ -149,6 +158,8 @@ def track_outcome(org_id, project_id, key_id, outcome, reason=None, timestamp=No
                 "outcome": outcome.value,
                 "reason": reason,
                 "event_id": event_id,
+                "category": category,
+                "quantity": quantity,
             }
         ),
     )

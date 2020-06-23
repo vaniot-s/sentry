@@ -129,22 +129,9 @@ def get_fingerprinting_config_for_project(project):
 
 
 def apply_server_fingerprinting(event, config):
-    fingerprint = event["fingerprint"]
-    if not any(x in DEFAULT_FINGERPRINT_VALUES for x in fingerprint):
-        return
-
-    new_values = config.get_fingerprint_values_for_event(event)
-    if new_values is None:
-        return
-
-    new_fingerprint = []
-    for value in fingerprint:
-        if value in DEFAULT_FINGERPRINT_VALUES:
-            new_fingerprint.extend(new_values)
-        else:
-            new_fingerprint.append(value)
-
-    event["fingerprint"] = new_fingerprint
+    new_fingerprint = config.get_fingerprint_values_for_event(event)
+    if new_fingerprint is not None:
+        event["fingerprint"] = new_fingerprint
 
 
 def _get_calculated_grouping_variants_for_event(event, config):
@@ -186,10 +173,18 @@ def get_grouping_variants_for_event(event, config=None):
     if checksum:
         if HASH_RE.match(checksum):
             return {"checksum": ChecksumVariant(checksum)}
-        return {
-            "checksum": ChecksumVariant(checksum),
+
+        rv = {
             "hashed-checksum": ChecksumVariant(hash_from_values(checksum), hashed=True),
         }
+
+        # The legacy code path also supported arbitrary values here but
+        # it will blow up if it results in more than 32 bytes of data
+        # as this cannot be inserted into the database.  (See GroupHash.hash)
+        if len(checksum) <= 32:
+            rv["checksum"] = ChecksumVariant(checksum)
+
+        return rv
 
     # Otherwise we go to the various forms of fingerprint handling.
     fingerprint = event.data.get("fingerprint") or ["{{ default }}"]

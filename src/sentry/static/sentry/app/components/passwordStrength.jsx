@@ -1,11 +1,12 @@
-import {throttle} from 'lodash';
+import throttle from 'lodash/throttle';
 import PropTypes from 'prop-types';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import zxcvbn from 'zxcvbn';
-import styled, {css} from 'react-emotion';
-import {tct} from 'app/locale';
+import styled from '@emotion/styled';
+import {css} from '@emotion/core';
 
+import {tct} from 'app/locale';
 import theme from 'app/utils/theme';
 
 /**
@@ -36,7 +37,7 @@ class PasswordStrength extends React.Component {
 
   static defaultProps = {
     labels: ['Very Weak', 'Very Weak', 'Weak', 'Strong', 'Very Strong'],
-    colors: [theme.red, theme.red, theme.yellow, theme.green, theme.green],
+    colors: [theme.red, theme.red, theme.yellow, theme.green400, theme.green400],
   };
 
   render() {
@@ -80,7 +81,7 @@ class PasswordStrength extends React.Component {
 }
 
 const StrengthProgress = styled('div')`
-  background: ${theme.offWhite2};
+  background: ${theme.gray300};
   height: 8px;
   border-radius: 2px;
   overflow: hidden;
@@ -89,7 +90,7 @@ const StrengthProgress = styled('div')`
 const StrengthLabel = styled('div')`
   font-size: 0.8em;
   margin-top: 2px;
-  color: ${theme.gray3};
+  color: ${theme.gray600};
 `;
 
 const ScoreText = styled('strong')`

@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {shallow} from 'sentry-test/enzyme';
 
 import {MultipleCheckboxField} from 'app/components/forms';
@@ -9,7 +10,10 @@ describe('MultipleCheckboxField', function() {
       const wrapper = shallow(
         <MultipleCheckboxField
           name="fieldName"
-          choices={[['1', 'On'], ['2', 'Off']]}
+          choices={[
+            ['1', 'On'],
+            ['2', 'Off'],
+          ]}
           value={['1']}
         />
       );
@@ -18,7 +22,13 @@ describe('MultipleCheckboxField', function() {
 
     it('renders with form context', function() {
       const wrapper = shallow(
-        <MultipleCheckboxField name="fieldName" choices={[['1', 'On'], ['2', 'Off']]} />,
+        <MultipleCheckboxField
+          name="fieldName"
+          choices={[
+            ['1', 'On'],
+            ['2', 'Off'],
+          ]}
+        />,
         {
           context: {
             form: {

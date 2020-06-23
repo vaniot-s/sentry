@@ -1,11 +1,12 @@
 import React from 'react';
+
 import {mountWithTheme} from 'sentry-test/enzyme';
 
 import Aggregation from 'app/views/discover/aggregations/aggregation';
 
 describe('Aggregation', function() {
   describe('render()', function() {
-    it('renders empty, count, uniq and avg', async function() {
+    it('renders empty, count, uniq, avg and sum', async function() {
       const data = [
         {value: [null, null, null], expectedTextValue: 'Add aggregation function...'},
         {value: ['count()', null, 'count'], expectedTextValue: 'count'},
@@ -16,6 +17,10 @@ describe('Aggregation', function() {
         {
           value: ['avg', 'device.battery_level', 'avg_device_battery_level'],
           expectedTextValue: 'avg(device.battery_level)',
+        },
+        {
+          value: ['sum', 'device.battery_level', 'sum_device_battery_level'],
+          expectedTextValue: 'sum(device.battery_level)',
         },
         {
           value: ['uniq', 'message', 'uniq_message'],
@@ -51,8 +56,8 @@ describe('Aggregation', function() {
       wrapper.setState({inputValue: ''});
       const options = wrapper.instance().filterOptions();
 
-      expect(options).toHaveLength(3);
-      expect(options.map(({value}) => value)).toEqual(['count', 'uniq', 'avg']);
+      expect(options).toHaveLength(4);
+      expect(options.map(({value}) => value)).toEqual(['count', 'uniq', 'avg', 'sum']);
     });
 
     it('displays uniq options for non-array fields only', function() {
@@ -69,12 +74,22 @@ describe('Aggregation', function() {
       expect(options).toHaveLength(1);
       expect(options[0]).toEqual({value: 'avg(col2)', label: 'avg(col2)'});
     });
+
+    it('displays number value options on input `sum`', function() {
+      wrapper.setState({inputValue: 'sum'});
+      const options = wrapper.instance().filterOptions();
+      expect(options).toHaveLength(1);
+      expect(options[0]).toEqual({value: 'sum(col2)', label: 'sum(col2)'});
+    });
   });
 
   describe('handleChange()', function() {
     let wrapper, focusSpy;
     beforeEach(function() {
-      const cols = [{name: 'col1', type: 'string'}, {name: 'col2', type: 'number'}];
+      const cols = [
+        {name: 'col1', type: 'string'},
+        {name: 'col2', type: 'number'},
+      ];
       focusSpy = jest.spyOn(Aggregation.prototype, 'focus');
 
       wrapper = mountWithTheme(
@@ -99,12 +114,18 @@ describe('Aggregation', function() {
         expect(wrapper.instance().state.inputValue).toBe('avg');
         expect(focusSpy).toHaveBeenCalled();
       });
+
+      it('sum', function() {
+        wrapper.instance().handleChange({value: 'sum'});
+        expect(wrapper.instance().state.inputValue).toBe('sum');
+        expect(focusSpy).toHaveBeenCalled();
+      });
     });
 
     describe('handles final selections', function() {
-      const validFinalSelections = ['count', 'avg(col2)', 'uniq(col1)'];
+      const validFinalSelections = ['count', 'avg(col2)', 'uniq(col1)', 'sum(col2)'];
 
-      it('handles count, avg, uniq', function() {
+      it('handles count, avg, uniq, sum', function() {
         validFinalSelections.forEach(function(value) {
           wrapper.instance().handleChange({value});
           expect(wrapper.instance().state.inputValue).toBe(value);

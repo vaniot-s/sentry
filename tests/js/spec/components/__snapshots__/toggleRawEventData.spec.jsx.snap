@@ -1,87 +1,89 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`EventDataSection renders formatted 1`] = `
-<div
-  className=" box"
+<DataSection
+  className=""
 >
-  <div
-    className="box-header"
+  <SectionHeader
     id="extra"
+    isCentered={false}
   >
-    <a
+    <Permalink
       className="permalink"
       href="#extra"
     >
       <em
         className="icon-anchor"
       />
-    </a>
+    </Permalink>
     <h3>
       Additional Data
     </h3>
-    <div
-      className="btn-group pull-right"
+    <ButtonBar
+      active="formatted"
+      merged={true}
     >
-      <a
-        className="active btn btn-default btn-sm"
+      <forwardRef<Button>
+        barId="formatted"
         onClick={[Function]}
+        size="xsmall"
       >
         Formatted
-      </a>
-      <a
-        className=" btn btn-default btn-sm"
+      </forwardRef<Button>>
+      <forwardRef<Button>
+        barId="raw"
         onClick={[Function]}
+        size="xsmall"
       >
         Raw
-      </a>
-    </div>
-  </div>
-  <div
-    className="box-content with-padding"
-  />
-</div>
+      </forwardRef<Button>>
+    </ButtonBar>
+  </SectionHeader>
+  <SectionContents />
+</DataSection>
 `;
 
 exports[`EventDataSection renders raw 1`] = `
-<div
-  className=" box"
+<DataSection
+  className=""
 >
-  <div
-    className="box-header"
+  <SectionHeader
     id="extra"
+    isCentered={false}
   >
-    <a
+    <Permalink
       className="permalink"
       href="#extra"
     >
       <em
         className="icon-anchor"
       />
-    </a>
+    </Permalink>
     <h3>
       Additional Data
     </h3>
-    <div
-      className="btn-group pull-right"
+    <ButtonBar
+      active="raw"
+      merged={true}
     >
-      <a
-        className=" btn btn-default btn-sm"
+      <forwardRef<Button>
+        barId="formatted"
         onClick={[Function]}
+        size="xsmall"
       >
         Formatted
-      </a>
-      <a
-        className="active btn btn-default btn-sm"
+      </forwardRef<Button>>
+      <forwardRef<Button>
+        barId="raw"
         onClick={[Function]}
+        size="xsmall"
       >
         Raw
-      </a>
-    </div>
-  </div>
-  <div
-    className="box-content with-padding"
-  />
-</div>
+      </forwardRef<Button>>
+    </ButtonBar>
+  </SectionHeader>
+  <SectionContents />
+</DataSection>
 `;
 
 exports[`KeyValueList renders formatted 1`] = `
@@ -92,45 +94,50 @@ exports[`KeyValueList renders formatted 1`] = `
     <tr
       key="andthis"
     >
-      <td
+      <TableData
         className="key"
+        wide={false}
       >
         andthis
-      </td>
+      </TableData>
       <td
-        className="value"
+        className="val"
       >
         <ContextData
           data={0}
+          withAnnotatedText={false}
         />
       </td>
     </tr>
     <tr
       key="plussomeotherstuff"
     >
-      <td
+      <TableData
         className="key"
+        wide={false}
       >
         plussomeotherstuff
-      </td>
+      </TableData>
       <td
-        className="value"
+        className="val"
       >
         <ContextData
           data="here"
+          withAnnotatedText={false}
         />
       </td>
     </tr>
     <tr
       key="somestuff"
     >
-      <td
+      <TableData
         className="key"
+        wide={false}
       >
         somestuff
-      </td>
+      </TableData>
       <td
-        className="value"
+        className="val"
       >
         <ContextData
           data={
@@ -138,6 +145,7 @@ exports[`KeyValueList renders formatted 1`] = `
               "andsomeotherstuff": "here",
             }
           }
+          withAnnotatedText={false}
         />
       </td>
     </tr>
@@ -153,48 +161,54 @@ exports[`KeyValueList renders raw 1`] = `
     <tr
       key="andthis"
     >
-      <td
+      <TableData
         className="key"
+        wide={false}
       >
         andthis
-      </td>
+      </TableData>
       <td
-        className="value"
+        className="val"
       >
         <ContextData
           data="0"
+          withAnnotatedText={false}
         />
       </td>
     </tr>
     <tr
       key="plussomeotherstuff"
     >
-      <td
+      <TableData
         className="key"
+        wide={false}
       >
         plussomeotherstuff
-      </td>
+      </TableData>
       <td
-        className="value"
+        className="val"
       >
         <ContextData
           data="\\"here\\""
+          withAnnotatedText={false}
         />
       </td>
     </tr>
     <tr
       key="somestuff"
     >
-      <td
+      <TableData
         className="key"
+        wide={false}
       >
         somestuff
-      </td>
+      </TableData>
       <td
-        className="value"
+        className="val"
       >
         <ContextData
           data="{\\"andsomeotherstuff\\":\\"here\\"}"
+          withAnnotatedText={false}
         />
       </td>
     </tr>

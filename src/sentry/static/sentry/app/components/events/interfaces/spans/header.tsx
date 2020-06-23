@@ -1,8 +1,7 @@
 import React from 'react';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import space from 'app/styles/space';
-import {get} from 'lodash';
 
 import {
   rectOfContent,
@@ -12,18 +11,25 @@ import {
   boundsGenerator,
   SpanBoundsType,
   SpanGeneratedBoundsType,
+  getSpanID,
+  getSpanOperation,
 } from './utils';
 import {DragManagerChildrenProps} from './dragManager';
 import * as CursorGuideHandler from './cursorGuideHandler';
-import {ParsedTraceType, TickAlignment, SpanType, SpanChildrenLookupType} from './types';
+import {
+  ParsedTraceType,
+  TickAlignment,
+  SpanChildrenLookupType,
+  RawSpanType,
+} from './types';
 import {zIndex} from './styles';
 
 export const MINIMAP_CONTAINER_HEIGHT = 106;
 export const MINIMAP_SPAN_BAR_HEIGHT = 4;
-const MINIMAP_HEIGHT = 75;
+const MINIMAP_HEIGHT = 120;
 export const NUM_OF_SPANS_FIT_IN_MINI_MAP = MINIMAP_HEIGHT / MINIMAP_SPAN_BAR_HEIGHT;
-const TIME_AXIS_HEIGHT = 30;
-const VIEW_HANDLE_HEIGHT = 20;
+const TIME_AXIS_HEIGHT = 20;
+const VIEW_HANDLE_HEIGHT = 18;
 
 type PropType = {
   minimapInteractiveRef: React.RefObject<HTMLDivElement>;
@@ -110,20 +116,18 @@ class TraceViewHeader extends React.Component<PropType> {
     );
   };
 
-  renderFog = (dragProps: DragManagerChildrenProps) => {
-    return (
-      <React.Fragment>
-        <Fog style={{height: '100%', width: toPercent(dragProps.viewWindowStart)}} />
-        <Fog
-          style={{
-            height: '100%',
-            width: toPercent(1 - dragProps.viewWindowEnd),
-            left: toPercent(dragProps.viewWindowEnd),
-          }}
-        />
-      </React.Fragment>
-    );
-  };
+  renderFog = (dragProps: DragManagerChildrenProps) => (
+    <React.Fragment>
+      <Fog style={{height: '100%', width: toPercent(dragProps.viewWindowStart)}} />
+      <Fog
+        style={{
+          height: '100%',
+          width: toPercent(1 - dragProps.viewWindowEnd),
+          left: toPercent(dragProps.viewWindowEnd),
+        }}
+      />
+    </React.Fragment>
+  );
 
   renderDurationGuide = ({
     showCursorGuide,
@@ -265,58 +269,56 @@ class TraceViewHeader extends React.Component<PropType> {
       <HeaderContainer>
         <ActualMinimap trace={this.props.trace} />
         <CursorGuideHandler.Consumer>
-          {({displayCursorGuide, hideCursorGuide, mouseLeft, showCursorGuide}) => {
-            return (
-              <div
-                ref={this.props.minimapInteractiveRef}
-                style={{
-                  width: '100%',
-                  height: `${MINIMAP_HEIGHT + TIME_AXIS_HEIGHT}px`,
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                }}
-                onMouseEnter={event => {
-                  displayCursorGuide(event.pageX);
-                }}
-                onMouseLeave={() => {
-                  hideCursorGuide();
-                }}
-                onMouseMove={event => {
-                  displayCursorGuide(event.pageX);
-                }}
-                onMouseDown={event => {
-                  const target = event.target;
+          {({displayCursorGuide, hideCursorGuide, mouseLeft, showCursorGuide}) => (
+            <div
+              ref={this.props.minimapInteractiveRef}
+              style={{
+                width: '100%',
+                height: `${MINIMAP_HEIGHT + TIME_AXIS_HEIGHT}px`,
+                position: 'absolute',
+                left: 0,
+                top: 0,
+              }}
+              onMouseEnter={event => {
+                displayCursorGuide(event.pageX);
+              }}
+              onMouseLeave={() => {
+                hideCursorGuide();
+              }}
+              onMouseMove={event => {
+                displayCursorGuide(event.pageX);
+              }}
+              onMouseDown={event => {
+                const target = event.target;
 
-                  if (
-                    target instanceof Element &&
-                    target.getAttribute &&
-                    target.getAttribute('data-ignore')
-                  ) {
-                    // ignore this event if we need to
-                    return;
-                  }
+                if (
+                  target instanceof Element &&
+                  target.getAttribute &&
+                  target.getAttribute('data-ignore')
+                ) {
+                  // ignore this event if we need to
+                  return;
+                }
 
-                  this.props.dragProps.onWindowSelectionDragStart(event);
-                }}
-              >
-                <MinimapContainer>
-                  {this.renderFog(this.props.dragProps)}
-                  {this.renderCursorGuide({
-                    showCursorGuide,
-                    mouseLeft,
-                    cursorGuideHeight: MINIMAP_HEIGHT,
-                  })}
-                  {this.renderViewHandles(this.props.dragProps)}
-                  {this.renderWindowSelection(this.props.dragProps)}
-                </MinimapContainer>
-                {this.renderTimeAxis({
+                this.props.dragProps.onWindowSelectionDragStart(event);
+              }}
+            >
+              <MinimapContainer>
+                {this.renderFog(this.props.dragProps)}
+                {this.renderCursorGuide({
                   showCursorGuide,
                   mouseLeft,
+                  cursorGuideHeight: MINIMAP_HEIGHT,
                 })}
-              </div>
-            );
-          }}
+                {this.renderViewHandles(this.props.dragProps)}
+                {this.renderWindowSelection(this.props.dragProps)}
+              </MinimapContainer>
+              {this.renderTimeAxis({
+                showCursorGuide,
+                mouseLeft,
+              })}
+            </div>
+          )}
         </CursorGuideHandler.Consumer>
       </HeaderContainer>
     );
@@ -334,11 +336,12 @@ class ActualMinimap extends React.PureComponent<{trace: ParsedTraceType}> {
       viewEnd: 1,
     });
 
-    const rootSpan: SpanType = {
+    const rootSpan: RawSpanType = {
       trace_id: trace.traceID,
       span_id: trace.rootSpanID,
       start_timestamp: trace.traceStartTimestamp,
       timestamp: trace.traceEndTimestamp,
+      op: trace.op,
       data: {},
     };
 
@@ -394,12 +397,12 @@ class ActualMinimap extends React.PureComponent<{trace: ParsedTraceType}> {
     spanNumber: number;
     childSpans: Readonly<SpanChildrenLookupType>;
     generateBounds: (bounds: SpanBoundsType) => SpanGeneratedBoundsType;
-    span: Readonly<SpanType>;
+    span: Readonly<RawSpanType>;
   }): {
     spanTree: JSX.Element;
     nextSpanNumber: number;
   } => {
-    const spanBarColour: string = pickSpanBarColour(span.op);
+    const spanBarColour: string = pickSpanBarColour(getSpanOperation(span));
 
     const bounds = generateBounds({
       startTimestamp: span.start_timestamp,
@@ -408,7 +411,7 @@ class ActualMinimap extends React.PureComponent<{trace: ParsedTraceType}> {
 
     const {left: spanLeft, width: spanWidth} = this.getBounds(bounds);
 
-    const spanChildren: Array<SpanType> = get(childSpans, span.span_id, []);
+    const spanChildren: Array<RawSpanType> = childSpans?.[getSpanID(span)] ?? [];
 
     type AccType = {
       nextSpanNumber: number;
@@ -416,8 +419,8 @@ class ActualMinimap extends React.PureComponent<{trace: ParsedTraceType}> {
     };
 
     const reduced: AccType = spanChildren.reduce(
-      (acc: AccType, spanChild) => {
-        const key = `${spanChild.span_id}`;
+      (acc: AccType, spanChild, index: number) => {
+        const key = `${getSpanID(spanChild, String(index))}`;
 
         const results = this.renderSpan({
           spanNumber: acc.nextSpanNumber,
@@ -472,32 +475,27 @@ const TimeAxis = styled('div')`
   width: 100%;
   position: absolute;
   left: 0;
-  top: ${MINIMAP_HEIGHT}px;
-
-  border-top: 1px solid #d1cad8;
-
+  bottom: 0;
+  border-top: 1px solid ${p => p.theme.borderDark};
   height: ${TIME_AXIS_HEIGHT}px;
-  background-color: #faf9fb;
-
-  color: #9585a3;
+  background-color: ${p => p.theme.white};
+  color: ${p => p.theme.gray500};
   font-size: 10px;
   font-weight: 500;
 `;
 
 const TickLabelContainer = styled('div')`
   height: ${TIME_AXIS_HEIGHT}px;
-
   position: absolute;
   top: 0;
-
+  display: flex;
+  align-items: center;
   user-select: none;
 `;
 
 const TickText = styled('span')<{align: TickAlignment}>`
-  line-height: 1;
-
   position: absolute;
-  bottom: 8px;
+  line-height: 1;
   white-space: nowrap;
 
   ${({align}) => {
@@ -522,14 +520,11 @@ const TickText = styled('span')<{align: TickAlignment}>`
 
 const TickMarker = styled('div')`
   width: 1px;
-  height: 5px;
-
-  background-color: #d1cad8;
-
+  height: 4px;
+  background-color: ${p => p.theme.borderDark};
   position: absolute;
   top: 0;
   left: 0;
-
   transform: translateX(-50%);
 `;
 
@@ -551,20 +546,12 @@ const TickLabel = (props: {
 
 const DurationGuideBox = styled('div')<{alignLeft: boolean}>`
   position: absolute;
-
   background-color: ${p => p.theme.white};
   padding: 4px;
-
+  height: 100%;
   border-radius: 3px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-
-  height: 16px;
-
   line-height: 1;
-  vertical-align: middle;
-
-  transform: translateY(50%);
-
   white-space: nowrap;
 
   ${({alignLeft}) => {
@@ -572,7 +559,7 @@ const DurationGuideBox = styled('div')<{alignLeft: boolean}>`
       return null;
     }
 
-    return 'transform: translateY(50%) translateX(-100%) translateX(-8px);';
+    return 'transform: translateX(-100%) translateX(-8px);';
   }};
 `;
 
@@ -582,11 +569,8 @@ const HeaderContainer = styled('div')`
   left: 0;
   top: 0;
   z-index: ${zIndex.minimapContainer};
-
-  background-color: #fff;
-
-  border-bottom: 1px solid #d1cad8;
-
+  background-color: ${p => p.theme.white};
+  border-bottom: 1px solid ${p => p.theme.borderDark};
   height: ${MINIMAP_HEIGHT + TIME_AXIS_HEIGHT + 1}px;
 `;
 
@@ -610,42 +594,21 @@ const MinimapContainer = styled('div')`
 const ViewHandleContainer = styled('div')`
   position: absolute;
   top: 0;
-
   height: ${MINIMAP_HEIGHT}px;
 `;
 
 const ViewHandle = styled('div')<{isDragging: boolean}>`
   position: absolute;
-  top: 0;
-
-  background-color: #6c5fc7;
-
+  background-color: ${p => p.theme.gray800};
   cursor: col-resize;
-
+  width: 8px;
   height: ${VIEW_HANDLE_HEIGHT}px;
-
-  ${({isDragging}) => {
-    if (isDragging) {
-      return `
-      width: 6px;
-      transform: translate(-3px, ${MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}px);
-      `;
-    }
-
-    return `
-    width: 4px;
-    transform: translate(-2px, ${MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}px);
-    `;
-  }};
-
-  &:hover {
-    width: 6px;
-    transform: translate(-3px, ${MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}px);
-  }
+  bottom: 0;
+  left: -4px;
 `;
 
 const Fog = styled('div')`
-  background-color: rgba(241, 245, 251, 0.5);
+  background-color: rgba(108, 95, 199, 0.1);
   position: absolute;
   top: 0;
 `;
@@ -656,9 +619,7 @@ const MinimapSpanBar = styled('div')`
   min-height: 2px;
   max-height: 2px;
   margin: 2px 0;
-
   min-width: 1px;
-
   border-radius: 1px;
 `;
 
@@ -670,8 +631,7 @@ const CursorGuide = styled('div')`
   position: absolute;
   top: 0;
   width: 1px;
-  background-color: #e03e2f;
-
+  background-color: ${p => p.theme.red};
   transform: translateX(-50%);
 `;
 
@@ -683,47 +643,43 @@ const Handle = ({
   left: number;
   onMouseDown: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
   isDragging: boolean;
-}) => {
-  return (
-    <ViewHandleContainer
-      style={{
-        left: toPercent(left),
-      }}
+}) => (
+  <ViewHandleContainer
+    style={{
+      left: toPercent(left),
+    }}
+  >
+    <svg
+      width={1}
+      height={MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}
+      fill="none"
+      style={{width: '1px', overflow: 'visible'}}
     >
-      <svg
-        width={1}
-        height={MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}
-        fill="none"
-        style={{width: '1px', overflow: 'visible'}}
-      >
-        <line
-          x1="0"
-          x2="0"
-          y1="0"
-          y2={MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}
-          strokeWidth="1"
-          strokeDasharray="4 3"
-          style={{stroke: '#6C5FC7'}}
-        />
-      </svg>
-      <ViewHandle
-        data-ignore="true"
-        onMouseDown={onMouseDown}
-        isDragging={isDragging}
-        style={{
-          height: `${VIEW_HANDLE_HEIGHT}px`,
-        }}
+      <line
+        x1="0"
+        x2="0"
+        y1="0"
+        y2={MINIMAP_HEIGHT - VIEW_HANDLE_HEIGHT}
+        strokeWidth="1"
+        strokeDasharray="5 3"
+        style={{stroke: '#302839'}}
       />
-    </ViewHandleContainer>
-  );
-};
+    </svg>
+    <ViewHandle
+      data-ignore="true"
+      onMouseDown={onMouseDown}
+      isDragging={isDragging}
+      style={{
+        height: `${VIEW_HANDLE_HEIGHT}px`,
+      }}
+    />
+  </ViewHandleContainer>
+);
 
 const WindowSelection = styled('div')`
   position: absolute;
   top: 0;
-
   height: ${MINIMAP_HEIGHT}px;
-
   background-color: rgba(69, 38, 80, 0.1);
 `;
 

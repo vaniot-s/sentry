@@ -1,9 +1,8 @@
-import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React from 'react';
-import createReactClass from 'create-react-class';
 import moment from 'moment';
 
+import SentryTypes from 'app/sentryTypes';
 import {intcomma} from 'app/utils';
 import {t, tn} from 'app/locale';
 import withApi from 'app/utils/withApi';
@@ -12,22 +11,21 @@ import LoadingError from 'app/components/loadingError';
 import LoadingIndicator from 'app/components/loadingIndicator';
 import {Panel, PanelBody, PanelHeader} from 'app/components/panels';
 import StackedBarChart from 'app/components/stackedBarChart';
-import formatAbbreviatedNumber from 'app/utils/formatAbbreviatedNumber';
+import {formatAbbreviatedNumber} from 'app/utils/formatters';
 
-const ProjectFiltersChart = createReactClass({
-  displayName: 'ProjectFiltersChart',
-  propTypes: {
+class ProjectFiltersChart extends React.Component {
+  static propTypes = {
     api: PropTypes.object,
-  },
-  contextTypes: {
-    project: PropTypes.object,
-  },
+    project: SentryTypes.Project,
+  };
 
-  getInitialState() {
+  constructor(props) {
+    super(props);
+
     const until = Math.floor(new Date().getTime() / 1000);
     const since = until - 3600 * 24 * 30;
 
-    return {
+    this.state = {
       loading: true,
       error: false,
       statsError: false,
@@ -37,11 +35,17 @@ const ProjectFiltersChart = createReactClass({
       formattedData: [],
       blankStats: true,
     };
-  },
+  }
 
   componentDidMount() {
     this.fetchData();
-  },
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.project !== this.props.project) {
+      this.fetchData();
+    }
+  }
 
   getStatOpts() {
     return {
@@ -56,85 +60,67 @@ const ProjectFiltersChart = createReactClass({
       cors: 'CORS',
       'discarded-hash': 'Discarded Issue',
     };
-  },
+  }
 
   formatData(rawData) {
-    return Object.keys(this.getStatOpts()).map(stat => {
-      return {
-        data: rawData[stat].map(([x, y]) => {
-          if (y > 0) {
-            this.setState({blankStats: false});
-          }
+    return Object.keys(this.getStatOpts()).map(stat => ({
+      data: rawData[stat].map(([x, y]) => {
+        if (y > 0) {
+          this.setState({blankStats: false});
+        }
 
-          return {x, y};
-        }),
-        label: this.getStatOpts()[stat],
-        statName: stat,
-      };
-    });
-  },
+        return {x, y};
+      }),
+      label: this.getStatOpts()[stat],
+      statName: stat,
+    }));
+  }
 
   getFilterStats() {
     const statOptions = Object.keys(this.getStatOpts());
-    const {orgId, projectId} = this.props.params;
-    const statEndpoint = `/projects/${orgId}/${projectId}/stats/`;
+    const {project} = this.props;
+    const {orgId} = this.props.params;
+    const statEndpoint = `/projects/${orgId}/${project.slug}/stats/`;
     const query = {
       since: this.state.querySince,
       until: this.state.queryUntil,
       resolution: '1d',
     };
-    $.when
-      .apply(
-        $,
-        // parallelize requests for each statistic
-        statOptions.map(stat => {
-          const deferred = $.Deferred();
-          this.props.api.request(statEndpoint, {
-            query: Object.assign({stat}, query),
-            success: deferred.resolve.bind(deferred),
-            error: deferred.reject.bind(deferred),
-          });
-          return deferred;
-        })
-      )
-      .done(
-        function(/* statOption1, statOption2, ... statOptionN */) {
-          const rawStatsData = {};
-          // when there is a single request made, this is inexplicably called without being wrapped in an array
-          if (statOptions.length === 1) {
-            rawStatsData[statOptions[0]] = arguments[0];
-          } else {
-            for (let i = 0; i < statOptions.length; i++) {
-              rawStatsData[statOptions[i]] = arguments[i][0];
-            }
-          }
+    const requests = statOptions.map(stat =>
+      this.props.api.requestPromise(statEndpoint, {
+        query: Object.assign({stat}, query),
+      })
+    );
+    Promise.all(requests)
+      .then(results => {
+        const rawStatsData = {};
+        for (let i = 0; i < statOptions.length; i++) {
+          rawStatsData[statOptions[i]] = results[i];
+        }
 
-          this.setState({
-            rawStatsData,
-            formattedData: this.formatData(rawStatsData),
-            error: false,
-            loading: false,
-          });
-        }.bind(this)
-      )
-      .fail(
-        function() {
-          this.setState({error: true});
-        }.bind(this)
-      );
-  },
+        this.setState({
+          rawStatsData,
+          formattedData: this.formatData(rawStatsData),
+          error: false,
+          loading: false,
+        });
+      })
+      .catch(() => {
+        this.setState({error: true, loading: false});
+      });
+  }
 
-  fetchData() {
+  fetchData = () => {
     this.getFilterStats();
-  },
+  };
 
   timeLabelAsDay(point) {
     const timeMoment = moment(point.x * 1000);
 
     return timeMoment.format('LL');
-  },
+  }
 
-  renderTooltip(point) {
+  renderTooltip = point => {
     const timeLabel = this.timeLabelAsDay(point);
     let totalY = 0;
     for (let i = 0; i < point.y.length; i++) {
@@ -150,8 +136,8 @@ const ProjectFiltersChart = createReactClass({
         <div>
           {intcomma(totalY)} {tn('total event', 'total events', totalY)}
         </div>
-        {formattedData.map((dataPoint, i) => {
-          return (
+        {formattedData.map(
+          (dataPoint, i) =>
             point.y[i] > 0 && (
               <dl className="legend" key={dataPoint.statName}>
                 <dt>
@@ -166,11 +152,10 @@ const ProjectFiltersChart = createReactClass({
                 </dd>
               </dl>
             )
-          );
-        })}
+        )}
       </div>
     );
-  },
+  };
 
   render() {
     const {loading, error} = this.state;
@@ -207,8 +192,8 @@ const ProjectFiltersChart = createReactClass({
         </PanelBody>
       </Panel>
     );
-  },
-});
+  }
+}
 
 export {ProjectFiltersChart};
 

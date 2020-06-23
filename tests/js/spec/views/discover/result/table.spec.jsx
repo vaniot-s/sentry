@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount, render} from 'sentry-test/enzyme';
 
 import {ResultTable} from 'app/views/discover/result/table';
@@ -14,7 +15,10 @@ describe('ResultTable', function() {
         query={{aggregations: [], fields: ['id', 'project.id']}}
         data={{
           data: [{id: '111', 'project.id': 1}],
-          meta: [{name: 'id', type: 'string'}, {name: 'project.id', type: 'number'}],
+          meta: [
+            {name: 'id', type: 'string'},
+            {name: 'project.id', type: 'number'},
+          ],
         }}
       />
     );

@@ -2,18 +2,25 @@ from __future__ import absolute_import
 
 import pytest
 import zipfile
-from mock import patch
+from sentry.utils.compat.mock import patch
 
 from six import BytesIO
 
 from django.core.urlresolvers import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 
 from sentry.testutils import TransactionTestCase
 from sentry.models import EventAttachment
 from sentry import eventstore
+from sentry.lang.native.utils import STORE_CRASH_REPORTS_ALL
 
 from tests.symbolicator import get_fixture_path
+
+
+# IMPORTANT:
+# For these tests to run, write `symbolicator.enabled: true` into your
+# `~/.sentry/config.yml` and run `sentry devservices up`
 
 
 def get_unreal_crash_file():
@@ -24,6 +31,7 @@ def get_unreal_crash_apple_file():
     return get_fixture_path("unreal_crash_apple")
 
 
+@override_settings(ALLOWED_HOSTS=["localhost", "testserver", "host.docker.internal"])
 class SymbolicatorUnrealIntegrationTest(TransactionTestCase):
     # For these tests to run, write `symbolicator.enabled: true` into your
     # `~/.sentry/config.yml` and run `sentry devservices up`
@@ -69,7 +77,7 @@ class SymbolicatorUnrealIntegrationTest(TransactionTestCase):
         assert len(response.data) == 1
 
     def unreal_crash_test_impl(self, filename):
-        self.project.update_option("sentry:store_crash_reports", True)
+        self.project.update_option("sentry:store_crash_reports", STORE_CRASH_REPORTS_ALL)
         self.upload_symbols()
 
         # attachments feature has to be on for the files extract stick around

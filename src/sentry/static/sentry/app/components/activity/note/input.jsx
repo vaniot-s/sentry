@@ -1,13 +1,13 @@
 import {MentionsInput, Mention} from 'react-mentions';
 import PropTypes from 'prop-types';
 import React from 'react';
-import marked from 'marked';
-import styled from 'react-emotion';
+import styled from '@emotion/styled';
 
 import {t} from 'app/locale';
 import Button from 'app/components/button';
 import ConfigStore from 'app/stores/configStore';
 import NavTabs from 'app/components/navTabs';
+import marked from 'app/utils/marked';
 import space from 'app/styles/space';
 import textStyles from 'app/styles/text';
 
@@ -413,7 +413,7 @@ const MarkdownTab = styled(NoteInputNavTab)`
     display: flex;
     align-items: center;
     margin-right: 0;
-    color: ${p => p.theme.gray3};
+    color: ${p => p.theme.gray600};
 
     float: right;
   }

@@ -1,12 +1,18 @@
 import React from 'react';
+
 import {shallow, mount} from 'sentry-test/enzyme';
+
 import MultipleCheckbox from 'app/views/settings/components/forms/controls/multipleCheckbox';
 
 describe('MultipleCheckbox', function() {
   it('renders', function() {
     const wrapper = shallow(
       <MultipleCheckbox
-        choices={[[0, 'Choice A'], [1, 'Choice B'], [2, 'Choice C']]}
+        choices={[
+          [0, 'Choice A'],
+          [1, 'Choice B'],
+          [2, 'Choice C'],
+        ]}
         value={[1]}
       />
     );
@@ -18,7 +24,11 @@ describe('MultipleCheckbox', function() {
     const onChange = jest.fn();
     const wrapper = mount(
       <MultipleCheckbox
-        choices={[[0, 'Choice A'], [1, 'Choice B'], [2, 'Choice C']]}
+        choices={[
+          [0, 'Choice A'],
+          [1, 'Choice B'],
+          [2, 'Choice C'],
+        ]}
         value={[1]}
         onChange={onChange}
       />
@@ -35,7 +45,11 @@ describe('MultipleCheckbox', function() {
     const onChange = jest.fn();
     const wrapper = mount(
       <MultipleCheckbox
-        choices={[[0, 'Choice A'], [1, 'Choice B'], [2, 'Choice C']]}
+        choices={[
+          [0, 'Choice A'],
+          [1, 'Choice B'],
+          [2, 'Choice C'],
+        ]}
         value={[1]}
         onChange={onChange}
       />

@@ -1,15 +1,19 @@
-import {Box} from 'grid-emotion';
+import {Box} from 'reflexbox';
 import PropTypes from 'prop-types';
 import React from 'react';
 import * as Sentry from '@sentry/browser';
 import scrollToElement from 'scroll-to-element';
+import {Location} from 'history';
 
 import {sanitizeQuerySelector} from 'app/utils/sanitizeQuerySelector';
-import {Location} from 'history';
 
 import {FieldObject, JsonFormObject} from './type';
 import FieldFromConfig from './fieldFromConfig';
 import FormPanel from './formPanel';
+
+type DefaultProps = {
+  additionalFieldProps: {[key: string]: any};
+};
 
 type Props = {
   /**
@@ -23,7 +27,11 @@ type Props = {
    */
   fields?: FieldObject[];
   location?: Location;
-} & Omit<React.ComponentProps<typeof FormPanel>, 'highlighted' | 'fields'>;
+} & DefaultProps &
+  Omit<
+    React.ComponentProps<typeof FormPanel>,
+    'highlighted' | 'fields' | 'additionalFieldProps'
+  >;
 
 type Context = {
   location?: Location;
@@ -62,7 +70,6 @@ class JsonForm extends React.Component<Props, State> {
 
     access: PropTypes.object,
     features: PropTypes.object,
-    experiments: PropTypes.object,
     renderFooter: PropTypes.func,
     /**
      * Renders inside of PanelBody
@@ -74,12 +81,12 @@ class JsonForm extends React.Component<Props, State> {
     disabled: PropTypes.bool,
   };
 
-  static defaultProps = {
-    additionalFieldProps: {},
-  };
-
   static contextTypes = {
     location: PropTypes.object,
+  };
+
+  static defaultProps: DefaultProps = {
+    additionalFieldProps: {},
   };
 
   state: State = {
@@ -90,7 +97,7 @@ class JsonForm extends React.Component<Props, State> {
     this.scrollToHash();
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     if (
       getLocation(this.props, this.context).hash !==
       getLocation(nextProps, this.context).hash
@@ -130,7 +137,6 @@ class JsonForm extends React.Component<Props, State> {
       access,
       disabled,
       features,
-      experiments,
       additionalFieldProps,
       renderFooter,
       renderHeader,
@@ -142,7 +148,6 @@ class JsonForm extends React.Component<Props, State> {
       access,
       disabled,
       features,
-      experiments,
       additionalFieldProps,
       renderFooter,
       renderHeader,
@@ -152,9 +157,9 @@ class JsonForm extends React.Component<Props, State> {
     return (
       <Box {...otherProps}>
         {typeof forms !== 'undefined' &&
-          forms.map(formGroup => (
+          forms.map((formGroup, i) => (
             <FormPanel
-              key={formGroup.title}
+              key={i}
               title={formGroup.title}
               fields={formGroup.fields}
               {...formPanelProps}

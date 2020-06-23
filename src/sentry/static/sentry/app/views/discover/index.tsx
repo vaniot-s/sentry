@@ -13,14 +13,12 @@ import {GlobalSelection, Organization} from 'app/types';
 
 import Discover from './discover';
 import createQueryBuilder from './queryBuilder';
-
 import {
   getQueryFromQueryString,
   fetchSavedQuery,
   parseSavedQuery,
   getView,
 } from './utils';
-
 import {DiscoverWrapper} from './styles';
 import {SavedQuery} from './types';
 
@@ -40,8 +38,6 @@ type State = {
 };
 
 class DiscoverContainer extends React.Component<Props, State> {
-  private queryBuilder: any;
-
   constructor(props: Props) {
     super(props);
 
@@ -53,7 +49,6 @@ class DiscoverContainer extends React.Component<Props, State> {
 
     const {search} = props.location;
     const {organization} = props;
-
     const query = getQueryFromQueryString(search);
 
     if (query.hasOwnProperty('projects')) {
@@ -65,17 +60,7 @@ class DiscoverContainer extends React.Component<Props, State> {
     }
 
     if (['range', 'start', 'end'].some(key => query.hasOwnProperty(key))) {
-      // Update global store with datetime from querystring
-      const timezone = getUserTimezone();
-
-      // start/end will always be in UTC, however we need to coerce into
-      // system time for date picker to be able to synced.
-      updateDateTime({
-        start: (query.start && getUtcToLocalDateObject(query.start)) || null,
-        end: (query.end && getUtcToLocalDateObject(query.end)) || null,
-        period: query.range || null,
-        utc: query.utc || timezone === 'UTC',
-      });
+      this.setGlobalSelectionDate(query);
     } else {
       // Update query with global datetime values
       query.start = props.selection.datetime.start;
@@ -85,6 +70,18 @@ class DiscoverContainer extends React.Component<Props, State> {
     }
 
     this.queryBuilder = createQueryBuilder(query, organization);
+  }
+
+  static getDerivedStateFromProps(nextProps: Props, currState): State {
+    const nextState = {...currState};
+    nextState.view = getView(nextProps.params, nextProps.location.query.view);
+
+    if (!nextProps.params.savedQueryId) {
+      nextState.savedQuery = null;
+      return nextState;
+    }
+
+    return nextState;
   }
 
   componentDidMount() {
@@ -101,24 +98,30 @@ class DiscoverContainer extends React.Component<Props, State> {
     }
   }
 
-  componentWillReceiveProps(nextProps: Props) {
-    if (!nextProps.params.savedQueryId) {
-      this.setState({savedQuery: null});
-      // Reset querybuilder if we're switching from a saved query
-      if (this.props.params.savedQueryId) {
-        const {datetime, projects} = nextProps.selection;
-        const {start, end, period: range} = datetime;
-        this.queryBuilder.reset({projects, range, start, end});
-      }
+  componentDidUpdate(prevProps: Props, prevState: State) {
+    const currProps = this.props;
+    const currState = this.state;
+
+    // Switching from Saved to New
+    if (!currProps.params.savedQueryId && prevProps.params.savedQueryId) {
+      const {datetime, projects} = prevProps.selection;
+      const {start, end, period: range} = datetime;
+      this.queryBuilder.reset({projects, range, start, end});
+
+      // Reset to default 14d
+      this.setGlobalSelectionDate(null);
       return;
     }
 
-    if (nextProps.params.savedQueryId !== this.props.params.savedQueryId) {
-      this.fetchSavedQuery(nextProps.params.savedQueryId);
+    // Switching from a Saved to another Saved
+    if (currProps.params.savedQueryId !== prevProps.params.savedQueryId) {
+      this.fetchSavedQuery(currProps.params.savedQueryId);
+      return;
     }
 
-    if (nextProps.location.query.view !== this.props.location.query.view) {
-      this.setState({view: getView(nextProps.params, nextProps.location.query.view)});
+    // If there are updates within the same SavedQuery
+    if (currState.savedQuery !== prevState.savedQuery) {
+      this.setGlobalSelectionDate(currState.savedQuery);
     }
   }
 
@@ -127,9 +130,31 @@ class DiscoverContainer extends React.Component<Props, State> {
     document.body.classList.remove('body-discover');
   }
 
-  loadTags = () => {
-    return this.queryBuilder.load();
-  };
+  private queryBuilder: any;
+
+  loadTags = () => this.queryBuilder.load();
+
+  setGlobalSelectionDate(query: ReturnType<typeof getQueryFromQueryString> | null) {
+    if (query) {
+      const timezone = getUserTimezone();
+
+      // start/end will always be in UTC, however we need to coerce into
+      // system time for date picker to be able to synced.
+      updateDateTime({
+        start: (query.start && getUtcToLocalDateObject(query.start)) || null,
+        end: (query.end && getUtcToLocalDateObject(query.end)) || null,
+        period: query.range || null,
+        utc: query.utc || timezone === 'UTC',
+      });
+    } else {
+      updateDateTime({
+        start: null,
+        end: null,
+        period: null,
+        utc: true,
+      });
+    }
+  }
 
   setLoadedState = () => {
     this.setState({isLoading: false});

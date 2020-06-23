@@ -2,10 +2,10 @@
 
 exports[`Docs Search Modal can open help search modal and complete a search 1`] = `
 <DropdownBox
-  className="css-1nf7i25-dropdownStyle"
+  className="css-1beok6g"
 >
   <div
-    className="css-idf3ke-DropdownBox-dropdownStyle ed7560h0"
+    className="css-1vimpmq-DropdownBox ed7560h0"
   >
     <SearchResultWrapper
       highlighted={true}
@@ -13,12 +13,12 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
       onClick={[Function]}
     >
       <Component
-        className="css-1a9oeco-SearchResultWrapper-SearchResultWrapper e12rx3zt0"
+        className="css-w0he8y-SearchResultWrapper-SearchResultWrapper e12rx3zt0"
         highlighted={true}
         onClick={[Function]}
       >
         <div
-          className="css-1a9oeco-SearchResultWrapper-SearchResultWrapper e12rx3zt0"
+          className="css-w0he8y-SearchResultWrapper-SearchResultWrapper e12rx3zt0"
           onClick={[Function]}
         >
           <withRouter(SearchResult)
@@ -26,7 +26,7 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
             item={
               Object {
                 "description": "Doc result 1 description",
-                "resultIcon": <DocsBadge />,
+                "resultIcon": <ForwardRef(render) />,
                 "resultType": "doc",
                 "sourceType": "help",
                 "title": "Doc result 1",
@@ -53,7 +53,7 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
               item={
                 Object {
                   "description": "Doc result 1 description",
-                  "resultIcon": <DocsBadge />,
+                  "resultIcon": <ForwardRef(render) />,
                   "resultType": "doc",
                   "sourceType": "help",
                   "title": "Doc result 1",
@@ -104,82 +104,63 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
                 }
               }
             >
-              <Flex
-                align="center"
-                justify="space-between"
-              >
-                <Base
-                  align="center"
-                  className="css-v7pzd9"
-                  justify="space-between"
+              <Wrapper>
+                <div
+                  className="css-1mbus11-Wrapper e1deq8q73"
                 >
-                  <div
-                    className="css-v7pzd9"
-                    is={null}
-                  >
-                    <Content>
-                      <Component
-                        className="css-lo919j-Content e1deq8q73"
-                      >
-                        <Flex
-                          className="css-lo919j-Content e1deq8q73"
-                          direction="column"
+                  <Content>
+                    <div
+                      className="css-e7sznb-Content e1deq8q74"
+                    >
+                      <div>
+                        <SearchTitle>
+                          <span
+                            className="css-1y00kvq-SearchTitle e1deq8q70"
+                          >
+                            <span
+                              key="0"
+                            >
+                              Doc result 1
+                            </span>
+                          </span>
+                        </SearchTitle>
+                      </div>
+                      <SearchDetail>
+                        <div
+                          className="css-d185x3-SearchDetail e1deq8q71"
                         >
-                          <Base
-                            className="e1deq8q73 css-12nl3av-Content"
-                            direction="column"
+                          <span
+                            key="0"
+                          >
+                            Doc result 1 description
+                          </span>
+                        </div>
+                      </SearchDetail>
+                    </div>
+                  </Content>
+                  <IconWrapper>
+                    <div
+                      className="css-ofhac3-IconWrapper e1deq8q75"
+                    >
+                      <DocsBadge>
+                        <Component
+                          className="css-zqi2o4-DocsBadge ekxyuw11"
+                        >
+                          <ResultIcon
+                            className="css-zqi2o4-DocsBadge ekxyuw11"
                           >
                             <div
-                              className="e1deq8q73 css-12nl3av-Content"
-                              is={null}
+                              className="ekxyuw11 css-clpxgs-ResultIcon-DocsBadge ekxyuw10"
                             >
-                              <div>
-                                <SearchTitle>
-                                  <span
-                                    className="css-jyrvax-SearchTitle e1deq8q70"
-                                  >
-                                    <span
-                                      key="0"
-                                    >
-                                      Doc result 1
-                                    </span>
-                                  </span>
-                                </SearchTitle>
-                              </div>
-                              <SearchDetail>
-                                <div
-                                  className="css-17e2h30-SearchDetail e1deq8q71"
-                                >
-                                  <span
-                                    key="0"
-                                  >
-                                    Doc result 1 description
-                                  </span>
-                                </div>
-                              </SearchDetail>
+                              docs
                             </div>
-                          </Base>
-                        </Flex>
-                      </Component>
-                    </Content>
-                    <DocsBadge>
-                      <Component
-                        className="css-ekzoaq-DocsBadge ekxyuw11"
-                      >
-                        <ResultIcon
-                          className="css-ekzoaq-DocsBadge ekxyuw11"
-                        >
-                          <div
-                            className="ekxyuw11 css-f5te32-ResultIcon-DocsBadge ekxyuw10"
-                          >
-                            docs
-                          </div>
-                        </ResultIcon>
-                      </Component>
-                    </DocsBadge>
-                  </div>
-                </Base>
-              </Flex>
+                          </ResultIcon>
+                        </Component>
+                      </DocsBadge>
+                    </div>
+                  </IconWrapper>
+                </div>
+              </Wrapper>
             </SearchResult>
           </withRouter(SearchResult)>
         </div>
@@ -191,12 +172,12 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
       onClick={[Function]}
     >
       <Component
-        className="css-hmbjwn-SearchResultWrapper e12rx3zt0"
+        className="css-1ivb4sb-SearchResultWrapper e12rx3zt0"
         highlighted={false}
         onClick={[Function]}
       >
         <div
-          className="css-hmbjwn-SearchResultWrapper e12rx3zt0"
+          className="css-1ivb4sb-SearchResultWrapper e12rx3zt0"
           onClick={[Function]}
         >
           <withRouter(SearchResult)
@@ -204,7 +185,7 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
             item={
               Object {
                 "description": "FAQ result 1 description",
-                "resultIcon": <FaqsBadge />,
+                "resultIcon": <ForwardRef(render) />,
                 "resultType": "faq",
                 "sourceType": "help",
                 "title": "FAQ result 1",
@@ -231,7 +212,7 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
               item={
                 Object {
                   "description": "FAQ result 1 description",
-                  "resultIcon": <FaqsBadge />,
+                  "resultIcon": <ForwardRef(render) />,
                   "resultType": "faq",
                   "sourceType": "help",
                   "title": "FAQ result 1",
@@ -282,82 +263,63 @@ exports[`Docs Search Modal can open help search modal and complete a search 1`] 
                 }
               }
             >
-              <Flex
-                align="center"
-                justify="space-between"
-              >
-                <Base
-                  align="center"
-                  className="css-v7pzd9"
-                  justify="space-between"
+              <Wrapper>
+                <div
+                  className="css-1mbus11-Wrapper e1deq8q73"
                 >
-                  <div
-                    className="css-v7pzd9"
-                    is={null}
-                  >
-                    <Content>
-                      <Component
-                        className="css-lo919j-Content e1deq8q73"
-                      >
-                        <Flex
-                          className="css-lo919j-Content e1deq8q73"
-                          direction="column"
+                  <Content>
+                    <div
+                      className="css-e7sznb-Content e1deq8q74"
+                    >
+                      <div>
+                        <SearchTitle>
+                          <span
+                            className="css-1y00kvq-SearchTitle e1deq8q70"
+                          >
+                            <span
+                              key="0"
+                            >
+                              FAQ result 1
+                            </span>
+                          </span>
+                        </SearchTitle>
+                      </div>
+                      <SearchDetail>
+                        <div
+                          className="css-d185x3-SearchDetail e1deq8q71"
                         >
-                          <Base
-                            className="e1deq8q73 css-12nl3av-Content"
-                            direction="column"
+                          <span
+                            key="0"
+                          >
+                            FAQ result 1 description
+                          </span>
+                        </div>
+                      </SearchDetail>
+                    </div>
+                  </Content>
+                  <IconWrapper>
+                    <div
+                      className="css-ofhac3-IconWrapper e1deq8q75"
+                    >
+                      <FaqsBadge>
+                        <Component
+                          className="css-1tt1mhp-FaqsBadge ekxyuw12"
+                        >
+                          <ResultIcon
+                            className="css-1tt1mhp-FaqsBadge ekxyuw12"
                           >
                             <div
-                              className="e1deq8q73 css-12nl3av-Content"
-                              is={null}
+                              className="ekxyuw12 css-925f05-ResultIcon-FaqsBadge ekxyuw10"
                             >
-                              <div>
-                                <SearchTitle>
-                                  <span
-                                    className="css-jyrvax-SearchTitle e1deq8q70"
-                                  >
-                                    <span
-                                      key="0"
-                                    >
-                                      FAQ result 1
-                                    </span>
-                                  </span>
-                                </SearchTitle>
-                              </div>
-                              <SearchDetail>
-                                <div
-                                  className="css-17e2h30-SearchDetail e1deq8q71"
-                                >
-                                  <span
-                                    key="0"
-                                  >
-                                    FAQ result 1 description
-                                  </span>
-                                </div>
-                              </SearchDetail>
+                              faqs
                             </div>
-                          </Base>
-                        </Flex>
-                      </Component>
-                    </Content>
-                    <FaqsBadge>
-                      <Component
-                        className="css-1ghhjdv-FaqsBadge ekxyuw12"
-                      >
-                        <ResultIcon
-                          className="css-1ghhjdv-FaqsBadge ekxyuw12"
-                        >
-                          <div
-                            className="ekxyuw12 css-1p74sld-ResultIcon-FaqsBadge ekxyuw10"
-                          >
-                            faqs
-                          </div>
-                        </ResultIcon>
-                      </Component>
-                    </FaqsBadge>
-                  </div>
-                </Base>
-              </Flex>
+                          </ResultIcon>
+                        </Component>
+                      </FaqsBadge>
+                    </div>
+                  </IconWrapper>
+                </div>
+              </Wrapper>
             </SearchResult>
           </withRouter(SearchResult)>
         </div>

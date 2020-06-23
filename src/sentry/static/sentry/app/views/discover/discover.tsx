@@ -1,13 +1,20 @@
 import {browserHistory} from 'react-router';
 import React from 'react';
 import moment from 'moment';
+import styled from '@emotion/styled';
 
 import {addErrorMessage, addSuccessMessage} from 'app/actionCreators/indicator';
 import {getUtcDateString} from 'app/utils/dates';
 import {t, tct} from 'app/locale';
 import {updateProjects, updateDateTime} from 'app/actionCreators/globalSelection';
+import ConfigStore from 'app/stores/configStore';
+import {trackAnalyticsEvent} from 'app/utils/analytics';
+import Feature from 'app/components/acl/feature';
 import PageHeading from 'app/components/pageHeading';
 import {Organization} from 'app/types';
+import space from 'app/styles/space';
+import localStorage from 'app/utils/localStorage';
+import {getDiscoverLandingUrl} from 'app/views/eventsV2/utils';
 
 import {
   DiscoverContainer,
@@ -37,10 +44,13 @@ import Result from './result';
 import ResultLoading from './result/loading';
 import SavedQueryList from './sidebar/savedQueryList';
 import createResultManager from './resultManager';
-
 import {SavedQuery} from './types';
 
-type Props = {
+type DefaultProps = {
+  utc: boolean;
+};
+
+type Props = DefaultProps & {
   organization: Organization;
   location: any;
   params: any;
@@ -52,7 +62,6 @@ type Props = {
   view: string;
   toggleEditMode: () => void;
   isLoading: boolean;
-  utc: boolean;
 };
 
 type State = {
@@ -65,7 +74,7 @@ type State = {
 };
 
 export default class Discover extends React.Component<Props, State> {
-  static defaultProps = {
+  static defaultProps: DefaultProps = {
     utc: true,
   };
 
@@ -82,7 +91,7 @@ export default class Discover extends React.Component<Props, State> {
     };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     const {
       queryBuilder,
       location: {search},
@@ -352,6 +361,17 @@ export default class Discover extends React.Component<Props, State> {
       });
   };
 
+  onGoLegacyDiscover = () => {
+    localStorage.setItem('discover:version', '2');
+    const user = ConfigStore.get('user');
+    trackAnalyticsEvent({
+      eventKey: 'discover_v2.opt_in',
+      eventName: 'Discoverv2: Go to discover2',
+      organization_id: parseInt(this.props.organization.id, 10),
+      user_id: parseInt(user.id, 10),
+    });
+  };
+
   renderSidebarNav() {
     const {view} = this.state;
     const views = [
@@ -385,22 +405,7 @@ export default class Discover extends React.Component<Props, State> {
       utc,
     } = this.props;
 
-    const currentQuery = queryBuilder.getInternal();
-
     const shouldDisplayResult = resultManager.shouldDisplayResult();
-
-    const start =
-      (currentQuery.start &&
-        moment(currentQuery.start)
-          .local()
-          .toDate()) ||
-      currentQuery.start;
-    const end =
-      (currentQuery.end &&
-        moment(currentQuery.end)
-          .local()
-          .toDate()) ||
-      currentQuery.end;
 
     return (
       <DiscoverContainer>
@@ -436,23 +441,28 @@ export default class Discover extends React.Component<Props, State> {
               />
             </QueryPanel>
           )}
+          <Feature
+            features={['organizations:discover-basic']}
+            organization={organization}
+          >
+            <SwitchLink
+              href={getDiscoverLandingUrl(organization)}
+              onClick={this.onGoLegacyDiscover}
+            >
+              {t('Go to New Discover')}
+            </SwitchLink>
+          </Feature>
         </Sidebar>
 
         <DiscoverGlobalSelectionHeader
           organization={organization}
-          projects={currentQuery.projects}
           hasCustomRouting
-          relative={currentQuery.range}
-          start={start}
-          end={end}
-          utc={utc}
           showEnvironmentSelector={false}
           onChangeProjects={this.updateProjects}
           onUpdateProjects={this.runQuery}
           onChangeTime={this.changeTime}
           onUpdateTime={this.updateDateTimeAndRun}
         />
-
         <Body>
           <BodyContent>
             {shouldDisplayResult && (
@@ -482,3 +492,9 @@ export default class Discover extends React.Component<Props, State> {
     );
   }
 }
+
+const SwitchLink = styled('a')`
+  font-size: ${p => p.theme.fontSizeSmall};
+  margin-left: ${space(3)};
+  margin-bottom: ${space(1)};
+`;

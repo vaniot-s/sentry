@@ -3,25 +3,32 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import createReactClass from 'create-react-class';
 
+import {
+  addErrorMessage,
+  addLoadingMessage,
+  clearIndicators,
+} from 'app/actionCreators/indicator';
 import {analytics} from 'app/utils/analytics';
 import {openModal} from 'app/actionCreators/modal';
 import {t} from 'app/locale';
-import withApi from 'app/utils/withApi';
+import {uniqueId} from 'app/utils/guid';
 import Button from 'app/components/button';
 import DropdownLink from 'app/components/dropdownLink';
+import EventView from 'app/utils/discover/eventView';
 import Feature from 'app/components/acl/feature';
 import FeatureDisabled from 'app/components/acl/featureDisabled';
 import GroupActions from 'app/actions/groupActions';
 import GuideAnchor from 'app/components/assistant/guideAnchor';
 import IgnoreActions from 'app/components/actions/ignore';
-import IndicatorStore from 'app/stores/indicatorStore';
+import {IconDelete} from 'app/icons';
+import Link from 'app/components/links/link';
 import LinkWithConfirmation from 'app/components/links/linkWithConfirmation';
 import MenuItem from 'app/components/menuItem';
 import ResolveActions from 'app/components/actions/resolve';
 import SentryTypes from 'app/sentryTypes';
 import ShareIssue from 'app/components/shareIssue';
 import space from 'app/styles/space';
-import {uniqueId} from 'app/utils/guid';
+import withApi from 'app/utils/withApi';
 import withOrganization from 'app/utils/withOrganization';
 
 class DeleteActions extends React.Component {
@@ -85,7 +92,6 @@ class DeleteActions extends React.Component {
   render() {
     return (
       <div className="btn-group">
-        <GuideAnchor target="ignore_delete_discard" />
         <LinkWithConfirmation
           className="group-remove btn btn-default btn-sm"
           title={t('Delete')}
@@ -94,7 +100,7 @@ class DeleteActions extends React.Component {
           )}
           onConfirm={this.props.onDelete}
         >
-          <span className="icon-trash" />
+          <IconDelete size="xs" css={{position: 'relative', top: '1px'}} />
         </LinkWithConfirmation>
         <DropdownLink caret className="group-delete btn btn-default btn-sm">
           <MenuItem onClick={this.openDiscardModal}>
@@ -133,9 +139,27 @@ const GroupDetailsActions = createReactClass({
     return `${protocol}//${host}${path}`;
   },
 
+  getDiscoverUrl() {
+    const {group, project, organization} = this.props;
+
+    const discoverQuery = {
+      id: undefined,
+      name: group.title || group.type,
+      fields: ['title', 'release', 'environment', 'user', 'timestamp'],
+      orderby: '-timestamp',
+      query: `issue.id:${group.id}`,
+      projects: [project.id],
+      version: 2,
+      range: '90d',
+    };
+
+    const discoverView = EventView.fromSavedQuery(discoverQuery);
+    return discoverView.getResultsViewUrlTarget(organization.slug);
+  },
+
   onDelete() {
     const {group, project, organization} = this.props;
-    const loadingIndicator = IndicatorStore.add(t('Delete event..'));
+    addLoadingMessage(t('Delete event..'));
 
     this.props.api.bulkDelete(
       {
@@ -145,7 +169,7 @@ const GroupDetailsActions = createReactClass({
       },
       {
         complete: () => {
-          IndicatorStore.remove(loadingIndicator);
+          clearIndicators();
 
           browserHistory.push(`/${organization.slug}/${project.slug}/`);
         },
@@ -155,7 +179,7 @@ const GroupDetailsActions = createReactClass({
 
   onUpdate(data) {
     const {group, project, organization} = this.props;
-    const loadingIndicator = IndicatorStore.add(t('Saving changes..'));
+    addLoadingMessage(t('Saving changes..'));
 
     this.props.api.bulkUpdate(
       {
@@ -166,7 +190,7 @@ const GroupDetailsActions = createReactClass({
       },
       {
         complete: () => {
-          IndicatorStore.remove(loadingIndicator);
+          clearIndicators();
         },
       }
     );
@@ -188,7 +212,7 @@ const GroupDetailsActions = createReactClass({
       },
       {
         error: () => {
-          IndicatorStore.add(t('Error sharing'), 'error');
+          addErrorMessage(t('Error sharing'));
         },
         complete: () => {
           this.setState({shareBusy: false});
@@ -208,7 +232,7 @@ const GroupDetailsActions = createReactClass({
   onDiscard() {
     const {group, project, organization} = this.props;
     const id = uniqueId();
-    const loadingIndicator = IndicatorStore.add(t('Discarding event..'));
+    addLoadingMessage(t('Discarding event..'));
 
     GroupActions.discard(id, group.id);
 
@@ -223,7 +247,7 @@ const GroupDetailsActions = createReactClass({
         GroupActions.discardError(id, group.id, error);
       },
       complete: () => {
-        IndicatorStore.remove(loadingIndicator);
+        clearIndicators();
       },
     });
   },
@@ -232,7 +256,8 @@ const GroupDetailsActions = createReactClass({
     const {group, project, organization} = this.props;
     const orgFeatures = new Set(organization.features);
 
-    let bookmarkClassName = 'group-bookmark btn btn-default btn-sm';
+    const buttonClassName = 'btn btn-default btn-sm';
+    let bookmarkClassName = `group-bookmark ${buttonClassName}`;
     if (group.isBookmarked) {
       bookmarkClassName += ' active';
     }
@@ -244,26 +269,32 @@ const GroupDetailsActions = createReactClass({
 
     return (
       <div className="group-actions">
-        <ResolveActions
-          hasRelease={hasRelease}
-          latestRelease={project.latestRelease}
-          onUpdate={this.onUpdate}
-          orgId={organization.slug}
-          projectId={project.slug}
-          isResolved={isResolved}
-          isAutoResolved={isResolved && group.statusDetails.autoResolved}
-        />
-        <IgnoreActions isIgnored={isIgnored} onUpdate={this.onUpdate} />
+        <GuideAnchor target="resolve" position="bottom" offset={space(3)}>
+          <ResolveActions
+            hasRelease={hasRelease}
+            latestRelease={project.latestRelease}
+            onUpdate={this.onUpdate}
+            orgId={organization.slug}
+            projectId={project.slug}
+            isResolved={isResolved}
+            isAutoResolved={isResolved && group.statusDetails.autoResolved}
+          />
+        </GuideAnchor>
+
+        <GuideAnchor target="ignore_delete_discard" position="bottom" offset={space(3)}>
+          <IgnoreActions isIgnored={isIgnored} onUpdate={this.onUpdate} />
+        </GuideAnchor>
 
         <div className="btn-group">
-          <a
+          <div
             className={bookmarkClassName}
             title={t('Bookmark')}
             onClick={this.onToggleBookmark}
           >
             <span className="icon-star-solid" />
-          </a>
+          </div>
         </div>
+
         <DeleteActions
           organization={organization}
           project={project}
@@ -281,6 +312,18 @@ const GroupDetailsActions = createReactClass({
               onShare={() => this.onShare(true)}
               busy={this.state.shareBusy}
             />
+          </div>
+        )}
+
+        {orgFeatures.has('discover-basic') && (
+          <div className="btn-group">
+            <Link
+              className={buttonClassName}
+              title={t('Open in Discover')}
+              to={this.getDiscoverUrl()}
+            >
+              {t('Open in Discover')}
+            </Link>
           </div>
         )}
       </div>

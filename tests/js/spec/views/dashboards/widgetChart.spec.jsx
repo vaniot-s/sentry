@@ -1,6 +1,6 @@
-import {mount} from 'sentry-test/enzyme';
 import React from 'react';
 
+import {mount} from 'sentry-test/enzyme';
 import {initializeOrg} from 'sentry-test/initializeOrg';
 
 import WidgetChart from 'app/views/dashboards/widgetChart';
@@ -43,6 +43,10 @@ describe('WidgetChart', function() {
     renderMock.mockClear();
     router.push.mockRestore();
     MockApiClient.clearMockResponses();
+    MockApiClient.addMockResponse({
+      url: `/organizations/${organization.slug}/releases/`,
+      body: [],
+    });
     MockApiClient.addMockResponse({
       url: `/organizations/${organization.slug}/environments/`,
       body: TestStubs.Environments(),

@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {mount} from 'sentry-test/enzyme';
 
 import TableChart from 'app/components/charts/tableChart';
@@ -88,7 +89,10 @@ describe('TableChart', function() {
   });
 
   it('renders percentage bar on correct rows', function() {
-    const ERROR_TYPE_DATA = [['TypeError', 50, 40, 30], ['SyntaxError', 40, 30, 20]];
+    const ERROR_TYPE_DATA = [
+      ['TypeError', 50, 40, 30],
+      ['SyntaxError', 40, 30, 20],
+    ];
     const wrapper = mount(
       <TableChart
         title="Error Type"

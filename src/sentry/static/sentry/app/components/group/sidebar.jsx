@@ -1,20 +1,23 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import {isEqual, pickBy, keyBy, isObject} from 'lodash';
+import isEqual from 'lodash/isEqual';
+import isObject from 'lodash/isObject';
+import keyBy from 'lodash/keyBy';
+import pickBy from 'lodash/pickBy';
 
+import {addLoadingMessage, clearIndicators} from 'app/actionCreators/indicator';
+import {t, tct} from 'app/locale';
 import ErrorBoundary from 'app/components/errorBoundary';
-import SentryTypes from 'app/sentryTypes';
-import withApi from 'app/utils/withApi';
-import SuggestedOwners from 'app/components/group/suggestedOwners';
+import ExternalIssueList from 'app/components/group/externalIssuesList';
 import GroupParticipants from 'app/components/group/participants';
 import GroupReleaseStats from 'app/components/group/releaseStats';
-import IndicatorStore from 'app/stores/indicatorStore';
-import TagDistributionMeter from 'app/components/group/tagDistributionMeter';
+import GroupTagDistributionMeter from 'app/components/group/tagDistributionMeter';
+import GuideAnchor from 'app/components/assistant/guideAnchor';
 import LoadingError from 'app/components/loadingError';
+import SentryTypes from 'app/sentryTypes';
 import SubscribeButton from 'app/components/subscribeButton';
-import {t, tct} from 'app/locale';
-
-import ExternalIssueList from 'app/components/group/externalIssuesList';
+import SuggestedOwners from 'app/components/group/suggestedOwners/suggestedOwners';
+import withApi from 'app/utils/withApi';
 
 const SUBSCRIPTION_REASONS = {
   commented: t("You're receiving updates because you have commented on this issue."),
@@ -45,7 +48,7 @@ class GroupSidebar extends React.Component {
     };
   }
 
-  componentWillMount() {
+  UNSAFE_componentWillMount() {
     const {group, api} = this.props;
     api.request(`/issues/${group.id}/participants/`, {
       success: data => {
@@ -78,7 +81,7 @@ class GroupSidebar extends React.Component {
     this.fetchTagData();
   }
 
-  componentWillReceiveProps(nextProps) {
+  UNSAFE_componentWillReceiveProps(nextProps) {
     if (!isEqual(nextProps.environments, this.props.environments)) {
       this.setState({environments: nextProps.environments}, this.fetchTagData);
     }
@@ -108,7 +111,7 @@ class GroupSidebar extends React.Component {
 
   toggleSubscription() {
     const {api, group, project, organization} = this.props;
-    const loadingIndicator = IndicatorStore.add(t('Saving changes..'));
+    addLoadingMessage(t('Saving changes..'));
 
     api.bulkUpdate(
       {
@@ -127,13 +130,13 @@ class GroupSidebar extends React.Component {
                 participants: data,
                 error: false,
               });
-              IndicatorStore.remove(loadingIndicator);
+              clearIndicators();
             },
             error: () => {
               this.setState({
                 error: true,
               });
-              IndicatorStore.remove(loadingIndicator);
+              clearIndicators();
             },
           });
         },
@@ -231,7 +234,9 @@ class GroupSidebar extends React.Component {
 
     return (
       <div className="group-stats">
-        <SuggestedOwners project={project} group={group} event={this.props.event} />
+        {this.props.event && (
+          <SuggestedOwners project={project} group={group} event={this.props.event} />
+        )}
         <GroupReleaseStats
           group={this.props.group}
           project={project}
@@ -251,18 +256,21 @@ class GroupSidebar extends React.Component {
         {this.renderPluginIssue()}
 
         <h6>
-          <span>{t('Tags')}</span>
+          <GuideAnchor target="tags" position="bottom">
+            <span>{t('Tags')}</span>
+          </GuideAnchor>
         </h6>
         {this.state.tagsWithTopValues &&
           group.tags.map(tag => {
             const tagWithTopValues = this.state.tagsWithTopValues[tag.key];
             const topValues = tagWithTopValues ? tagWithTopValues.topValues : [];
             const topValuesTotal = tagWithTopValues ? tagWithTopValues.totalValues : 0;
+
             return (
-              <TagDistributionMeter
+              <GroupTagDistributionMeter
                 key={tag.key}
                 tag={tag.key}
-                totalValues={tag.totalValues || topValuesTotal}
+                totalValues={topValuesTotal}
                 topValues={topValues}
                 name={tag.name}
                 data-test-id="group-tag"
